@@ -1,5 +1,5 @@
 import { experimental_transcribe as transcribe } from "ai"
-import { STT_MODEL } from "@/lib/ai"
+import { STT_MODEL, hasGatewayKey } from "@/lib/ai"
 
 export const maxDuration = 30
 
@@ -7,6 +7,15 @@ export const maxDuration = 30
 // On gateway unavailability (rate limit / no access) we return 503 so the
 // client falls back to the browser Web Speech API.
 export async function POST(req: Request) {
+  // No AI Gateway credentials: skip the round-trip and let the client use the
+  // browser's Web Speech API (free, no key required).
+  if (!hasGatewayKey) {
+    return Response.json(
+      { error: "stt_unavailable", detail: "server stt disabled; use browser speech recognition" },
+      { status: 503 },
+    )
+  }
+
   try {
     const form = await req.formData()
     const file = form.get("audio")

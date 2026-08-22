@@ -1,7 +1,7 @@
 import { streamText, tool, stepCountIs, type ModelMessage } from "ai";
 import { z } from "zod";
 import { getSpot } from "@/lib/spots";
-import { CHAT_MODEL } from "@/lib/ai";
+import { CHAT_MODEL, hasGeminiKey } from "@/lib/ai";
 import { searchWikipedia } from "@/lib/wikipedia";
 
 export const maxDuration = 30;
@@ -132,10 +132,18 @@ export async function POST(req: Request) {
     ].join("\n");
   }
 
-  if (mode === "route" && (!process.env.AI_GATEWAY_API_KEY || process.env.AI_GATEWAY_API_KEY.trim().length < 8)) {
-    return new Response(fallbackRoute(nearby), {
-      headers: { "Content-Type": "text/plain; charset=utf-8" },
-    });
+  // Without a Gemini API key we cannot reach the model at all. For route mode
+  // we still return something usable; other modes report the misconfiguration.
+  if (!hasGeminiKey) {
+    if (mode === "route") {
+      return new Response(fallbackRoute(nearby), {
+        headers: { "Content-Type": "text/plain; charset=utf-8" },
+      });
+    }
+    return new Response(
+      "AIキーが設定されていません。環境変数 GEMINI_API_KEY を設定してください。",
+      { status: 503, headers: { "Content-Type": "text/plain; charset=utf-8" } },
+    );
   }
 
   const result = streamText({

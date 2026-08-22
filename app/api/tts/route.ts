@@ -1,5 +1,5 @@
 import { experimental_generateSpeech as generateSpeech } from "ai"
-import { TTS_MODEL } from "@/lib/ai"
+import { TTS_MODEL, hasGatewayKey } from "@/lib/ai"
 
 export const maxDuration = 30
 
@@ -13,6 +13,15 @@ type Body = {
 // On gateway unavailability (rate limit / no access) we return 503 so the
 // client falls back to the browser SpeechSynthesis API.
 export async function POST(req: Request) {
+  // No AI Gateway credentials: skip the round-trip and let the client use the
+  // browser's Web Speech API (free, no key required).
+  if (!hasGatewayKey) {
+    return Response.json(
+      { error: "tts_unavailable", detail: "server tts disabled; use browser speech synthesis" },
+      { status: 503 },
+    )
+  }
+
   try {
     const { text, voice = "nova", speed = 1 }: Body = await req.json()
     if (!text || !text.trim()) {

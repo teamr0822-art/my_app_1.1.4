@@ -27,7 +27,9 @@ export type AppSettings = {
 
 const DEFAULTS: AppSettings = {
   muted: false,
-  voiceEngine: "server",
+  // Browser speech is the default: free, instant, and needs no API key.
+  // Switch to "server" only when AI Gateway audio is configured.
+  voiceEngine: "browser",
   ttsVoice: "nova",
   rate: 1,
   companionOn: true,

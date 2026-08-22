@@ -10,6 +10,7 @@
     "ingest": "node scripts/ingest-data.mjs"
   },
   "dependencies": {
+    "@ai-sdk/google": "^4.0.50",
     "ai": "latest",
     "leaflet": "^1.9.4",
     "next": "latest",

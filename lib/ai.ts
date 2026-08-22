@@ -1,21 +1,31 @@
 import "server-only"
+import { createGoogleGenerativeAI } from "@ai-sdk/google"
 
 /**
- * Credential normalization for the Vercel AI Gateway.
+ * Text generation runs on the Google Gemini API (Google AI Studio).
  *
- * In some environments an OIDC-style token (prefix "AQ.") is injected into
- * AI_GATEWAY_API_KEY. The gateway rejects that value when it is sent as an API
- * key (HTTP 401). Real gateway API keys start with "vck_". When the configured
- * key is not a real API key, we remove it so the AI SDK falls back to the
- * automatic Vercel OIDC exchange (which authenticates correctly).
+ * The free tier requires no credit card: create an API key at
+ * https://aistudio.google.com/apikey and set it as GEMINI_API_KEY
+ * (GOOGLE_GENERATIVE_AI_API_KEY is also accepted).
  */
-// Keep the project-provided credential intact. Vercel deployments may inject
-// either a vck_ API key or an OIDC-backed gateway credential; both are valid
-// authentication paths and must not be removed at module load time.
+export const GEMINI_API_KEY =
+  process.env.GEMINI_API_KEY?.trim() ||
+  process.env.GOOGLE_GENERATIVE_AI_API_KEY?.trim() ||
+  ""
 
-// Free-tier-accessible models (verified against the gateway).
-export const CHAT_MODEL = "google/gemini-2.5-flash"
-// Server audio models. These may be rate-limited on the free tier; callers
-// must handle failures and fall back to the browser Web Speech API.
+export const hasGeminiKey = GEMINI_API_KEY.length > 8
+
+const google = createGoogleGenerativeAI({ apiKey: GEMINI_API_KEY })
+
+// Free-tier model on the Gemini API.
+export const CHAT_MODEL = google("gemini-2.5-flash")
+
+/**
+ * Server-side audio (STT/TTS) still runs through the Vercel AI Gateway, which
+ * needs a card on file. When AI_GATEWAY_API_KEY is absent the audio routes
+ * return 503 immediately and the client falls back to the browser's built-in
+ * Web Speech API, which is free and needs no key.
+ */
+export const hasGatewayKey = (process.env.AI_GATEWAY_API_KEY?.trim().length ?? 0) > 8
 export const STT_MODEL = "openai/whisper-1"
 export const TTS_MODEL = "openai/tts-1"
