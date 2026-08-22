@@ -1,0 +1,1743 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
+<meta name="theme-color" content="#d97b2f" />
+<meta name="description" content="高知市の歴史スポットをAIが音声で解説する「寄り道」体験プロトタイプ。話しかけて聞く音声対話型の地域ガイドアプリ。" />
+<title>話して発見 | 高知市 音声ガイドプロトタイプ</title>
+
+<!-- Leaflet 1.9.4 -->
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.css" integrity="sha512-h9FcoyWjHcOcmEVkxOfTLnmZFWIH0iZhZT1H2TbOq55xssQGEJHEaIm+PgoUaZbRvQTNTluNOEfb1ZRy6D3BOw==" crossorigin="anonymous" referrerpolicy="no-referrer" />
+<script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.js" integrity="sha512-BwHfrr4c9kmRkLw6iXFdzcdWV/PGkVgiIyIWLLlTSXzWQzxuSg4DiQUCpauz/EWjgk5TYQqX/kvn9pG1NpYfqg==" crossorigin="anonymous" referrerpolicy="no-referrer"></script>
+
+<style>
+  :root {
+    --bg: #fbf6ec;
+    --panel: #ffffff;
+    --panel-soft: #fdf1e0;
+    --ink: #332a20;
+    --ink-soft: #77675a;
+    --accent: #d97b2f;
+    --accent-deep: #a8501c;
+    --accent-glow: rgba(217, 123, 47, 0.28);
+    --green: #4f7a46;
+    --green-soft: #e6f0e2;
+    --border: #ecdfc9;
+    --radius: 18px;
+    --tap-min: 48px;
+    /* muted palette */
+    --mute-bg: #fdeceb;
+    --mute-border: #f0c4bf;
+    --mute-ink: #b5352a;
+  }
+
+  * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
+
+  html, body {
+    margin: 0;
+    padding: 0;
+    background: #e9e0cf;
+    color: var(--ink);
+    font-family: "Hiragino Sans", "Noto Sans JP", "Yu Gothic", sans-serif;
+    -webkit-font-smoothing: antialiased;
+  }
+
+  /* App shell: mobile-first, max 480px centered */
+  #app-shell {
+    max-width: 480px;
+    margin: 0 auto;
+    min-height: 100vh;
+    min-height: 100dvh;
+    background: var(--bg);
+    position: relative;
+    display: flex;
+    flex-direction: column;
+    box-shadow: 0 0 40px rgba(0,0,0,0.08);
+    overflow: hidden;
+  }
+
+  #app {
+    flex: 1 1 auto;
+    display: flex;
+    flex-direction: column;
+    min-height: 0;
+  }
+
+  /* Bottom nav spacing */
+  body.has-bottom-nav #app { padding-bottom: 74px; }
+
+  button { font-family: inherit; cursor: pointer; }
+
+  /* ---------- Header ---------- */
+  .app-header {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 14px 16px 12px;
+    background: var(--panel);
+    border-bottom: 1px solid var(--border);
+    flex-wrap: wrap;
+  }
+  .logo-badge {
+    width: 40px; height: 40px;
+    border-radius: 12px;
+    background: linear-gradient(135deg, var(--accent), var(--accent-deep));
+    display: flex; align-items: center; justify-content: center;
+    font-size: 20px;
+    box-shadow: 0 6px 14px var(--accent-glow);
+    flex: 0 0 auto;
+  }
+  .header-titles { display: flex; flex-direction: column; min-width: 0; }
+  .header-titles h1 { margin: 0; font-size: 18px; font-weight: 800; letter-spacing: .02em; }
+  .header-loc { font-size: 12px; color: var(--ink-soft); display: flex; align-items: center; gap: 3px; }
+  .header-right { margin-left: auto; display: flex; align-items: center; gap: 6px; flex-wrap: wrap; justify-content: flex-end; }
+
+  .pill {
+    font-size: 11px;
+    padding: 5px 10px;
+    border-radius: 999px;
+    border: 1px solid var(--border);
+    background: var(--panel-soft);
+    color: var(--ink-soft);
+    white-space: nowrap;
+    display: inline-flex; align-items: center; gap: 4px;
+  }
+  .pill.proto { background: linear-gradient(135deg, var(--accent), var(--accent-deep)); color: #fff; border: none; box-shadow: 0 4px 10px var(--accent-glow); }
+
+  .companion-pill {
+    font-size: 11px;
+    padding: 6px 11px;
+    border-radius: 999px;
+    border: 1px solid var(--border);
+    background: var(--panel-soft);
+    color: var(--ink-soft);
+    display: inline-flex; align-items: center; gap: 5px;
+    white-space: nowrap;
+  }
+  .companion-pill.on { background: var(--green-soft); border-color: #cfe1c6; color: var(--green); font-weight: 700; }
+
+  .mute-icon-btn {
+    width: 30px; height: 30px; border-radius: 999px;
+    border: 1px solid var(--border); background: var(--panel-soft);
+    display: inline-flex; align-items: center; justify-content: center;
+    font-size: 14px; color: var(--ink-soft); flex: 0 0 auto;
+  }
+  .mute-icon-btn.on { background: var(--mute-bg); border-color: var(--mute-border); color: var(--mute-ink); }
+
+  /* ---------- Scrollable content ---------- */
+  .scroll-area {
+    flex: 1 1 auto;
+    overflow-y: auto;
+    -webkit-overflow-scrolling: touch;
+    padding: 16px;
+    display: flex;
+    flex-direction: column;
+    gap: 18px;
+  }
+
+  /* ---------- Home: stat banner ---------- */
+  .stat-banner {
+    text-align: left;
+    width: 100%;
+    border: none;
+    border-radius: var(--radius);
+    padding: 18px 18px;
+    background: linear-gradient(135deg, var(--accent), var(--accent-deep));
+    color: #fff;
+    box-shadow: 0 10px 24px var(--accent-glow);
+    display: flex; align-items: center; gap: 14px;
+  }
+  .stat-num { font-size: 34px; font-weight: 800; line-height: 1; }
+  .stat-txt { display: flex; flex-direction: column; gap: 4px; }
+  .stat-txt .lead { font-size: 13px; font-weight: 700; }
+  .stat-txt .sub { font-size: 11px; opacity: .9; display: flex; align-items: center; gap: 4px; }
+
+  /* ---------- Section headings ---------- */
+  .sec-head { display: flex; align-items: center; gap: 8px; margin-bottom: -6px; }
+  .sec-head h2 { margin: 0; font-size: 15px; font-weight: 800; }
+  .count-badge {
+    font-size: 11px; font-weight: 700; padding: 3px 9px; border-radius: 999px;
+    background: var(--panel-soft); border: 1px solid var(--border); color: var(--ink-soft);
+  }
+
+  /* ---------- Spot cards ---------- */
+  .spot-list { display: flex; flex-direction: column; gap: 12px; }
+  .spot-card {
+    display: flex; align-items: center; gap: 12px;
+    width: 100%;
+    text-align: left;
+    background: var(--panel);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    padding: 12px;
+    box-shadow: 0 4px 12px rgba(51,42,32,0.05);
+  }
+  .spot-card .icon-box {
+    width: 48px; height: 48px; border-radius: 14px;
+    background: var(--panel-soft); border: 1px solid var(--border);
+    display: flex; align-items: center; justify-content: center; font-size: 24px;
+    flex: 0 0 auto;
+  }
+  .spot-card .body { flex: 1 1 auto; min-width: 0; }
+  .spot-card .name { font-size: 15px; font-weight: 700; margin-bottom: 5px; }
+  .tag-row { display: flex; flex-wrap: wrap; gap: 5px; margin-bottom: 5px; }
+  .tag {
+    font-size: 10.5px; padding: 3px 8px; border-radius: 999px;
+    background: var(--panel-soft); border: 1px solid var(--border); color: var(--ink-soft);
+  }
+  .tag.desig { background: linear-gradient(135deg, var(--accent), var(--accent-deep)); color: #fff; border: none; font-weight: 700; }
+  .spot-card .dist { font-size: 12px; color: var(--ink-soft); }
+  .spot-card .chev { font-size: 22px; color: var(--accent); flex: 0 0 auto; }
+
+  /* ---------- Horizontal scroll (other spots) ---------- */
+  .hscroll { display: flex; gap: 10px; overflow-x: auto; padding-bottom: 6px; -webkit-overflow-scrolling: touch; }
+  .mini-card {
+    flex: 0 0 132px; width: 132px;
+    border: 1.5px dashed var(--border);
+    border-radius: 14px;
+    background: var(--panel);
+    padding: 12px;
+    text-align: left;
+    display: flex; flex-direction: column; gap: 8px;
+    min-height: 96px;
+  }
+  .mini-card .mc-icon { font-size: 18px; }
+  .mini-card .mc-name { font-size: 12.5px; font-weight: 700; line-height: 1.35; }
+  .mini-card .mc-tag { font-size: 10px; color: var(--ink-soft); margin-top: auto; }
+
+  .note {
+    font-size: 11px; line-height: 1.6; color: var(--ink-soft);
+    background: var(--panel-soft); border: 1px solid var(--border);
+    border-radius: 12px; padding: 10px 12px;
+  }
+
+  /* ---------- Bottom nav ---------- */
+  .bottom-nav {
+    position: absolute; left: 0; right: 0; bottom: 0;
+    max-width: 480px; margin: 0 auto;
+    display: flex; align-items: flex-end; justify-content: space-around;
+    background: var(--panel);
+    border-top: 1px solid var(--border);
+    padding: 8px 20px calc(8px + env(safe-area-inset-bottom));
+    z-index: 500;
+  }
+  .nav-item {
+    background: none; border: none;
+    display: flex; flex-direction: column; align-items: center; gap: 3px;
+    color: var(--ink-soft); font-size: 11px; font-weight: 600;
+    padding: 4px 12px;
+  }
+  .nav-item .nav-ico { font-size: 20px; }
+  .nav-item.active { color: var(--accent-deep); }
+  .nav-item.center {
+    margin-top: -26px;
+  }
+  .nav-item.center .nav-ico {
+    width: 52px; height: 52px; border-radius: 999px;
+    background: linear-gradient(135deg, var(--accent), var(--accent-deep));
+    color: #fff;
+    display: flex; align-items: center; justify-content: center;
+    font-size: 22px;
+    box-shadow: 0 8px 18px var(--accent-glow);
+    margin-bottom: 2px;
+  }
+  .nav-item.center.active { color: var(--accent-deep); }
+
+  /* ---------- Map screen ---------- */
+  .map-full { flex: 1 1 auto; position: relative; min-height: 0; }
+  .leaflet-host { position: absolute; inset: 0; }
+  .map-overlay { position: absolute; z-index: 450; }
+  .map-overlay.tl { top: 12px; left: 12px; }
+  .map-overlay.tr { top: 12px; right: 12px; }
+  .map-overlay.bl { bottom: 12px; left: 12px; }
+  .over-chip {
+    background: var(--panel);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    padding: 8px 12px;
+    box-shadow: 0 4px 12px rgba(51,42,32,0.12);
+    font-size: 12px;
+    max-width: 220px;
+  }
+  .over-chip .big { font-size: 20px; font-weight: 800; color: var(--accent-deep); }
+  .over-chip .lbl { font-size: 10.5px; color: var(--ink-soft); }
+  .info-btn {
+    width: 38px; height: 38px; border-radius: 999px;
+    background: var(--panel); border: 1px solid var(--border);
+    display: flex; align-items: center; justify-content: center;
+    font-size: 17px; color: var(--accent-deep);
+    box-shadow: 0 4px 12px rgba(51,42,32,0.12);
+  }
+  .legend-chip {
+    background: var(--panel); border: 1px solid var(--border);
+    border-radius: 12px; padding: 8px 12px; font-size: 12px; font-weight: 600;
+    color: var(--accent-deep); box-shadow: 0 4px 12px rgba(51,42,32,0.12);
+    display: inline-flex; align-items: center; gap: 5px;
+  }
+  .map-note-overlay {
+    position: absolute; top: 60px; right: 12px; left: 12px; z-index: 460;
+    background: var(--panel); border: 1px solid var(--border);
+    border-radius: 14px; padding: 14px; font-size: 12px; line-height: 1.65;
+    color: var(--ink-soft); box-shadow: 0 8px 24px rgba(51,42,32,0.18);
+    max-height: 70%; overflow-y: auto;
+  }
+  .map-note-overlay h3 { margin: 0 0 8px; font-size: 13px; color: var(--ink); }
+  .map-note-overlay p { margin: 0 0 8px; }
+  .map-note-overlay p:last-child { margin-bottom: 0; }
+
+  .marker-emoji {
+    font-size: 26px;
+    filter: drop-shadow(0 3px 4px rgba(0,0,0,0.35));
+    text-align: center;
+    line-height: 1;
+  }
+
+  /* ---------- Settings ---------- */
+  .settings-section { display: flex; flex-direction: column; gap: 10px; }
+  .settings-section > h2 { margin: 0; font-size: 15px; font-weight: 800; display: flex; align-items: center; gap: 7px; }
+  .setting-row {
+    display: flex; align-items: center; gap: 12px;
+    background: var(--panel); border: 1px solid var(--border);
+    border-radius: var(--radius); padding: 14px;
+  }
+  .setting-row .sr-body { flex: 1 1 auto; min-width: 0; }
+  .setting-row .sr-title { font-size: 14px; font-weight: 700; }
+  .setting-row .sr-desc { font-size: 11.5px; color: var(--ink-soft); line-height: 1.55; margin-top: 3px; }
+
+  .toggle {
+    flex: 0 0 auto;
+    width: 52px; height: 30px; border-radius: 999px;
+    border: 1px solid var(--border); background: #e7ddca;
+    position: relative; transition: background .18s;
+  }
+  .toggle::after {
+    content: ""; position: absolute; top: 2px; left: 2px;
+    width: 24px; height: 24px; border-radius: 999px; background: #fff;
+    box-shadow: 0 2px 4px rgba(0,0,0,0.2); transition: left .18s;
+  }
+  .toggle.on { background: var(--green); border-color: var(--green); }
+  .toggle.on::after { left: 24px; }
+  .toggle.mute-on { background: var(--mute-bg); border-color: var(--mute-border); }
+  .toggle.mute-on::after { left: 24px; background: var(--mute-ink); }
+
+  .voice-panel {
+    background: var(--panel); border: 1px solid var(--border);
+    border-radius: var(--radius); padding: 14px; display: flex; flex-direction: column; gap: 12px;
+  }
+  .field { display: flex; flex-direction: column; gap: 5px; }
+  .field label { font-size: 12px; font-weight: 700; color: var(--ink-soft); }
+  select, input[type="text"] {
+    font-family: inherit; font-size: 14px;
+    padding: 10px 12px; border-radius: 12px;
+    border: 1px solid var(--border); background: var(--bg); color: var(--ink);
+    width: 100%;
+  }
+  input[type="range"] { width: 100%; accent-color: var(--accent); }
+  .range-val { font-size: 11px; color: var(--ink-soft); }
+  .voicevox-hint {
+    font-size: 11.5px; line-height: 1.6; color: var(--ink-soft);
+    background: var(--panel-soft); border: 1px solid var(--border);
+    border-radius: 12px; padding: 10px 12px;
+  }
+  .voicevox-hint ol { margin: 6px 0 0; padding-left: 18px; }
+  .voicevox-hint li { margin-bottom: 4px; }
+  .try-btn {
+    border: none; border-radius: 12px; padding: 12px;
+    background: linear-gradient(135deg, var(--accent), var(--accent-deep));
+    color: #fff; font-weight: 700; font-size: 14px;
+    box-shadow: 0 6px 14px var(--accent-glow);
+    min-height: var(--tap-min);
+  }
+
+  /* ---------- Voice / spot dialog screen ---------- */
+  .voice-screen { flex: 1 1 auto; display: flex; flex-direction: column; position: relative; min-height: 0; }
+  .back-bar {
+    position: absolute; top: 12px; left: 12px; z-index: 470;
+  }
+  .back-btn {
+    border: none; border-radius: 999px; padding: 10px 16px;
+    background: var(--panel); color: var(--ink);
+    font-size: 13px; font-weight: 700;
+    box-shadow: 0 6px 16px rgba(51,42,32,0.18);
+    display: inline-flex; align-items: center; gap: 4px;
+  }
+  .mute-banner {
+    position: absolute; top: 58px; left: 12px; right: 12px; z-index: 470;
+    background: var(--mute-bg); border: 1px solid var(--mute-border); color: var(--mute-ink);
+    border-radius: 12px; padding: 9px 12px; font-size: 12px; font-weight: 700;
+    display: flex; align-items: center; gap: 6px;
+  }
+  .voice-map { flex: 1 1 auto; position: relative; min-height: 140px; }
+  .map-tag-overlay {
+    position: absolute; top: 12px; right: 12px; z-index: 450;
+    display: flex; gap: 5px; flex-wrap: wrap; justify-content: flex-end;
+  }
+
+  /* Drawer sheet */
+  .drawer-sheet {
+    background: var(--panel);
+    border-top-left-radius: 22px; border-top-right-radius: 22px;
+    box-shadow: 0 -8px 30px rgba(51,42,32,0.18);
+    display: flex; flex-direction: column;
+    max-height: 58vh;
+    flex: 0 0 auto;
+    z-index: 460;
+  }
+  .drawer-handle {
+    width: 42px; height: 5px; border-radius: 999px; background: var(--border);
+    margin: 9px auto 4px;
+    flex: 0 0 auto;
+  }
+  .drawer-body {
+    overflow-y: auto; -webkit-overflow-scrolling: touch;
+    padding: 6px 14px 16px;
+    display: flex; flex-direction: column; gap: 12px;
+    min-height: 0;
+  }
+
+  /* Start avatar */
+  .start-wrap { display: flex; flex-direction: column; align-items: center; gap: 10px; padding: 10px 0 14px; }
+  .avatar-start {
+    width: 76px; height: 76px; border-radius: 999px;
+    background: linear-gradient(135deg, var(--accent), var(--accent-deep));
+    display: flex; align-items: center; justify-content: center; font-size: 38px;
+    position: relative; border: none;
+    box-shadow: 0 8px 20px var(--accent-glow);
+  }
+  .avatar-start::before {
+    content: ""; position: absolute; inset: -8px; border-radius: 999px;
+    border: 3px solid var(--accent-glow);
+    animation: pulseRing 1.8s ease-out infinite;
+  }
+  @keyframes pulseRing {
+    0% { transform: scale(1); opacity: .8; }
+    100% { transform: scale(1.4); opacity: 0; }
+  }
+  .start-label { font-size: 13px; font-weight: 700; color: var(--ink-soft); }
+
+  /* Chat bubbles */
+  .chat-log { display: flex; flex-direction: column; gap: 10px; }
+  .bubble-row { display: flex; flex-direction: column; max-width: 82%; }
+  .bubble-row.ai { align-self: flex-start; align-items: flex-start; }
+  .bubble-row.user { align-self: flex-end; align-items: flex-end; }
+  .bubble-role { font-size: 10px; color: var(--ink-soft); margin: 0 4px 3px; }
+  .bubble {
+    padding: 10px 13px; font-size: 13.5px; line-height: 1.6;
+    border-radius: 16px;
+  }
+  .bubble-row.ai .bubble { background: var(--panel); border: 1px solid var(--border); color: var(--ink); border-bottom-left-radius: 5px; }
+  .bubble-row.user .bubble { background: var(--green-soft); border: 1px solid #cfe1c6; color: var(--ink); border-bottom-right-radius: 5px; }
+
+  /* Question chips */
+  .chip-row { display: flex; gap: 8px; overflow-x: auto; padding-bottom: 4px; -webkit-overflow-scrolling: touch; }
+  .q-chip {
+    flex: 0 0 auto; white-space: nowrap;
+    border: 1px solid var(--accent); background: var(--panel);
+    color: var(--accent-deep); font-size: 12px; font-weight: 700;
+    padding: 8px 13px; border-radius: 999px;
+  }
+
+  /* Mic */
+  .mic-row { display: flex; flex-direction: column; align-items: center; gap: 6px; }
+  .mic-btn {
+    width: 78px; height: 78px; border-radius: 999px; border: none;
+    background: linear-gradient(135deg, var(--accent), var(--accent-deep));
+    color: #fff; font-size: 32px;
+    box-shadow: 0 8px 22px var(--accent-glow);
+    display: flex; align-items: center; justify-content: center;
+  }
+  .mic-btn.listening { background: linear-gradient(135deg, #e35b4b, var(--mute-ink)); animation: micPulse 1.1s ease-in-out infinite; }
+  @keyframes micPulse { 0%,100% { transform: scale(1);} 50% { transform: scale(1.06);} }
+  .state-label { font-size: 12px; color: var(--ink-soft); min-height: 16px; }
+
+  /* Choice grid */
+  .choice-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+  .choice-btn {
+    border: 1px solid var(--border); background: var(--panel-soft);
+    border-radius: 12px; padding: 11px; font-size: 13px; font-weight: 700;
+    color: var(--ink); min-height: var(--tap-min);
+    display: flex; align-items: center; justify-content: center; gap: 5px;
+  }
+  .text-fallback { display: flex; gap: 8px; }
+  .text-fallback input { flex: 1 1 auto; }
+  .text-fallback button {
+    border: none; background: var(--accent); color: #fff; font-weight: 700;
+    border-radius: 12px; padding: 0 16px;
+  }
+  .sources-panel { display: flex; flex-direction: column; gap: 6px; }
+  .source-pill {
+    font-size: 11.5px; color: var(--ink-soft);
+    background: var(--panel-soft); border: 1px solid var(--border);
+    border-radius: 999px; padding: 7px 11px;
+    display: inline-flex; align-items: center; gap: 5px;
+  }
+  .compat-note { font-size: 11px; color: var(--mute-ink); background: var(--mute-bg); border: 1px solid var(--mute-border); border-radius: 10px; padding: 8px 10px; line-height: 1.5; }
+
+  .hidden { display: none !important; }
+
+  /* ---------- Companion FAB & overlay ---------- */
+  .companion-fab {
+    position: absolute; right: 16px; bottom: 24px;
+    width: 60px; height: 60px; border-radius: 999px; border: none;
+    background: linear-gradient(135deg, #6aa15c, var(--green));
+    color: #fff; font-size: 27px;
+    box-shadow: 0 10px 24px rgba(79,122,70,0.4);
+    z-index: 600;
+    display: flex; align-items: center; justify-content: center;
+  }
+  body.has-bottom-nav .companion-fab { bottom: 96px; }
+  .companion-fab.blink { animation: fabBlink 1.4s ease-in-out 3; }
+  @keyframes fabBlink {
+    0%,100% { box-shadow: 0 10px 24px rgba(79,122,70,0.4); transform: scale(1); }
+    50% { box-shadow: 0 0 0 12px rgba(79,122,70,0.25); transform: scale(1.08); }
+  }
+  .fab-tooltip {
+    position: absolute; right: 16px; bottom: 92px;
+    max-width: 220px;
+    background: var(--panel); border: 1px solid var(--border);
+    border-radius: 14px; padding: 10px 12px; font-size: 12px; font-weight: 600;
+    color: var(--ink); box-shadow: 0 8px 22px rgba(51,42,32,0.2);
+    z-index: 600;
+    display: flex; align-items: flex-start; gap: 6px;
+  }
+  body.has-bottom-nav .fab-tooltip { bottom: 164px; }
+  .fab-tooltip .close-x { margin-left: 4px; color: var(--ink-soft); background: none; border: none; font-size: 14px; }
+
+  .overlay-mask {
+    position: absolute; inset: 0; z-index: 700;
+    background: rgba(51,42,32,0.4);
+    display: flex; align-items: flex-end;
+  }
+  .companion-sheet {
+    width: 100%;
+    background: var(--panel);
+    border-top-left-radius: 22px; border-top-right-radius: 22px;
+    padding: 8px 18px calc(20px + env(safe-area-inset-bottom));
+    display: flex; flex-direction: column; align-items: center; gap: 12px;
+    max-height: 88%;
+    box-shadow: 0 -10px 30px rgba(0,0,0,0.25);
+  }
+  .companion-sheet .sheet-handle { width: 42px; height: 5px; border-radius: 999px; background: var(--border); }
+  .companion-head { width: 100%; display: flex; align-items: flex-start; gap: 8px; }
+  .companion-head .ch-titles h3 { margin: 0; font-size: 16px; font-weight: 800; }
+  .companion-head .ch-titles p { margin: 3px 0 0; font-size: 12px; color: var(--ink-soft); }
+  .companion-head .ch-close { margin-left: auto; width: 32px; height: 32px; border-radius: 999px; border: 1px solid var(--border); background: var(--panel-soft); font-size: 15px; color: var(--ink-soft); }
+
+  .companion-avatar {
+    width: 96px; height: 96px; border-radius: 999px;
+    background: linear-gradient(135deg, #6aa15c, var(--green));
+    display: flex; align-items: center; justify-content: center; font-size: 46px;
+    animation: breathe 3.4s ease-in-out infinite;
+  }
+  @keyframes breathe { 0%,100% { transform: scale(1);} 50% { transform: scale(1.05);} }
+  .companion-avatar.listening { animation: micPulse 1.1s ease-in-out infinite; box-shadow: 0 0 0 8px rgba(227,91,75,0.18); }
+  .companion-avatar.thinking { animation: breathe 1.2s ease-in-out infinite; }
+  .companion-avatar.speaking { animation: breathe 1.6s ease-in-out infinite; box-shadow: 0 0 0 8px rgba(79,122,70,0.2); }
+
+  .companion-caption {
+    width: 100%; min-height: 52px;
+    background: var(--panel-soft); border: 1px solid var(--border);
+    border-radius: 14px; padding: 12px 14px; font-size: 13.5px; line-height: 1.6;
+    color: var(--ink);
+  }
+  .companion-toggles { display: flex; gap: 10px; width: 100%; }
+  .comp-toggle {
+    flex: 1 1 0; border: 1px solid var(--border); background: var(--panel-soft);
+    border-radius: 12px; padding: 10px; font-size: 12px; font-weight: 700; color: var(--ink-soft);
+    display: flex; flex-direction: column; align-items: center; gap: 3px;
+  }
+  .comp-toggle.on { background: var(--green-soft); border-color: #cfe1c6; color: var(--green); }
+  .comp-toggle.mute-on { background: var(--mute-bg); border-color: var(--mute-border); color: var(--mute-ink); }
+  .companion-hint { font-size: 11px; color: var(--ink-soft); text-align: center; line-height: 1.5; }
+
+  /* ---------- Toast ---------- */
+  #toast-host {
+    position: absolute; left: 0; right: 0; bottom: 110px;
+    display: flex; flex-direction: column; align-items: center; gap: 8px;
+    z-index: 900; pointer-events: none; padding: 0 20px;
+  }
+  .toast {
+    background: rgba(51,42,32,0.94); color: #fff;
+    font-size: 12.5px; line-height: 1.5; padding: 11px 15px; border-radius: 12px;
+    max-width: 100%; box-shadow: 0 8px 22px rgba(0,0,0,0.3);
+    animation: toastIn .2s ease;
+  }
+  @keyframes toastIn { from { opacity: 0; transform: translateY(8px);} to { opacity: 1; transform: translateY(0);} }
+
+  .leaflet-container { background: #e8eadf; font: inherit; }
+</style>
+</head>
+<body>
+  <div id="app-shell">
+    <div id="app"></div>
+    <div id="toast-host" aria-live="polite"></div>
+  </div>
+
+<script>
+"use strict";
+
+/* ============================================================
+   話して発見 (Hanashite Hakken) — single-file prototype
+   ============================================================ */
+
+/* ---------- Real data ---------- */
+const REAL_STATS = { kunishitei: 44, kenshitei: 39 };
+const REAL_TOTAL = REAL_STATS.kunishitei + REAL_STATS.kenshitei; // 83
+
+const OTHER_REAL_SPOTS = [
+  { name: "竹林寺本堂", tag: "国指定・重要文化財（建造物）" },
+  { name: "土佐神社", tag: "国指定・重要文化財（建造物）" },
+  { name: "高知城", tag: "国指定・重要文化財（建造物）" },
+  { name: "竹林寺庭園", tag: "国指定・名勝" },
+  { name: "武市半平太旧宅", tag: "国指定・史跡" },
+  { name: "高知城跡", tag: "国指定・史跡" },
+  { name: "古今和歌集巻第廿", tag: "国宝" },
+  { name: "開成門", tag: "県指定・有形文化財" },
+  { name: "一絃琴", tag: "県指定・無形文化財" },
+  { name: "土佐の太刀踊", tag: "県指定・民俗文化財" },
+  { name: "朝倉城跡", tag: "県指定・史跡" },
+  { name: "赤鬼山", tag: "県指定・史跡" },
+  { name: "長宗我部元親墓", tag: "県指定・史跡" },
+];
+
+/* ---------- Demo spots (fictional voice-guide content) ---------- */
+const KOCHI_CENTER = [33.5590, 133.5330];
+
+const SPOTS = [
+  {
+    id: "jizo",
+    icon: "🪆",
+    name: "帯屋町通りの地蔵堂",
+    distance: "徒歩3分",
+    lat: 33.5605, lng: 133.5340,
+    designation: "市指定有形民俗文化財",
+    category: "石造物",
+    era: "江戸時代中期",
+    greeting: "やあ、こんにちは！ここは帯屋町通りの地蔵堂だよ。江戸時代の中頃、旅人の安全を願って村の人たちが建てたお堂なんだ。気になることがあったら、マイクのボタンを押して気軽に聞いてね。",
+    sources: [
+      "高知市郷土史 第3巻 p.45",
+      "帯屋町地区文化財調査報告書（1998年）",
+      "地域古老聞き取り記録（2015年）",
+    ],
+    qa: [
+      { keys: ["いつ", "時代", "建て"], a: "記録によると、江戸時代中期、18世紀半ば頃に村の人たちの手で建てられたとされているよ。建てられた年を示す棟札は残っていないんだけど、地蔵像の作りから同じ時期のものと考えられているんだ。", src: "帯屋町地区文化財調査報告書（1998年）" },
+      { keys: ["誰", "祀", "目的"], a: "街道を行き交う旅人の道中の安全を祈るために祀られたと伝わっているよ。当時この場所は峠越えの手前で、旅の無事を願う信仰の対象だったんだ。", src: "高知市郷土史 第3巻 p.45" },
+      { keys: ["行事", "祭", "イベント"], a: "今も毎月24日の地蔵の縁日に、近くの人たちが清掃とお花を供えてくれているよ。昔は夏に子どもたちが提灯を灯す地蔵盆もあったみたい。", src: "地域古老聞き取り記録（2015年）" },
+    ],
+  },
+  {
+    id: "ichirizuka",
+    icon: "🌳",
+    name: "土佐街道の一里塚跡",
+    distance: "徒歩8分",
+    lat: 33.5578, lng: 133.5295,
+    designation: "県指定史跡",
+    category: "史跡",
+    era: "江戸時代",
+    greeting: "こんにちは！ここは土佐街道の一里塚跡だよ。江戸と土佐を結ぶ街道沿いに、一里ごとの目印として作られたんだ。聞きたいことがあったら話しかけてね。",
+    sources: [
+      "土佐街道史研究会紀要 第12号",
+      "高知市教育委員会 文化財リーフレット",
+    ],
+    qa: [
+      { keys: ["一里", "距離", "意味"], a: "一里塚は街道沿いに一里、だいたい4キロメートルごとに置かれた距離の目印だよ。旅人が残りの道のりや休憩のタイミングを知るために使っていたんだ。", src: "土佐街道史研究会紀要 第12号" },
+      { keys: ["木", "榎", "植物"], a: "塚の上には榎という木が植えられるのが一般的で、この場所も同じだよ。日陰を作って、旅人の休憩場所としても使われていたんだ。", src: "高知市教育委員会 文化財リーフレット" },
+    ],
+  },
+  {
+    id: "inari",
+    icon: "⛩️",
+    name: "鏡川沿いの稲荷神社",
+    distance: "徒歩15分",
+    lat: 33.5535, lng: 133.5365,
+    designation: "未指定（地域伝承）",
+    category: "神社",
+    era: "江戸時代後期",
+    greeting: "こんにちは！ここは鏡川沿いの稲荷神社だよ。江戸時代の後半に、近くの商人たちが商売繁盛を願って建てたと伝えられているんだ。気になることを聞いてみてね。",
+    sources: [
+      "高知市社寺明細帳（写）",
+      "土佐の商人たち—近世流通史ノート",
+    ],
+    qa: [
+      { keys: ["誰", "建立", "勧請"], a: "江戸時代の後半に、街道を使っていた近くの商人たちが商売繁盛を願って建てたと伝えられているよ。境内に残る奉納石にその名残があるんだ。", src: "高知市社寺明細帳（写）" },
+      { keys: ["例祭", "祭り", "行事"], a: "今も地元の有志の人たちによって、年に一度のお祭りが行われているよ。訪れる人は少なくなったけど、地域の記憶を伝える行事として続いているんだ。", src: "土佐の商人たち—近世流通史ノート" },
+    ],
+  },
+];
+
+/* ---------- chip label mapping ---------- */
+function chipLabel(keys) {
+  const k = keys[0];
+  const map = {
+    "いつ": "いつ建てられたの？", "時代": "いつ建てられたの？", "建て": "いつ建てられたの？",
+    "誰": "誰が建てたの？", "祀": "誰が建てたの？", "目的": "誰が建てたの？", "建立": "誰が建てたの？", "勧請": "誰が建てたの？",
+    "行事": "今も行事はある？", "祭": "今も行事はある？", "イベント": "今も行事はある？",
+    "例祭": "今もお祭りはある？",
+    "一里": "一里塚って何？", "距離": "一里塚って何？", "意味": "一里塚って何？",
+    "木": "この木は何の木？", "榎": "この木は何の木？", "植物": "この木は何の木？",
+  };
+  return map[k] || k;
+}
+
+/* ============================================================
+   Global state
+   ============================================================ */
+let screen = "home";
+let currentId = null;
+let chatLog = [];
+let interimUserIdx = -1;
+let muted = false;
+let showTextFallback = false;
+let showSources = false;
+let voiceEngine = "browser"; // 'browser' | 'zundamon'
+let selectedVoiceURI = null;
+let pitch = 1.15;
+let rate = 0.96;
+let zundamonStyleId = null;
+let companionOn = true;
+let companionOverlayOpen = false;
+let companionAutoListen = true;
+
+let recognition = null;
+let recState = "idle"; // idle | listening | thinking | speaking
+let companionRecognition = null;
+let companionRecState = "idle";
+
+let homeMapInstance = null;
+let spotMapInstance = null;
+let companionCaptionText = "";
+let showMapNote = false;
+let fabTooltipShown = false;
+
+const VOICEVOX_BASE = "http://127.0.0.1:50021";
+
+/* ---------- feature detection ---------- */
+const SR = window.SpeechRecognition || window.webkitSpeechRecognition;
+const STT_SUPPORTED = !!SR;
+const TTS_SUPPORTED = "speechSynthesis" in window;
+
+/* ============================================================
+   Utilities
+   ============================================================ */
+function esc(s) {
+  return String(s)
+    .replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;")
+    .replace(/"/g, "&quot;").replace(/'/g, "&#39;");
+}
+function $(sel, root) { return (root || document).querySelector(sel); }
+function getSpot(id) { return SPOTS.find(s => s.id === id) || null; }
+
+let toastTimer = null;
+function toast(msg) {
+  const host = $("#toast-host");
+  if (!host) return;
+  const el = document.createElement("div");
+  el.className = "toast";
+  el.textContent = msg;
+  host.appendChild(el);
+  setTimeout(() => { el.remove(); }, 4200);
+}
+
+/* ============================================================
+   Screen navigation & render dispatch
+   ============================================================ */
+function setScreen(next) {
+  if (screen === next) return;
+  // cleanup maps when leaving
+  destroyMaps();
+  screen = next;
+  render();
+}
+
+function destroyMaps() {
+  if (homeMapInstance) { homeMapInstance.remove(); homeMapInstance = null; }
+  if (spotMapInstance) { spotMapInstance.remove(); spotMapInstance = null; }
+}
+
+function render() {
+  const app = $("#app");
+  // bottom nav visibility (voice screen hides it)
+  document.body.classList.toggle("has-bottom-nav", screen !== "voice");
+
+  if (screen === "home") app.innerHTML = renderHome();
+  else if (screen === "map") app.innerHTML = renderMap();
+  else if (screen === "settings") app.innerHTML = renderSettings();
+  else if (screen === "voice") app.innerHTML = renderVoice();
+
+  // bottom nav (not on voice)
+  removeBottomNav();
+  if (screen !== "voice") mountBottomNav();
+
+  // companion fab
+  mountCompanionFab();
+
+  // post-render hooks
+  if (screen === "map") initHomeMap();
+  if (screen === "voice") initSpotMap();
+
+  if (screen === "voice") {
+    renderChatLog();
+    adjustFabForDrawer();
+  }
+}
+
+/* ============================================================
+   Header (shared)
+   ============================================================ */
+function headerHTML(opts) {
+  opts = opts || {};
+  const title = opts.title || "話して発見";
+  const showStats = opts.showStats;
+  const showDemo = opts.showDemo;
+  const showCompanion = opts.showCompanion !== false;
+  const showMute = opts.showMute;
+
+  let right = "";
+  if (opts.proto) right += `<span class="pill proto">🎙 音声対話プロトタイプ</span>`;
+  if (showMute) {
+    right += `<button class="mute-icon-btn ${muted ? "on" : ""}" data-act="toggle-mute" aria-label="ミュート切替">${muted ? "🔇" : "🔊"}</button>`;
+    right += `<span class="pill" style="background:var(--green-soft);border-color:#cfe1c6;color:var(--green);font-weight:700;">対話中</span>`;
+  }
+  if (showCompanion) {
+    right += `<button class="companion-pill ${companionOn ? "on" : ""}" data-act="toggle-companion">🚶 同行AI ${companionOn ? "オン" : "オフ"}</button>`;
+  }
+
+  return `
+    <header class="app-header">
+      <div class="logo-badge" aria-hidden="true">🗺️</div>
+      <div class="header-titles">
+        <h1>${esc(title)}</h1>
+        <span class="header-loc">📍 高知市${showDemo ? " デモ" : ""}</span>
+      </div>
+      <div class="header-right">${right}</div>
+    </header>
+  `;
+}
+
+/* ============================================================
+   HOME
+   ============================================================ */
+function renderHome() {
+  const spotCards = SPOTS.map(s => `
+    <button class="spot-card" data-act="open-spot" data-id="${s.id}">
+      <span class="icon-box" aria-hidden="true">${s.icon}</span>
+      <span class="body">
+        <span class="name">${esc(s.name)}</span>
+        <span class="tag-row">
+          <span class="tag desig">${esc(s.designation)}</span>
+          <span class="tag">${esc(s.category)}</span>
+          <span class="tag">${esc(s.era)}</span>
+        </span>
+        <span class="dist">🚶 ${esc(s.distance)}</span>
+      </span>
+      <span class="chev" aria-hidden="true">›</span>
+    </button>
+  `).join("");
+
+  const miniCards = OTHER_REAL_SPOTS.map(o => `
+    <button class="mini-card" data-act="other-spot" data-name="${esc(o.name)}">
+      <span class="mc-icon" aria-hidden="true">📜</span>
+      <span class="mc-name">${esc(o.name)}</span>
+      <span class="mc-tag">${esc(o.tag)}</span>
+    </button>
+  `).join("");
+
+  return `
+    ${headerHTML({ title: "話して発見", proto: true, showDemo: true })}
+    <div class="scroll-area">
+      <button class="stat-banner" data-act="go-map">
+        <span class="stat-num">${REAL_TOTAL}件</span>
+        <span class="stat-txt">
+          <span class="lead">高知市内の指定文化財（実データ）</span>
+          <span class="sub">🗺️ タップして地図で見る</span>
+        </span>
+      </button>
+
+      <div class="sec-head">
+        <h2>🎙 音声で体験できるスポット</h2>
+        <span class="count-badge">${SPOTS.length}件</span>
+      </div>
+      <div class="spot-list">${spotCards}</div>
+
+      <div class="sec-head">
+        <h2>🏛 高知市内のその他の指定文化財（実データ）</h2>
+        <span class="count-badge">13件を表示</span>
+      </div>
+      <div class="hscroll">${miniCards}</div>
+
+      <p class="note">実在する高知市指定文化財の名称です（出典：高知市公式サイト）。資料連携が済むまでは音声ガイドは準備中で、タップすると案内が表示されます。全${REAL_TOTAL}件のうち一部を表示しています。</p>
+      <p class="note">指定区分・種別・時代のデータ項目は「文化遺産オンライン検索用API」のデータ構造を想定しています（実際の利用には文化庁への個別申請が必要です）。</p>
+    </div>
+  `;
+}
+
+/* ============================================================
+   MAP
+   ============================================================ */
+function renderMap() {
+  return `
+    ${headerHTML({ title: "マップ" })}
+    <div class="map-full">
+      <div id="map-host" class="leaflet-host"></div>
+
+      <div class="map-overlay tl">
+        <div class="over-chip">
+          <span class="big">${REAL_TOTAL}</span>
+          <div class="lbl">高知市内の指定文化財（実データ）</div>
+        </div>
+      </div>
+      <div class="map-overlay tr">
+        <button class="info-btn" data-act="toggle-map-note" aria-label="情報">ⓘ</button>
+      </div>
+      <div class="map-overlay bl">
+        <span class="legend-chip">🎧 タップして音声ガイドを聞く（3スポット）</span>
+      </div>
+
+      <div class="map-note-overlay ${showMapNote ? "" : "hidden"}">
+        <h3>このデモについて</h3>
+        <p>デモ地は高知市です。体験できる3スポットの解説内容は架空のサンプルで、実在の文化財件数（${REAL_TOTAL}件＝国指定${REAL_STATS.kunishitei}件・県指定${REAL_STATS.kenshitei}件）とは区別しています。</p>
+        <p>文化財件数の出典：高知市公式ホームページ「国指定文化財」「県指定文化財」（民権・文化財課）2026年8月時点。</p>
+        <p>地図はOpenStreetMapのタイルを利用しています。</p>
+        <p>設定画面から読み上げの声を変更できます。画面右下の同行AIボタンから、歩きながらの雑談や近くのスポット案内も利用できます。</p>
+      </div>
+    </div>
+  `;
+}
+
+/* ============================================================
+   SETTINGS
+   ============================================================ */
+function renderSettings() {
+  const jaVoices = getJaVoices();
+  const voiceOptions = jaVoices.map(v =>
+    `<option value="${esc(v.voiceURI)}" ${v.voiceURI === selectedVoiceURI ? "selected" : ""}>${esc(v.name)}</option>`
+  ).join("");
+
+  const browserVoiceControls = voiceEngine === "browser" ? `
+    <div class="field">
+      <label for="voiceSel">声の種類</label>
+      <select id="voiceSel" data-act="set-voice">${voiceOptions || '<option>利用可能な音声を読み込み中…</option>'}</select>
+    </div>
+    <div class="field">
+      <label for="pitchSel">声の高さ <span class="range-val">(${pitch.toFixed(2)})</span></label>
+      <input id="pitchSel" type="range" min="0.7" max="1.6" step="0.01" value="${pitch}" data-act="set-pitch" />
+    </div>
+    <div class="field">
+      <label for="rateSel">話す速さ <span class="range-val">(${rate.toFixed(2)})</span></label>
+      <input id="rateSel" type="range" min="0.7" max="1.4" step="0.01" value="${rate}" data-act="set-rate" />
+    </div>
+  ` : "";
+
+  const zundamonHint = voiceEngine === "zundamon" ? `
+    <div class="voicevox-hint">
+      「ずんだもん」ボイスを使うには：
+      <ol>
+        <li>VOICEVOX公式サイトからアプリを無料ダウンロードして起動しておく</li>
+        <li>起動したままにする（音声合成エンジンが localhost:50021 で待機）</li>
+        <li>接続できない場合は自動的にブラウザ標準の声に切り替わります</li>
+      </ol>
+    </div>
+  ` : "";
+
+  return `
+    ${headerHTML({ title: "設定", showCompanion: false })}
+    <div class="scroll-area">
+      <section class="settings-section">
+        <h2>🚶 同行AI</h2>
+        <div class="setting-row">
+          <div class="sr-body">
+            <div class="sr-title">常時対話コンパニオン</div>
+            <div class="sr-desc">歩きながら雑談したり、近くのスポットを聞けます</div>
+          </div>
+          <button class="toggle ${companionOn ? "on" : ""}" data-act="toggle-companion" aria-label="同行AI"></button>
+        </div>
+      </section>
+
+      <section class="settings-section">
+        <h2>🔊 読み上げ</h2>
+        <div class="setting-row">
+          <div class="sr-body">
+            <div class="sr-title">ミュートモード</div>
+            <div class="sr-desc">声を出さず、文字（吹き出し）だけで応答します。電車の中など、スマホから直接使うときに便利です</div>
+          </div>
+          <button class="toggle ${muted ? "mute-on" : ""}" data-act="toggle-mute" aria-label="ミュートモード"></button>
+        </div>
+      </section>
+
+      <section class="settings-section">
+        <h2>🎚 音声エンジン</h2>
+        <div class="voice-panel">
+          <div class="field">
+            <label for="engineSel">エンジン選択</label>
+            <select id="engineSel" data-act="set-engine">
+              <option value="browser" ${voiceEngine === "browser" ? "selected" : ""}>ブラウザ標準の声</option>
+              <option value="zundamon" ${voiceEngine === "zundamon" ? "selected" : ""}>ずんだもん（VOICEVOX・要ローカル起動）</option>
+            </select>
+          </div>
+          ${zundamonHint}
+          ${browserVoiceControls}
+          <button class="try-btn" data-act="try-voice">🔉 この声で試し聞き</button>
+          ${TTS_SUPPORTED ? "" : `<div class="compat-note">お使いのブラウザは音声読み上げに対応していません。</div>`}
+        </div>
+      </section>
+
+      <section class="settings-section">
+        <h2>ℹ️ このデモについて</h2>
+        <p class="note">デモ地は高知市です。音声で体験できる3スポットの解説内容は架空のサンプルです。文化財件数（${REAL_TOTAL}件）は高知市公式サイトの実データ（国指定${REAL_STATS.kunishitei}件・県指定${REAL_STATS.kenshitei}件）を使用しています。地図はOpenStreetMapのタイルを利用しています。</p>
+      </section>
+    </div>
+  `;
+}
+
+/* ============================================================
+   VOICE (spot dialog)
+   ============================================================ */
+function renderVoice() {
+  const spot = getSpot(currentId);
+  if (!spot) { setScreen("home"); return ""; }
+  const started = chatLog.length > 0;
+
+  const chips = spot.qa.map((q, i) =>
+    `<button class="q-chip" data-act="chip" data-idx="${i}">${esc(chipLabel(q.keys))}</button>`
+  ).join("");
+
+  const sources = spot.sources.map(s => `<span class="source-pill">📚 ${esc(s)}</span>`).join("");
+
+  return `
+    ${headerHTML({ title: spot.name, showMute: true })}
+    <div class="voice-screen">
+      <div class="back-bar">
+        <button class="back-btn" data-act="back-home">‹ スポット一覧に戻る</button>
+      </div>
+      ${muted ? `<div class="mute-banner">🔇 ミュート中：声は出さず、文字だけで答えます</div>` : ""}
+
+      <div class="voice-map">
+        <div id="spot-map-host" class="leaflet-host"></div>
+        <div class="map-tag-overlay">
+          <span class="tag desig">${esc(spot.designation)}</span>
+          <span class="tag" style="background:var(--panel);">${esc(spot.era)}</span>
+        </div>
+      </div>
+
+      <div class="drawer-sheet" id="drawer-sheet">
+        <div class="drawer-handle" aria-hidden="true"></div>
+        <div class="drawer-body" id="drawer-body">
+
+          <div class="start-wrap ${started ? "hidden" : ""}" id="start-wrap">
+            <button class="avatar-start" data-act="start-greeting" aria-label="案内をはじめる">${spot.icon}</button>
+            <span class="start-label">タップして案内をはじめる</span>
+          </div>
+
+          <div class="chat-log ${started ? "" : "hidden"}" id="chat-log"></div>
+
+          <div class="mic-row ${started && STT_SUPPORTED ? "" : "hidden"}" id="mic-row">
+            <button class="mic-btn ${recState === "listening" ? "listening" : ""}" data-act="mic" aria-label="マイク">🎤</button>
+            <span class="state-label" id="mic-state">${micStateLabel()}</span>
+          </div>
+
+          ${started && !STT_SUPPORTED ? `<div class="compat-note">お使いのブラウザは音声入力（マイク）に対応していません。Google Chromeでのご利用、または「文字で入力」をお使いください。</div>` : ""}
+
+          <div class="chip-row ${started ? "" : "hidden"}" id="chip-row">${chips}</div>
+
+          <div class="choice-grid ${started ? "" : "hidden"}" id="choice-grid">
+            <button class="choice-btn" data-act="toggle-text">⌨️ 文字で入力</button>
+            <button class="choice-btn" data-act="toggle-sources">📚 出典を見る</button>
+          </div>
+
+          <div class="text-fallback ${started && showTextFallback ? "" : "hidden"}" id="text-fallback">
+            <input type="text" id="text-input" placeholder="質問を入力してEnter…" />
+            <button data-act="send-text">送信</button>
+          </div>
+
+          <div class="sources-panel ${started && showSources ? "" : "hidden"}" id="sources-panel">${sources}</div>
+
+          ${started && !TTS_SUPPORTED ? `<div class="compat-note">お使いのブラウザは音声読み上げに対応していません。</div>` : ""}
+        </div>
+      </div>
+    </div>
+  `;
+}
+
+function micStateLabel() {
+  if (recState === "listening") return "聞いています...";
+  if (recState === "thinking") return "考えています...";
+  if (recState === "speaking") return "話しています";
+  return "マイクを押して話しかけてね";
+}
+
+/* ============================================================
+   Bottom nav
+   ============================================================ */
+function removeBottomNav() {
+  const ex = $(".bottom-nav");
+  if (ex) ex.remove();
+}
+function mountBottomNav() {
+  const nav = document.createElement("nav");
+  nav.className = "bottom-nav";
+  nav.innerHTML = `
+    <button class="nav-item ${screen === "home" ? "active" : ""}" data-nav="home">
+      <span class="nav-ico">🏠</span><span>ホーム</span>
+    </button>
+    <button class="nav-item center ${screen === "map" ? "active" : ""}" data-nav="map">
+      <span class="nav-ico">🗺️</span><span>マップ</span>
+    </button>
+    <button class="nav-item ${screen === "settings" ? "active" : ""}" data-nav="settings">
+      <span class="nav-ico">⚙️</span><span>設定</span>
+    </button>
+  `;
+  $("#app-shell").appendChild(nav);
+}
+
+/* ============================================================
+   Companion FAB & overlay
+   ============================================================ */
+function mountCompanionFab() {
+  const oldFab = $(".companion-fab");
+  if (oldFab) oldFab.remove();
+  const oldTip = $(".fab-tooltip");
+  if (oldTip) oldTip.remove();
+
+  if (!companionOn) return;
+
+  const fab = document.createElement("button");
+  fab.className = "companion-fab";
+  fab.setAttribute("aria-label", "同行AIを開く");
+  fab.textContent = "🚶";
+  fab.dataset.act = "open-companion";
+  $("#app-shell").appendChild(fab);
+
+  // one-time discovery animation
+  if (!fabTooltipShown) {
+    fabTooltipShown = true;
+    setTimeout(() => {
+      if (!companionOn) return;
+      const f = $(".companion-fab");
+      if (!f) return;
+      f.classList.add("blink");
+      const tip = document.createElement("div");
+      tip.className = "fab-tooltip";
+      tip.innerHTML = `<span>👋 ここをタップすると同行AIと話しながら歩けるよ</span><button class="close-x" data-act="close-tip" aria-label="閉じる">✕</button>`;
+      $("#app-shell").appendChild(tip);
+      setTimeout(() => { const t = $(".fab-tooltip"); if (t) t.remove(); const ff = $(".companion-fab"); if (ff) ff.classList.remove("blink"); }, 6000);
+    }, 900);
+  }
+}
+
+function openCompanionOverlay() {
+  if (companionOverlayOpen) return;
+  companionOverlayOpen = true;
+  companionCaptionText = "";
+  const mask = document.createElement("div");
+  mask.className = "overlay-mask";
+  mask.id = "companion-mask";
+  mask.innerHTML = renderCompanionSheet();
+  $("#app-shell").appendChild(mask);
+
+  // greeting after 250ms
+  setTimeout(() => {
+    if (!companionOverlayOpen) return;
+    const nearest = nearestSpot();
+    const msg = `やあ、同行AIだよ。今日はいい散歩日和だね。近くだと${nearest.name}が${nearest.distance}のところにあるよ、気になったら聞いてね。`;
+    companionSpeak(msg, "同行AI");
+  }, 250);
+}
+
+function renderCompanionSheet() {
+  return `
+    <div class="companion-sheet" id="companion-sheet">
+      <div class="sheet-handle" aria-hidden="true"></div>
+      <div class="companion-head">
+        <div class="ch-titles">
+          <h3>🚶 同行AI</h3>
+          <p>歩きながら雑談したり、近くのスポットを聞けるよ</p>
+        </div>
+        <button class="ch-close" data-act="close-companion" aria-label="閉じる">✕</button>
+      </div>
+      <div class="companion-avatar ${companionRecState}" id="companion-avatar">🤖</div>
+      <div class="state-label" id="companion-state">${companionStateLabel()}</div>
+      <div class="companion-caption" id="companion-caption">${companionCaptionText ? esc(companionCaptionText) : "マイクを押して話しかけてね"}</div>
+      ${STT_SUPPORTED ? `<button class="mic-btn" style="width:68px;height:68px;font-size:28px;" data-act="companion-mic" aria-label="マイク">🎤</button>` : `<div class="compat-note">音声入力に非対応のブラウザです。Google Chromeをお試しください。</div>`}
+      <div class="companion-toggles">
+        <button class="comp-toggle ${companionAutoListen ? "on" : ""}" data-act="toggle-autolisten">
+          <span>🔁 連続会話</span><span>${companionAutoListen ? "オン" : "オフ"}</span>
+        </button>
+        <button class="comp-toggle ${muted ? "mute-on" : ""}" data-act="toggle-mute">
+          <span>${muted ? "🔇" : "🔊"} 読み上げ</span><span>${muted ? "ミュート" : "オン"}</span>
+        </button>
+      </div>
+      <div class="companion-hint">連続会話がオンだと、応答のあと自動でマイクが立ち上がってハンズフリーで話せるよ。</div>
+    </div>
+  `;
+}
+
+function companionStateLabel() {
+  if (companionRecState === "listening") return "聞いています...";
+  if (companionRecState === "thinking") return "考えています...";
+  if (companionRecState === "speaking") return "話しています";
+  return "タップして話しかけてね";
+}
+
+function refreshCompanionSheet() {
+  const mask = $("#companion-mask");
+  if (!mask) return;
+  mask.innerHTML = renderCompanionSheet();
+}
+
+function closeCompanionOverlay() {
+  companionOverlayOpen = false;
+  stopSpeaking();
+  stopCompanionRecognition();
+  const mask = $("#companion-mask");
+  if (mask) mask.remove();
+}
+
+function nearestSpot() {
+  return SPOTS.slice().sort((a, b) => parseInt(a.distance) - parseInt(b.distance))[0];
+}
+
+/* ============================================================
+   Chat log rendering (voice screen)
+   ============================================================ */
+function resetChatLog() {
+  chatLog = [];
+  interimUserIdx = -1;
+}
+function pushBubble(role, text) {
+  chatLog.push({ role, text });
+  renderChatLog();
+  return chatLog.length - 1;
+}
+function updateBubble(idx, text) {
+  if (idx < 0 || idx >= chatLog.length) return;
+  chatLog[idx].text = text;
+  renderChatLog();
+}
+function renderChatLog() {
+  const host = $("#chat-log");
+  if (!host) return;
+  host.innerHTML = chatLog.map(m => `
+    <div class="bubble-row ${m.role === "ai" ? "ai" : "user"}">
+      ${m.role === "ai" ? `<span class="bubble-role">AIガイド</span>` : ""}
+      <div class="bubble">${esc(m.text)}</div>
+    </div>
+  `).join("");
+  const body = $("#drawer-body");
+  if (body) body.scrollTop = body.scrollHeight;
+  adjustFabForDrawer();
+}
+
+/* Router: bubble in voice screen, single-caption elsewhere */
+function presentSpeech(role, text) {
+  if (screen === "voice") {
+    pushBubble(role, text);
+  }
+  // else: settings try-listen has no persistent display; caption handled by companion separately
+}
+
+/* ============================================================
+   Speech synthesis (TTS) — single entry points
+   ============================================================ */
+function stopSpeaking() {
+  if (TTS_SUPPORTED) { try { window.speechSynthesis.cancel(); } catch (e) {} }
+  if (window.__vvAudio) { try { window.__vvAudio.pause(); } catch (e) {} window.__vvAudio = null; }
+}
+
+function setMicState(state) {
+  recState = state;
+  const btn = $(".mic-btn[data-act='mic']");
+  if (btn) btn.classList.toggle("listening", state === "listening");
+  const lbl = $("#mic-state");
+  if (lbl) lbl.textContent = micStateLabel();
+}
+
+function speak(text, role) {
+  // 1) present text first
+  presentSpeech(role || "ai", text);
+
+  // 2) mute gate
+  if (muted) { setMicState("idle"); return; }
+
+  if (voiceEngine === "zundamon") {
+    speakZundamon(text, role, false);
+  } else {
+    speakBrowser(text, role, false);
+  }
+}
+
+function speakBrowser(text, role, isCompanion) {
+  if (!TTS_SUPPORTED) { isCompanion ? setCompanionState("idle") : setMicState("idle"); return; }
+  const u = new SpeechSynthesisUtterance(text);
+  u.lang = "ja-JP";
+  u.rate = rate;
+  u.pitch = pitch;
+  const v = getJaVoices().find(v => v.voiceURI === selectedVoiceURI);
+  if (v) u.voice = v;
+  u.onstart = () => { isCompanion ? setCompanionState("speaking") : setMicState("speaking"); };
+  u.onend = () => { isCompanion ? onCompanionSpeakDone() : setMicState("idle"); };
+  u.onerror = () => { isCompanion ? onCompanionSpeakDone() : setMicState("idle"); };
+  try { window.speechSynthesis.cancel(); } catch (e) {}
+  window.speechSynthesis.speak(u);
+}
+
+async function speakZundamon(text, role, isCompanion) {
+  isCompanion ? setCompanionState("thinking") : setMicState("thinking");
+  try {
+    if (zundamonStyleId === null) {
+      const spk = await fetch(VOICEVOX_BASE + "/speakers").then(r => r.json());
+      const zunda = spk.find(s => (s.name || "").includes("ずんだもん"));
+      if (zunda && zunda.styles && zunda.styles.length) {
+        const normal = zunda.styles.find(st => (st.name || "").includes("ノーマル")) || zunda.styles[0];
+        zundamonStyleId = normal.id;
+      } else {
+        throw new Error("zundamon style not found");
+      }
+    }
+    const queryRes = await fetch(`${VOICEVOX_BASE}/audio_query?text=${encodeURIComponent(text)}&speaker=${zundamonStyleId}`, { method: "POST" });
+    if (!queryRes.ok) throw new Error("audio_query failed");
+    const query = await queryRes.json();
+    const synthRes = await fetch(`${VOICEVOX_BASE}/synthesis?speaker=${zundamonStyleId}`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(query),
+    });
+    if (!synthRes.ok) throw new Error("synthesis failed");
+    const blob = await synthRes.blob();
+    const url = URL.createObjectURL(blob);
+    const audio = new Audio(url);
+    window.__vvAudio = audio;
+    audio.onplay = () => { isCompanion ? setCompanionState("speaking") : setMicState("speaking"); };
+    audio.onended = () => { URL.revokeObjectURL(url); window.__vvAudio = null; isCompanion ? onCompanionSpeakDone() : setMicState("idle"); };
+    audio.onerror = () => { URL.revokeObjectURL(url); window.__vvAudio = null; isCompanion ? onCompanionSpeakDone() : setMicState("idle"); };
+    await audio.play();
+  } catch (e) {
+    toast("ずんだもん（VOICEVOX）に接続できませんでした。ブラウザ標準の声に切り替えて読み上げます。");
+    speakBrowser(text, role, isCompanion);
+  }
+}
+
+/* ---------- Companion speak ---------- */
+function setCompanionState(state) {
+  companionRecState = state;
+  const av = $("#companion-avatar");
+  if (av) av.className = "companion-avatar " + state;
+  const lbl = $("#companion-state");
+  if (lbl) lbl.textContent = companionStateLabel();
+}
+function setCompanionCaption(text) {
+  companionCaptionText = text;
+  const cap = $("#companion-caption");
+  if (cap) cap.textContent = text;
+}
+
+function companionSpeak(text, role) {
+  setCompanionCaption(text);
+  if (muted) { setCompanionState("idle"); onCompanionSpeakDone(); return; }
+  if (voiceEngine === "zundamon") speakZundamon(text, role, true);
+  else speakBrowser(text, role, true);
+}
+
+function onCompanionSpeakDone() {
+  setCompanionState("idle");
+  // hands-free continuous mode
+  if (companionAutoListen && companionOverlayOpen && companionRecState === "idle") {
+    setTimeout(() => {
+      if (companionAutoListen && companionOverlayOpen && companionRecState === "idle") {
+        startCompanionRecognition();
+      }
+    }, 700);
+  }
+}
+
+/* ============================================================
+   Speech recognition (STT)
+   ============================================================ */
+function startRecognition() {
+  if (!STT_SUPPORTED) return;
+  if (recState === "listening") { stopRecognition(); return; }
+  stopSpeaking();
+
+  recognition = new SR();
+  recognition.lang = "ja-JP";
+  recognition.interimResults = true;
+  recognition.maxAlternatives = 1;
+
+  let finalText = "";
+  // placeholder user bubble
+  interimUserIdx = pushBubble("user", "…");
+  setMicState("listening");
+
+  recognition.onresult = (ev) => {
+    let interim = "";
+    for (let i = ev.resultIndex; i < ev.results.length; i++) {
+      const r = ev.results[i];
+      if (r.isFinal) finalText += r[0].transcript;
+      else interim += r[0].transcript;
+    }
+    updateBubble(interimUserIdx, (finalText + interim) || "…");
+  };
+  recognition.onend = () => {
+    if (finalText.trim()) {
+      updateBubble(interimUserIdx, finalText.trim());
+      const q = finalText.trim();
+      interimUserIdx = -1;
+      handleQuestion(q, false);
+    } else {
+      // remove placeholder
+      if (interimUserIdx >= 0) {
+        chatLog.splice(interimUserIdx, 1);
+        interimUserIdx = -1;
+        renderChatLog();
+      }
+      setMicState("idle");
+    }
+  };
+  recognition.onerror = () => {
+    setMicState("idle");
+  };
+  try { recognition.start(); } catch (e) { setMicState("idle"); }
+}
+function stopRecognition() {
+  if (recognition) { try { recognition.stop(); } catch (e) {} }
+}
+
+function startCompanionRecognition() {
+  if (!STT_SUPPORTED) return;
+  if (companionRecState === "listening") { stopCompanionRecognition(); return; }
+  stopSpeaking();
+
+  companionRecognition = new SR();
+  companionRecognition.lang = "ja-JP";
+  companionRecognition.interimResults = true;
+  companionRecognition.maxAlternatives = 1;
+
+  let finalText = "";
+  setCompanionCaption("…");
+  setCompanionState("listening");
+
+  companionRecognition.onresult = (ev) => {
+    let interim = "";
+    for (let i = ev.resultIndex; i < ev.results.length; i++) {
+      const r = ev.results[i];
+      if (r.isFinal) finalText += r[0].transcript;
+      else interim += r[0].transcript;
+    }
+    setCompanionCaption((finalText + interim) || "…");
+  };
+  companionRecognition.onend = () => {
+    if (finalText.trim()) {
+      setCompanionCaption(finalText.trim());
+      handleCompanionQuestion(finalText.trim());
+    } else {
+      setCompanionCaption("マイクを押して話しかけてね");
+      setCompanionState("idle");
+    }
+  };
+  companionRecognition.onerror = () => { setCompanionState("idle"); };
+  try { companionRecognition.start(); } catch (e) { setCompanionState("idle"); }
+}
+function stopCompanionRecognition() {
+  if (companionRecognition) { try { companionRecognition.stop(); } catch (e) {} }
+}
+
+/* ============================================================
+   Question handling
+   ============================================================ */
+function handleQuestion(text, isChip) {
+  setMicState("thinking");
+  setTimeout(() => {
+    const spot = getSpot(currentId);
+    if (!spot) return;
+    let matched = null;
+    for (const q of spot.qa) {
+      if (q.keys.some(k => text.includes(k))) { matched = q; break; }
+    }
+    if (matched) {
+      speak(`${matched.src}によるとね、${matched.a}`, "ai");
+    } else {
+      speak("ごめんね、このデモでは登録されている質問パターンにだけ答えられるんだ。実際のPLaMo API連携版では、資料全文を参照して、もっと自由な質問にも答えられるようになる予定だよ。", "ai");
+    }
+  }, 700);
+}
+
+function handleCompanionQuestion(text) {
+  setCompanionState("thinking");
+  setTimeout(() => {
+    const reply = companionReply(text);
+    companionSpeak(reply, "同行AI");
+  }, 700);
+}
+
+function companionReply(text) {
+  const t = text;
+  const has = (arr) => arr.some(k => t.includes(k));
+  if (has(["こんにちは", "やあ", "はじめまして", "おはよう", "こんばんは"]))
+    return "こんにちは！今日は歩いて周ってるんだね。気になるものがあったら何でも聞いてね。";
+  if (has(["疲れ", "しんど", "休憩", "眠"]))
+    return "お疲れさま。無理しないでね。近くの神社の境内とか、ちょっと座って休めそうな場所もあるから、良ければ案内するよ。";
+  if (has(["暑", "寒", "天気", "雨", "風"]))
+    return "天気の変化には気をつけてね。実際のサービスでは、天気に応じて屋内・屋根付きのスポットを優先して提案する予定なんだ。";
+  if (has(["近く", "おすすめ", "どこ", "寄り道", "スポット", "見どころ"])) {
+    const n = nearestSpot();
+    return `近くだと${n.name}が${n.distance}のところにあるよ。${n.designation}なんだ。寄ってみる？`;
+  }
+  if (has(["ありがとう", "助かった", "いいね"]))
+    return "どういたしまして！また何かあれば呼んでね。";
+  return "なるほどね。このデモでは会話の幅がまだ限られているんだけど、実際のPLaMo API連携版ではもっと自然に雑談できるようになる予定だよ。よかったら近くのスポットについて聞いてみて。";
+}
+
+/* ============================================================
+   startGreeting
+   ============================================================ */
+function startGreeting() {
+  const spot = getSpot(currentId);
+  if (!spot) return;
+  // reveal controls
+  const sw = $("#start-wrap"); if (sw) sw.classList.add("hidden");
+  const cl = $("#chat-log"); if (cl) cl.classList.remove("hidden");
+  if (STT_SUPPORTED) { const mr = $("#mic-row"); if (mr) mr.classList.remove("hidden"); }
+  const cg = $("#choice-grid"); if (cg) cg.classList.remove("hidden");
+  const cr = $("#chip-row"); if (cr) cr.classList.remove("hidden");
+  speak(spot.greeting, "ai");
+}
+
+/* ============================================================
+   Voice engine / voices helpers
+   ============================================================ */
+function getJaVoices() {
+  if (!TTS_SUPPORTED) return [];
+  return window.speechSynthesis.getVoices().filter(v => (v.lang || "").toLowerCase().startsWith("ja"));
+}
+function pickDefaultVoice() {
+  const ja = getJaVoices();
+  if (!ja.length) { selectedVoiceURI = null; return; }
+  const pref = ja.find(v => /google|kyoko|o-ren|siri/i.test(v.name));
+  selectedVoiceURI = (pref || ja[0]).voiceURI;
+}
+if (TTS_SUPPORTED) {
+  window.speechSynthesis.onvoiceschanged = () => {
+    if (!selectedVoiceURI) pickDefaultVoice();
+    if (screen === "settings") render();
+  };
+}
+
+function tryVoice() {
+  const sample = voiceEngine === "zundamon"
+    ? "なのだ！この声で案内するのだ。どうかな？"
+    : "こんにちは、この声で案内するよ。どうかな？";
+  // settings screen: no persistent bubble, just speak
+  if (muted) { toast("ミュート中は読み上げできません。設定でミュートを解除してください。"); return; }
+  if (voiceEngine === "zundamon") speakZundamon(sample, "ai", true);
+  else speakBrowser(sample, "ai", true);
+}
+
+/* ============================================================
+   Mute (shared)
+   ============================================================ */
+function setMuted(v) {
+  muted = v;
+  if (muted) {
+    stopSpeaking();
+    setMicState("idle");
+    setCompanionState("idle");
+  }
+  // sync all UIs by re-rendering current screen + overlay
+  render();
+  if (companionOverlayOpen) refreshCompanionSheet();
+}
+
+/* ============================================================
+   Leaflet maps
+   ============================================================ */
+function emojiIcon(emoji) {
+  return L.divIcon({
+    className: "emoji-marker",
+    html: `<div class="marker-emoji">${emoji}</div>`,
+    iconSize: [30, 30],
+    iconAnchor: [15, 28],
+    popupAnchor: [0, -26],
+  });
+}
+const OSM_URL = "https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png";
+const OSM_ATTR = '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors';
+
+function initHomeMap() {
+  const host = $("#map-host");
+  if (!host || typeof L === "undefined") return;
+  homeMapInstance = L.map(host, { zoomControl: false }).setView(KOCHI_CENTER, 15);
+  L.control.zoom({ position: "bottomright" }).addTo(homeMapInstance);
+  L.tileLayer(OSM_URL, { attribution: OSM_ATTR, maxZoom: 19 }).addTo(homeMapInstance);
+  SPOTS.forEach(s => {
+    const m = L.marker([s.lat, s.lng], { icon: emojiIcon(s.icon) }).addTo(homeMapInstance);
+    m.bindPopup(`<b>${esc(s.name)}</b><br>${esc(s.designation)}`);
+    m.on("click", () => openSpot(s.id));
+  });
+  setTimeout(() => homeMapInstance && homeMapInstance.invalidateSize(), 120);
+}
+
+function initSpotMap() {
+  const host = $("#spot-map-host");
+  const spot = getSpot(currentId);
+  if (!host || !spot || typeof L === "undefined") return;
+  spotMapInstance = L.map(host, { zoomControl: false }).setView([spot.lat, spot.lng], 16);
+  L.control.zoom({ position: "bottomright" }).addTo(spotMapInstance);
+  L.tileLayer(OSM_URL, { attribution: OSM_ATTR, maxZoom: 19 }).addTo(spotMapInstance);
+  L.marker([spot.lat, spot.lng], { icon: emojiIcon(spot.icon) }).addTo(spotMapInstance)
+    .bindPopup(`<b>${esc(spot.name)}</b>`);
+  setTimeout(() => spotMapInstance && spotMapInstance.invalidateSize(), 120);
+}
+
+/* ============================================================
+   FAB position vs drawer
+   ============================================================ */
+function adjustFabForDrawer() {
+  const fab = $(".companion-fab");
+  const drawer = $("#drawer-sheet");
+  if (!fab) return;
+  if (screen === "voice" && drawer) {
+    const h = drawer.getBoundingClientRect().height;
+    fab.style.bottom = (h + 14) + "px";
+  } else {
+    fab.style.bottom = "";
+  }
+}
+
+/* ============================================================
+   Actions
+   ============================================================ */
+function openSpot(id) {
+  currentId = id;
+  resetChatLog();
+  showTextFallback = false;
+  showSources = false;
+  setScreen("voice");
+}
+
+function backHome() {
+  stopSpeaking();
+  stopRecognition();
+  setMicState("idle");
+  setScreen("home");
+}
+
+function toggleCompanion() {
+  companionOn = !companionOn;
+  if (!companionOn && companionOverlayOpen) closeCompanionOverlay();
+  render();
+}
+
+/* ============================================================
+   Event delegation
+   ============================================================ */
+document.addEventListener("click", (e) => {
+  const navBtn = e.target.closest("[data-nav]");
+  if (navBtn) { setScreen(navBtn.dataset.nav); return; }
+
+  const actEl = e.target.closest("[data-act]");
+  if (!actEl) {
+    // background tap closes companion overlay
+    if (e.target.classList && e.target.classList.contains("overlay-mask")) closeCompanionOverlay();
+    return;
+  }
+  const act = actEl.dataset.act;
+
+  switch (act) {
+    case "go-map": setScreen("map"); break;
+    case "open-spot": openSpot(actEl.dataset.id); break;
+    case "other-spot":
+      toast(`「${actEl.dataset.name}」は実データ連携のイメージ表示です。資料を登録すると音声ガイドが有効になります。`);
+      break;
+    case "toggle-companion": toggleCompanion(); break;
+    case "toggle-mute": setMuted(!muted); break;
+    case "toggle-map-note": showMapNote = !showMapNote; { const o = $(".map-note-overlay"); if (o) o.classList.toggle("hidden", !showMapNote); } break;
+
+    case "back-home": backHome(); break;
+    case "start-greeting": startGreeting(); break;
+    case "mic": startRecognition(); break;
+    case "chip": {
+      const spot = getSpot(currentId);
+      const i = parseInt(actEl.dataset.idx);
+      const q = spot.qa[i];
+      const label = chipLabel(q.keys);
+      pushBubble("user", label);
+      handleQuestion(label + q.keys[0], true);
+      break;
+    }
+    case "toggle-text":
+      showTextFallback = !showTextFallback;
+      { const el = $("#text-fallback"); if (el) el.classList.toggle("hidden", !showTextFallback); if (showTextFallback) { const i = $("#text-input"); if (i) i.focus(); } }
+      break;
+    case "toggle-sources":
+      showSources = !showSources;
+      { const el = $("#sources-panel"); if (el) el.classList.toggle("hidden", !showSources); }
+      break;
+    case "send-text": {
+      const input = $("#text-input");
+      if (input && input.value.trim()) {
+        const q = input.value.trim();
+        input.value = "";
+        pushBubble("user", q);
+        handleQuestion(q, false);
+      }
+      break;
+    }
+
+    case "open-companion": openCompanionOverlay(); break;
+    case "close-companion": closeCompanionOverlay(); break;
+    case "close-tip": { const t = $(".fab-tooltip"); if (t) t.remove(); const f = $(".companion-fab"); if (f) f.classList.remove("blink"); break; }
+    case "companion-mic": startCompanionRecognition(); break;
+    case "toggle-autolisten": companionAutoListen = !companionAutoListen; refreshCompanionSheet(); break;
+
+    case "try-voice": tryVoice(); break;
+  }
+});
+
+/* change events (selects / ranges) */
+document.addEventListener("change", (e) => {
+  const el = e.target.closest("[data-act]");
+  if (!el) return;
+  const act = el.dataset.act;
+  if (act === "set-engine") { voiceEngine = el.value; render(); }
+  else if (act === "set-voice") { selectedVoiceURI = el.value; }
+});
+document.addEventListener("input", (e) => {
+  const el = e.target.closest("[data-act]");
+  if (!el) return;
+  const act = el.dataset.act;
+  if (act === "set-pitch") { pitch = parseFloat(el.value); const s = el.previousElementSibling; }
+  else if (act === "set-rate") { rate = parseFloat(el.value); }
+  // live-update range label
+  if (act === "set-pitch" || act === "set-rate") {
+    const lbl = el.parentElement.querySelector(".range-val");
+    if (lbl) lbl.textContent = "(" + parseFloat(el.value).toFixed(2) + ")";
+  }
+});
+
+/* Enter to submit in text fallback (IME-safe) */
+document.addEventListener("keydown", (e) => {
+  if (e.target && e.target.id === "text-input" && e.key === "Enter") {
+    if (e.nativeEvent && e.nativeEvent.isComposing) return;
+    if (e.isComposing || e.keyCode === 229) return;
+    e.preventDefault();
+    const input = e.target;
+    if (input.value.trim()) {
+      const q = input.value.trim();
+      input.value = "";
+      pushBubble("user", q);
+      handleQuestion(q, false);
+    }
+  }
+});
+
+/* ============================================================
+   Boot
+   ============================================================ */
+function boot() {
+  if (TTS_SUPPORTED) pickDefaultVoice();
+  render();
+}
+boot();
+</script>
+</body>
+</html>
