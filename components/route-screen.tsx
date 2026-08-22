@@ -2,9 +2,31 @@
 
 import { useMemo, useState } from "react";
 import type { Nav } from "@/app/page";
-import { SPOTS } from "@/lib/spots";
+import { SPOTS, distanceMeters, formatDistance } from "@/lib/spots";
+import { useGeolocation } from "@/lib/use-geolocation";
 import { useGuideChat } from "@/lib/use-guide-chat";
 import { SendIcon, SparkIcon } from "@/components/icons";
+
+/**
+ * How far we are willing to look for candidate spots, in metres, by the
+ * selected trip length. Multiplied by the transport factor below.
+ */
+const RADIUS_BY_DISTANCE: Record<string, number> = {
+  "1時間": 2000,
+  "半日": 6000,
+  "1日": 15000,
+};
+
+const RADIUS_BY_TRANSPORT: Record<string, number> = {
+  "徒歩": 1,
+  "自転車": 2.5,
+  "公共交通": 4,
+};
+
+/** Upper bound on candidates sent to the model (keeps the prompt small). */
+const MAX_CANDIDATES = 25;
+/** Never send fewer than this, even if nothing falls inside the radius. */
+const MIN_CANDIDATES = 8;
 
 const chip = "rounded-full border border-[var(--color-border)] px-3 py-2 text-sm transition hover:border-[var(--color-terracotta)]";
 
@@ -15,13 +37,58 @@ export function RouteScreen({ nav }: { nav: Nav }) {
   const [mood, setMood] = useState("ゆったり");
   const [request, setRequest] = useState("");
   const [draft, setDraft] = useState("");
-  const nearby = useMemo(() => SPOTS.map((s) => ({ name: s.name, grounding: s.address })).slice(0, 80), []);
+  const geo = useGeolocation();
+
+  // Candidate spots near the user, closest first. Without this the model was
+  // handed spots from every prefecture in the dataset and could propose a
+  // "half-day walk" spanning Kochi, Hiroshima and Kagoshima.
+  const candidates = useMemo(() => {
+    const radius =
+      (RADIUS_BY_DISTANCE[distance] ?? 6000) * (RADIUS_BY_TRANSPORT[transport] ?? 1);
+    const ranked = SPOTS.map((spot) => ({
+      spot,
+      d: distanceMeters(geo.pos, [spot.lat, spot.lng]),
+    })).sort((a, b) => a.d - b.d);
+    const within = ranked.filter((r) => r.d <= radius);
+    // Fall back to the nearest few so the screen still works when the user is
+    // far from every registered site (or geolocation is unavailable).
+    const picked = within.length >= MIN_CANDIDATES ? within : ranked.slice(0, MIN_CANDIDATES);
+    return picked.slice(0, MAX_CANDIDATES);
+  }, [geo.pos, distance, transport]);
+
+  const area = candidates[0]?.spot
+    ? [candidates[0].spot.prefecture, candidates[0].spot.city].filter(Boolean).join("")
+    : "";
+
+  const nearby = useMemo(
+    () =>
+      candidates.map(({ spot, d }) => ({
+        name: spot.name,
+        grounding: `${spot.address}（現在地から約${formatDistance(d)}）`,
+      })),
+    [candidates],
+  );
+
   const { messages, streaming, send } = useGuideChat({ mode: "route", nearby });
   const [error, setError] = useState<string | null>(null);
   const answer = messages.filter((m) => m.role === "assistant").at(-1)?.content;
 
+  // Map the proposed route back to real spot ids by finding candidate names in
+  // the answer, in the order the model listed them. Previously this button
+  // always started the first five spots in the dataset, ignoring the proposal.
+  const routeSpotIds = useMemo(() => {
+    const pool = candidates.map(({ spot }) => spot);
+    if (!answer) return pool.slice(0, 5).map((spot) => spot.id);
+    const found = pool
+      .map((spot) => ({ spot, at: answer.indexOf(spot.name) }))
+      .filter((hit) => hit.at >= 0)
+      .sort((a, b) => a.at - b.at)
+      .map((hit) => hit.spot.id);
+    return found.length ? found : pool.slice(0, 5).map((spot) => spot.id);
+  }, [answer, candidates]);
+
   const generate = async () => {
-    const prompt = `観光ルートを作成してください。条件: 合計移動距離/時間=${distance}、移動手段=${transport}、天気=${weather}、気分=${mood}、追加要望=${request || "なし"}。不明な条件があれば先に確認質問をしてください。`;
+    const prompt = `観光ルートを作成してください。条件: 出発エリア=${area || "現在地周辺"}、合計移動距離/時間=${distance}、移動手段=${transport}、天気=${weather}、気分=${mood}、追加要望=${request || "なし"}。候補スポットはすべて現在地の近くにあります。距離が離れすぎるスポットは無理に入れず、${distance}で回りきれる範囲にまとめてください。不明な条件があれば先に確認質問をしてください。`;
     setError(null);
     try {
       await send(prompt);
@@ -55,7 +122,7 @@ export function RouteScreen({ nav }: { nav: Nav }) {
 
         {error && <div role="alert" className="rounded-2xl border border-red-300/40 bg-red-950/20 p-4 text-sm"><p>{error}</p><button type="button" onClick={generate} className="mt-3 rounded-xl border border-[var(--color-border)] px-3 py-2 font-bold">もう一度試す</button></div>}
 
-        {answer && <div className="rounded-2xl border border-[var(--color-border)] bg-[var(--color-panel)] p-4"><p className="mb-2 text-xs font-bold tracking-wider text-[var(--color-terracotta)]">AIからの提案</p><p className="whitespace-pre-wrap text-sm leading-7">{answer}</p><button type="button" onClick={() => nav.startRoute(SPOTS.slice(0, 5).map((spot) => spot.id))} className="mt-4 w-full rounded-xl bg-[var(--color-green)] px-4 py-3 text-sm font-bold text-white">このルートで案内をはじめる</button></div>}
+        {answer && <div className="rounded-2xl border border-[var(--color-border)] bg-[var(--color-panel)] p-4"><p className="mb-2 text-xs font-bold tracking-wider text-[var(--color-terracotta)]">AIからの提案</p><p className="whitespace-pre-wrap text-sm leading-7">{answer}</p><button type="button" onClick={() => nav.startRoute(routeSpotIds)} className="mt-4 w-full rounded-xl bg-[var(--color-green)] px-4 py-3 text-sm font-bold text-white">このルートで案内をはじめる</button></div>}
 
         {messages.length > 0 && <div className="rounded-2xl border border-[var(--color-border)] p-4"><p className="mb-2 text-sm font-bold">途中で変更する</p><div className="flex gap-2"><input value={draft} onChange={(e) => setDraft(e.target.value)} onKeyDown={(e) => { if (e.key === "Enter" && !e.nativeEvent.isComposing && e.keyCode !== 229) { e.preventDefault(); if (draft.trim()) { send(draft); setDraft(""); } } }} placeholder="例：短くして、別の場所に変えて" className="min-w-0 flex-1 rounded-xl border border-[var(--color-border)] bg-transparent px-3 py-2 text-sm outline-none" /><button type="button" aria-label="変更を送信" onClick={() => { if (draft.trim()) { send(draft); setDraft(""); } }} className="rounded-xl bg-[var(--color-green)] px-3 text-white"><SendIcon size={17} /></button></div></div>}
       </div>
