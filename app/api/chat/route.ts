@@ -146,6 +146,11 @@ export async function POST(req: Request) {
     );
   }
 
+  // Capture the underlying provider error so a failure is visible to the user
+  // instead of silently returning an empty 200 (which reads as "the AI said
+  // nothing"). Rate limits and quota errors are the common cause.
+  let failure: string | null = null;
+
   const result = streamText({
     model: MODEL,
     system,
@@ -153,10 +158,62 @@ export async function POST(req: Request) {
     tools: { searchWikipedia: wikipediaTool },
     // Allow the model to call the tool and then answer with the result.
     stopWhen: stepCountIs(4),
+    maxOutputTokens: 2048,
+    providerOptions: {
+      google: {
+        // Gemini 2.5 "thinking" is on by default. On longer prompts it spent
+        // the whole response on internal thought parts and streamed no text,
+        // which surfaced as an empty answer. This app needs short, grounded
+        // replies, so thinking is turned off.
+        thinkingConfig: { thinkingBudget: 0, includeThoughts: false },
+      },
+    },
     onError: ({ error }) => {
+      failure = error instanceof Error ? error.message : String(error);
       console.error("[v0] chat streamText error:", error);
     },
   });
 
-  return result.toTextStreamResponse();
+  const encoder = new TextEncoder();
+  const stream = new ReadableStream<Uint8Array>({
+    async start(controller) {
+      let wrote = false;
+      try {
+        for await (const chunk of result.textStream) {
+          wrote = true;
+          controller.enqueue(encoder.encode(chunk));
+        }
+      } catch (err) {
+        failure = failure ?? (err instanceof Error ? err.message : String(err));
+      }
+      if (!wrote) {
+        const reason = describeFailure(failure);
+        controller.enqueue(
+          encoder.encode(
+            mode === "route"
+              ? `${reason}\n\n${fallbackRoute(nearby)}`
+              : reason,
+          ),
+        );
+      }
+      controller.close();
+    },
+  });
+
+  return new Response(stream, {
+    headers: { "Content-Type": "text/plain; charset=utf-8", "Cache-Control": "no-store" },
+  });
+}
+
+/** Turns a provider error into something a visitor can act on. */
+function describeFailure(raw: string | null): string {
+  const text = (raw ?? "").toLowerCase();
+  if (!raw) return "AIから応答がありませんでした。少し時間をおいて、もう一度お試しください。";
+  if (text.includes("429") || text.includes("quota") || text.includes("rate limit") || text.includes("resource_exhausted")) {
+    return "AIの利用上限に達しました（無料枠の制限）。しばらく待ってからもう一度お試しください。";
+  }
+  if (text.includes("401") || text.includes("403") || text.includes("api key") || text.includes("permission")) {
+    return "AIキーが無効か、権限がありません。GEMINI_API_KEY の設定を確認してください。";
+  }
+  return `AIの応答に失敗しました（${raw.slice(0, 200)}）`;
 }
