@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useRef } from "react";
 import type { LayerGroup, Map as LMap, Marker } from "leaflet";
 import type { Spot } from "@/lib/spots";
 
@@ -36,10 +36,6 @@ export function LeafletMap({
   const mapRef = useRef<LMap | null>(null);
   const markersRef = useRef<Record<string, Marker>>({});
   const routeLayerRef = useRef<LayerGroup | null>(null);
-  // The map is created inside an async effect, so the route effect can run
-  // before mapRef is populated. This flag re-runs the route effect once the
-  // map actually exists.
-  const [mapReady, setMapReady] = useState(false);
   const userMarkerRef = useRef<Marker | null>(null);
   const onSelectRef = useRef(onSelect);
   onSelectRef.current = onSelect;
@@ -63,7 +59,6 @@ export function LeafletMap({
       }).addTo(map);
 
       mapRef.current = map;
-      setMapReady(true);
 
       for (const s of spots) {
         const icon = L.divIcon({
@@ -91,7 +86,6 @@ export function LeafletMap({
         mapRef.current = null;
         markersRef.current = {};
         routeLayerRef.current = null;
-        setMapReady(false);
         userMarkerRef.current = null;
       }
     };
@@ -179,7 +173,7 @@ export function LeafletMap({
       cancelled = true;
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [mapReady, routeSpots.map((s) => s.id).join(","), routeTransport]);
+  }, [routeSpots.map((s) => s.id).join(","), routeTransport]);
 
   // Update user marker.
   useEffect(() => {
@@ -203,7 +197,7 @@ export function LeafletMap({
     return () => {
       cancelled = true;
     };
-  }, [mapReady, userPos]);
+  }, [userPos]);
 
   return <div ref={hostRef} className={className} />;
 }
