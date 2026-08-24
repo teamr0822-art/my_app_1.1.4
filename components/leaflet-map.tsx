@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useRef } from "react";
+import { useEffect, useRef, useState } from "react";
 import type { LayerGroup, Map as LMap, Marker } from "leaflet";
 import type { Spot } from "@/lib/spots";
 
@@ -36,6 +36,10 @@ export function LeafletMap({
   const mapRef = useRef<LMap | null>(null);
   const markersRef = useRef<Record<string, Marker>>({});
   const routeLayerRef = useRef<LayerGroup | null>(null);
+  // The map is created inside an async effect, so the route effect can run
+  // before mapRef is populated. This flag re-runs the route effect once the
+  // map actually exists.
+  const [mapReady, setMapReady] = useState(false);
   const userMarkerRef = useRef<Marker | null>(null);
   const onSelectRef = useRef(onSelect);
   onSelectRef.current = onSelect;
@@ -59,6 +63,7 @@ export function LeafletMap({
       }).addTo(map);
 
       mapRef.current = map;
+      setMapReady(true);
 
       for (const s of spots) {
         const icon = L.divIcon({
@@ -86,6 +91,7 @@ export function LeafletMap({
         mapRef.current = null;
         markersRef.current = {};
         routeLayerRef.current = null;
+        setMapReady(false);
         userMarkerRef.current = null;
       }
     };
@@ -98,8 +104,20 @@ export function LeafletMap({
     let cancelled = false;
     (async () => {
       const L = (await import("leaflet")).default;
-      const map = mapRef.current;
-      if (cancelled || !map) return;
+
+      // The map is created by another async effect, so it may not exist yet.
+      // Wait for it rather than assuming an effect ordering.
+      let map = mapRef.current;
+      for (let attempt = 0; !map && attempt < 60; attempt++) {
+        await new Promise((resolve) => setTimeout(resolve, 100));
+        if (cancelled) return;
+        map = mapRef.current;
+      }
+      if (cancelled || !map) {
+        console.log("[v0] route: map never became ready");
+        return;
+      }
+      console.log("[v0] route: drawing", routeSpots.length, "stops");
 
       // Clear the previous route before drawing a new one.
       if (routeLayerRef.current) {
@@ -152,6 +170,7 @@ export function LeafletMap({
 
       if (cancelled || !mapRef.current) return;
 
+      console.log("[v0] route: geometry points =", line?.length ?? 0);
       if (line?.length) {
         L.polyline(line, { color: "#c96f4a", weight: 5, opacity: 0.9 }).addTo(layer);
       } else {
@@ -173,7 +192,7 @@ export function LeafletMap({
       cancelled = true;
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [routeSpots.map((s) => s.id).join(","), routeTransport]);
+  }, [mapReady, routeSpots.map((s) => s.id).join(","), routeTransport]);
 
   // Update user marker.
   useEffect(() => {
@@ -197,7 +216,7 @@ export function LeafletMap({
     return () => {
       cancelled = true;
     };
-  }, [userPos]);
+  }, [mapReady, userPos]);
 
   return <div ref={hostRef} className={className} />;
 }
