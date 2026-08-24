@@ -3,7 +3,7 @@
 import dynamic from "next/dynamic";
 import { useState } from "react";
 import type { Nav } from "@/app/page";
-import { SPOTS, STATS, KOCHI_CENTER } from "@/lib/spots";
+import { SPOTS, STATS, KOCHI_CENTER, distanceMeters, formatDistance } from "@/lib/spots";
 import { useGeolocation } from "@/lib/use-geolocation";
 import { InfoIcon, CloseIcon } from "@/components/icons";
 
@@ -19,10 +19,19 @@ const LeafletMap = dynamic(
   },
 );
 
-export function MapScreen({ nav, routeIds = [] }: { nav: Nav; routeIds?: string[] }) {
+export function MapScreen({
+  nav,
+  routeIds = [],
+  routeTransport = "徒歩",
+}: {
+  nav: Nav;
+  routeIds?: string[];
+  routeTransport?: string;
+}) {
   const { pos, located } = useGeolocation();
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [showInfo, setShowInfo] = useState(false);
+  const [showRoute, setShowRoute] = useState(true);
 
   const selected = SPOTS.find((s) => s.id === selectedId) ?? null;
   const routeSpots = routeIds.map((id) => SPOTS.find((s) => s.id === id)).filter((s): s is typeof SPOTS[number] => Boolean(s));
@@ -59,6 +68,7 @@ export function MapScreen({ nav, routeIds = [] }: { nav: Nav; routeIds?: string[
           activeId={selectedId}
           onSelect={setSelectedId}
           routeSpots={routeSpots}
+          routeTransport={routeTransport}
         />
 
         {showInfo && (
@@ -78,6 +88,63 @@ export function MapScreen({ nav, routeIds = [] }: { nav: Nav; routeIds?: string[
               ピンをタップすると詳細が開きます。青い点はあなたの現在地です。
               {!located && "（現在地が取得できないため高知城周辺を表示しています）"}
             </p>
+          </div>
+        )}
+
+        {/* Itinerary: the stops in order, like a directions list. */}
+        {routeSpots.length > 1 && !selected && (
+          <div className="absolute inset-x-3 bottom-24 z-[500]">
+            <div className="rounded-2xl border border-[var(--color-border)] bg-[var(--color-panel)] shadow-xl">
+              <button
+                type="button"
+                onClick={() => setShowRoute((v) => !v)}
+                className="flex w-full items-center justify-between px-4 py-3"
+              >
+                <span className="text-[13px] font-bold">
+                  ルート案内・{routeSpots.length}スポット（{routeTransport}）
+                </span>
+                <span className="text-[11px] text-[var(--color-ink-soft)]">
+                  {showRoute ? "閉じる" : "開く"}
+                </span>
+              </button>
+
+              {showRoute && (
+                <ol className="max-h-56 overflow-y-auto border-t border-[var(--color-border)] px-2 pb-2">
+                  {routeSpots.map((spot, index) => {
+                    const previous = index === 0 ? (located ? pos : null) : ([routeSpots[index - 1].lat, routeSpots[index - 1].lng] as [number, number]);
+                    const leg = previous ? distanceMeters(previous, [spot.lat, spot.lng]) : null;
+                    return (
+                      <li key={spot.id}>
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setSelectedId(spot.id);
+                            nav.openSpot(spot.id);
+                          }}
+                          className="flex w-full items-center gap-3 rounded-xl px-2 py-2 text-left active:bg-[var(--color-panel-soft)]"
+                        >
+                          <span
+                            aria-hidden="true"
+                            className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-[var(--color-terracotta)] text-[12px] font-bold text-white"
+                          >
+                            {index + 1}
+                          </span>
+                          <span className="min-w-0 flex-1">
+                            <span className="block truncate text-[13px] font-bold">{spot.name}</span>
+                            <span className="block truncate text-[11px] text-[var(--color-ink-soft)]">
+                              {leg !== null
+                                ? `${index === 0 ? "現在地" : "前の地点"}から約${formatDistance(leg)}`
+                                : spot.designation}
+                            </span>
+                          </span>
+                          <span aria-hidden="true" className="text-lg">{spot.icon}</span>
+                        </button>
+                      </li>
+                    );
+                  })}
+                </ol>
+              )}
+            </div>
           </div>
         )}
 

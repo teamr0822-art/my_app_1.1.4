@@ -18,14 +18,16 @@ export type Nav = {
   spotId: string | null;
   go: (screen: Screen) => void;
   openSpot: (id: string) => void;
-  startRoute: (ids: string[]) => void;
+  startRoute: (ids: string[], transport?: string) => void;
   routeIds: string[];
+  routeTransport: string;
 };
 
 export default function Page() {
   const [screen, setScreen] = useState<Screen>("home");
   const [spotId, setSpotId] = useState<string | null>(null);
   const [routeIds, setRouteIds] = useState<string[]>([]);
+  const [routeTransport, setRouteTransport] = useState("徒歩");
 
   const nav: Nav = {
     screen,
@@ -38,8 +40,10 @@ export default function Page() {
       setScreen("spot");
     },
     routeIds,
-    startRoute: (ids) => {
+    routeTransport,
+    startRoute: (ids, transport) => {
       setRouteIds(ids);
+      if (transport) setRouteTransport(transport);
       setScreen("map");
     },
   };
@@ -51,7 +55,7 @@ export default function Page() {
       <ToastProvider>
         <main className="app-frame">
           {screen === "home" && <HomeScreen nav={nav} />}
-          {screen === "map" && <MapScreen nav={nav} routeIds={routeIds} />}
+          {screen === "map" && <MapScreen nav={nav} routeIds={routeIds} routeTransport={routeTransport} />}
           {screen === "route" && <RouteScreen nav={nav} />}
           {screen === "settings" && <SettingsScreen />}
           {screen === "spot" && spotId && <SpotScreen spotId={spotId} nav={nav} />}
