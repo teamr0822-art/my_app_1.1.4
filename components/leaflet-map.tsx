@@ -43,6 +43,7 @@ export function LeafletMap({
   // before mapRef is populated. This flag re-runs the route effect once the
   // map actually exists.
   const [mapReady, setMapReady] = useState(false);
+  const [bearing, setBearing] = useState(0);
   const userMarkerRef = useRef<Marker | null>(null);
   const onSelectRef = useRef(onSelect);
   onSelectRef.current = onSelect;
@@ -53,17 +54,35 @@ export function LeafletMap({
     (async () => {
       const L = (await import("leaflet")).default;
       await import("leaflet/dist/leaflet.css");
+      // Adds real map rotation (two-finger twist on touch, bearing API here).
+      // Imported for its side effects, after Leaflet itself.
+      (window as unknown as { L?: unknown }).L = L;
+      await import("leaflet-rotate");
       if (cancelled || !hostRef.current || mapRef.current) return;
 
       const map = L.map(hostRef.current, {
         zoomControl: false,
         attributionControl: true,
-      }).setView(center, zoom);
+        // Rotation: two-finger twist on touch devices, setBearing() from the
+        // compass control. Rural lanes are easier to follow facing the way
+        // you walk.
+        rotate: true,
+        touchRotate: true,
+        bearing: 0,
+        maxZoom: 21,
+      } as L.MapOptions).setView(center, zoom);
 
       L.tileLayer("https://tile.openstreetmap.org/{z}/{x}/{y}.png", {
-        maxZoom: 19,
+        // OSM has tiles up to z19; beyond that Leaflet upscales them so narrow
+        // lanes can still be inspected close-up.
+        maxNativeZoom: 19,
+        maxZoom: 21,
         attribution: "&copy; OpenStreetMap contributors",
       }).addTo(map);
+
+      L.control.scale({ imperial: false, position: "bottomleft" }).addTo(map);
+
+      map.on("rotate", () => setBearing(Math.round(map.getBearing?.() ?? 0)));
 
       mapRef.current = map;
       setMapReady(true);
@@ -238,7 +257,120 @@ export function LeafletMap({
     };
   }, [mapReady, userPos]);
 
-  return <div ref={hostRef} className={className} />;
+  const withMap = (fn: (map: LMap) => void) => () => {
+    if (mapRef.current) fn(mapRef.current);
+  };
+
+  const rotateBy = (delta: number) =>
+    withMap((map) => {
+      const next = ((map.getBearing?.() ?? 0) + delta + 360) % 360;
+      map.setBearing?.(next);
+      setBearing(Math.round(next));
+    });
+
+  const fitEverything = withMap(async (map) => {
+    const L = (await import("leaflet")).default;
+    const points: [number, number][] = routeSpots.map((s) => [s.lat, s.lng]);
+    if (userPos) points.push(userPos);
+    if (points.length > 1) map.fitBounds(L.latLngBounds(points), { padding: [56, 56] });
+  });
+
+  return (
+    <div className={`relative ${className ?? ""}`}>
+      <div ref={hostRef} className="absolute inset-0 h-full w-full" />
+
+      {/* Map controls. Rural lanes need close zoom and a way to face the
+          direction you are walking. */}
+      <div className="pointer-events-none absolute right-3 top-3 z-[600] flex flex-col items-end gap-2">
+        <div className="pointer-events-auto flex flex-col overflow-hidden rounded-2xl border border-[var(--color-border)] bg-[var(--color-panel)]/95 shadow-lg backdrop-blur">
+          <MapButton label="拡大" onClick={withMap((m) => m.zoomIn())}>
+            <span className="text-lg leading-none">＋</span>
+          </MapButton>
+          <span className="h-px bg-[var(--color-border)]" />
+          <MapButton label="縮小" onClick={withMap((m) => m.zoomOut())}>
+            <span className="text-lg leading-none">−</span>
+          </MapButton>
+        </div>
+
+        <div className="pointer-events-auto flex flex-col overflow-hidden rounded-2xl border border-[var(--color-border)] bg-[var(--color-panel)]/95 shadow-lg backdrop-blur">
+          <MapButton label="左に回転" onClick={rotateBy(-30)}>
+            <span className="text-base leading-none">↺</span>
+          </MapButton>
+          <span className="h-px bg-[var(--color-border)]" />
+          <MapButton
+            label={bearing ? "北を上に戻す" : "北が上です"}
+            onClick={withMap((m) => {
+              m.setBearing?.(0);
+              setBearing(0);
+            })}
+          >
+            <CompassGlyph bearing={bearing} />
+          </MapButton>
+          <span className="h-px bg-[var(--color-border)]" />
+          <MapButton label="右に回転" onClick={rotateBy(30)}>
+            <span className="text-base leading-none">↻</span>
+          </MapButton>
+        </div>
+
+        <div className="pointer-events-auto flex flex-col overflow-hidden rounded-2xl border border-[var(--color-border)] bg-[var(--color-panel)]/95 shadow-lg backdrop-blur">
+          <MapButton
+            label="現在地へ"
+            onClick={withMap((m) => {
+              if (userPos) m.setView(userPos, Math.max(m.getZoom(), 17));
+            })}
+          >
+            <span className="text-base leading-none">◎</span>
+          </MapButton>
+          {routeSpots.length > 0 && (
+            <>
+              <span className="h-px bg-[var(--color-border)]" />
+              <MapButton label="ルート全体を表示" onClick={fitEverything}>
+                <span className="text-[11px] font-bold leading-none">全体</span>
+              </MapButton>
+            </>
+          )}
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function MapButton({
+  label,
+  onClick,
+  children,
+}: {
+  label: string;
+  onClick: () => void;
+  children: React.ReactNode;
+}) {
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      aria-label={label}
+      title={label}
+      className="flex h-10 w-10 items-center justify-center text-[var(--color-ink)] active:bg-[var(--color-panel-soft)]"
+    >
+      {children}
+    </button>
+  );
+}
+
+/** North-pointing needle that turns with the map. */
+function CompassGlyph({ bearing }: { bearing: number }) {
+  return (
+    <span
+      aria-hidden="true"
+      className="block h-5 w-5"
+      style={{ transform: `rotate(${-bearing}deg)` }}
+    >
+      <svg viewBox="0 0 20 20" width="20" height="20">
+        <path d="M10 2 L13.4 11 L10 9 L6.6 11 Z" fill="#c96f4a" />
+        <path d="M10 18 L6.6 11 L10 13 L13.4 11 Z" fill="#b9ada0" />
+      </svg>
+    </span>
+  );
 }
 
 /** Straight-line legs used when the routing service is unavailable. */

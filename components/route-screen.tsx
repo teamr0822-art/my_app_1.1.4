@@ -5,6 +5,7 @@ import type { Nav } from "@/app/page";
 import { SPOTS, distanceMeters, formatDistance } from "@/lib/spots";
 import { useGeolocation } from "@/lib/use-geolocation";
 import { useGuideChat } from "@/lib/use-guide-chat";
+import { stripMarkdown } from "@/lib/format";
 import { SendIcon, SparkIcon } from "@/components/icons";
 
 /**
@@ -71,7 +72,9 @@ export function RouteScreen({ nav }: { nav: Nav }) {
 
   const { messages, streaming, send } = useGuideChat({ mode: "route", nearby });
   const [error, setError] = useState<string | null>(null);
-  const answer = messages.filter((m) => m.role === "assistant").at(-1)?.content;
+  const rawAnswer = messages.filter((m) => m.role === "assistant").at(-1)?.content;
+  // The model still slips in Markdown now and then; the screen shows plain text.
+  const answer = rawAnswer ? stripMarkdown(rawAnswer) : undefined;
 
   // Map the proposed route back to real spot ids by finding candidate names in
   // the answer, in the order the model listed them. Previously this button

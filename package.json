@@ -13,6 +13,7 @@
     "@ai-sdk/google": "^4.0.50",
     "ai": "latest",
     "leaflet": "^1.9.4",
+    "leaflet-rotate": "^0.2.8",
     "next": "latest",
     "react": "^19.0.0",
     "react-dom": "^19.0.0",

@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useRef, useState } from "react";
 import { useSettings } from "./settings-context";
+import { stripMarkdown } from "./format";
 
 type SpeakOpts = { onEnd?: () => void };
 
@@ -66,7 +67,9 @@ export function useVoice() {
   );
 
   const speak = useCallback(
-    async (text: string, opts?: SpeakOpts) => {
+    async (raw: string, opts?: SpeakOpts) => {
+      // Markdown never reads well aloud ("アスタリスク アスタリスク").
+      const text = raw ? stripMarkdown(raw) : raw;
       // Mute mode: never play audio; UI still shows text.
       if (muted || !text?.trim()) {
         opts?.onEnd?.();
