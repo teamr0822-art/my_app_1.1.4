@@ -43,10 +43,13 @@ export function LeafletMap({
   // before mapRef is populated. This flag re-runs the route effect once the
   // map actually exists.
   const [mapReady, setMapReady] = useState(false);
-  const [bearing, setBearing] = useState(0);
   const userMarkerRef = useRef<Marker | null>(null);
   const onSelectRef = useRef(onSelect);
   onSelectRef.current = onSelect;
+  const userPosRef = useRef<[number, number] | null>(userPos ?? null);
+  userPosRef.current = userPos ?? null;
+  const routeSpotsRef = useRef<Spot[]>(routeSpots);
+  routeSpotsRef.current = routeSpots;
 
   // Init map once.
   useEffect(() => {
@@ -82,7 +85,96 @@ export function LeafletMap({
 
       L.control.scale({ imperial: false, position: "bottomleft" }).addTo(map);
 
-      map.on("rotate", () => setBearing(Math.round(map.getBearing?.() ?? 0)));
+      // Controls live inside Leaflet's own control pane: that keeps them
+      // correctly placed whatever the surrounding layout does.
+      const Controls = L.Control.extend({
+        options: { position: "topright" as const },
+        onAdd() {
+          const wrap = L.DomUtil.create("div", "hh-map-controls");
+          wrap.style.cssText =
+            "display:flex;flex-direction:column;gap:8px;align-items:flex-end";
+          L.DomEvent.disableClickPropagation(wrap);
+          L.DomEvent.disableScrollPropagation(wrap);
+
+          const group = () => {
+            const g = L.DomUtil.create("div", "", wrap);
+            g.style.cssText =
+              "display:flex;flex-direction:column;overflow:hidden;border-radius:16px;border:1px solid rgba(0,0,0,.12);background:rgba(255,255,255,.95);box-shadow:0 2px 10px rgba(0,0,0,.18);backdrop-filter:blur(6px)";
+            return g;
+          };
+          const button = (
+            parent: HTMLElement,
+            label: string,
+            html: string,
+            onClick: () => void,
+          ) => {
+            if (parent.childElementCount) {
+              const line = L.DomUtil.create("span", "", parent);
+              line.style.cssText = "height:1px;background:rgba(0,0,0,.10)";
+            }
+            const b = L.DomUtil.create("button", "", parent) as HTMLButtonElement;
+            b.type = "button";
+            b.setAttribute("aria-label", label);
+            b.title = label;
+            b.innerHTML = html;
+            b.style.cssText =
+              "width:42px;height:42px;display:flex;align-items:center;justify-content:center;background:transparent;border:0;cursor:pointer;color:#332a20;font-size:18px;line-height:1";
+            L.DomEvent.on(b, "click", (e) => {
+              L.DomEvent.stop(e);
+              onClick();
+            });
+            return b;
+          };
+
+          const zoomGroup = group();
+          button(zoomGroup, "拡大", "＋", () => map.zoomIn());
+          button(zoomGroup, "縮小", "−", () => map.zoomOut());
+
+          const rotateGroup = group();
+          const spin = (delta: number) => {
+            const next = (((map.getBearing?.() ?? 0) + delta) % 360 + 360) % 360;
+            map.setBearing?.(next);
+          };
+          button(rotateGroup, "左に回転", "↺", () => spin(-30));
+          const compass = button(
+            rotateGroup,
+            "北を上に戻す",
+            compassSvg(),
+            () => map.setBearing?.(0),
+          );
+          button(rotateGroup, "右に回転", "↻", () => spin(30));
+
+          const viewGroup = group();
+          button(viewGroup, "現在地へ", "◎", () => {
+            const pos = userPosRef.current;
+            if (pos) map.setView(pos, Math.max(map.getZoom(), 18));
+          });
+          button(viewGroup, "ルート全体を表示", "<span style=\"font-size:11px;font-weight:700\">全体</span>", () => {
+            const points = routeSpotsRef.current.map(
+              (s) => [s.lat, s.lng] as [number, number],
+            );
+            const pos = userPosRef.current;
+            if (pos) points.push(pos);
+            if (points.length > 1) {
+              map.fitBounds(L.latLngBounds(points), { padding: [56, 56] });
+            }
+          });
+
+          // Keep the needle pointing north as the map turns.
+          const needle = compass.firstElementChild as HTMLElement | null;
+          const sync = () => {
+            const deg = Math.round(map.getBearing?.() ?? 0);
+            if (needle) needle.style.transform = `rotate(${-deg}deg)`;
+            compass.setAttribute("aria-label", deg ? "北を上に戻す" : "北が上です");
+            compass.title = deg ? "北を上に戻す" : "北が上です";
+          };
+          map.on("rotate", sync);
+          sync();
+
+          return wrap;
+        },
+      });
+      new Controls().addTo(map);
 
       mapRef.current = map;
       setMapReady(true);
@@ -257,123 +349,14 @@ export function LeafletMap({
     };
   }, [mapReady, userPos]);
 
-  const withMap = (fn: (map: LMap) => void) => () => {
-    if (mapRef.current) fn(mapRef.current);
-  };
-
-  const rotateBy = (delta: number) =>
-    withMap((map) => {
-      const next = ((map.getBearing?.() ?? 0) + delta + 360) % 360;
-      map.setBearing?.(next);
-      setBearing(Math.round(next));
-    });
-
-  const fitEverything = withMap(async (map) => {
-    const L = (await import("leaflet")).default;
-    const points: [number, number][] = routeSpots.map((s) => [s.lat, s.lng]);
-    if (userPos) points.push(userPos);
-    if (points.length > 1) map.fitBounds(L.latLngBounds(points), { padding: [56, 56] });
-  });
-
-  return (
-    <div className={`relative ${className ?? ""}`}>
-      <div ref={hostRef} className="absolute inset-0 h-full w-full" />
-
-      {/* Map controls. Rural lanes need close zoom and a way to face the
-          direction you are walking. */}
-      <div className="pointer-events-none absolute right-3 top-3 z-[600] flex flex-col items-end gap-2">
-        <div className="pointer-events-auto flex flex-col overflow-hidden rounded-2xl border border-[var(--color-border)] bg-[var(--color-panel)]/95 shadow-lg backdrop-blur">
-          <MapButton label="拡大" onClick={withMap((m) => m.zoomIn())}>
-            <span className="text-lg leading-none">＋</span>
-          </MapButton>
-          <span className="h-px bg-[var(--color-border)]" />
-          <MapButton label="縮小" onClick={withMap((m) => m.zoomOut())}>
-            <span className="text-lg leading-none">−</span>
-          </MapButton>
-        </div>
-
-        <div className="pointer-events-auto flex flex-col overflow-hidden rounded-2xl border border-[var(--color-border)] bg-[var(--color-panel)]/95 shadow-lg backdrop-blur">
-          <MapButton label="左に回転" onClick={rotateBy(-30)}>
-            <span className="text-base leading-none">↺</span>
-          </MapButton>
-          <span className="h-px bg-[var(--color-border)]" />
-          <MapButton
-            label={bearing ? "北を上に戻す" : "北が上です"}
-            onClick={withMap((m) => {
-              m.setBearing?.(0);
-              setBearing(0);
-            })}
-          >
-            <CompassGlyph bearing={bearing} />
-          </MapButton>
-          <span className="h-px bg-[var(--color-border)]" />
-          <MapButton label="右に回転" onClick={rotateBy(30)}>
-            <span className="text-base leading-none">↻</span>
-          </MapButton>
-        </div>
-
-        <div className="pointer-events-auto flex flex-col overflow-hidden rounded-2xl border border-[var(--color-border)] bg-[var(--color-panel)]/95 shadow-lg backdrop-blur">
-          <MapButton
-            label="現在地へ"
-            onClick={withMap((m) => {
-              if (userPos) m.setView(userPos, Math.max(m.getZoom(), 17));
-            })}
-          >
-            <span className="text-base leading-none">◎</span>
-          </MapButton>
-          {routeSpots.length > 0 && (
-            <>
-              <span className="h-px bg-[var(--color-border)]" />
-              <MapButton label="ルート全体を表示" onClick={fitEverything}>
-                <span className="text-[11px] font-bold leading-none">全体</span>
-              </MapButton>
-            </>
-          )}
-        </div>
-      </div>
-    </div>
-  );
+  return <div ref={hostRef} className={className} />;
 }
 
-function MapButton({
-  label,
-  onClick,
-  children,
-}: {
-  label: string;
-  onClick: () => void;
-  children: React.ReactNode;
-}) {
-  return (
-    <button
-      type="button"
-      onClick={onClick}
-      aria-label={label}
-      title={label}
-      className="flex h-10 w-10 items-center justify-center text-[var(--color-ink)] active:bg-[var(--color-panel-soft)]"
-    >
-      {children}
-    </button>
-  );
+/** North-pointing needle drawn inside the compass button. */
+function compassSvg(): string {
+  return `<span style="display:block;width:20px;height:20px;transition:transform .15s"><svg viewBox="0 0 20 20" width="20" height="20"><path d="M10 2 L13.4 11 L10 9 L6.6 11 Z" fill="#c96f4a"/><path d="M10 18 L6.6 11 L10 13 L13.4 11 Z" fill="#b9ada0"/></svg></span>`;
 }
 
-/** North-pointing needle that turns with the map. */
-function CompassGlyph({ bearing }: { bearing: number }) {
-  return (
-    <span
-      aria-hidden="true"
-      className="block h-5 w-5"
-      style={{ transform: `rotate(${-bearing}deg)` }}
-    >
-      <svg viewBox="0 0 20 20" width="20" height="20">
-        <path d="M10 2 L13.4 11 L10 9 L6.6 11 Z" fill="#c96f4a" />
-        <path d="M10 18 L6.6 11 L10 13 L13.4 11 Z" fill="#b9ada0" />
-      </svg>
-    </span>
-  );
-}
-
-/** Straight-line legs used when the routing service is unavailable. */
 function buildStraightLegs(
   userPos: [number, number] | null,
   stops: [number, number][],
