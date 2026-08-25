@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import type { Spot } from "@/lib/spots";
 
 export type RouteStep = {
@@ -35,6 +35,12 @@ export type Directions = {
   coords: [number, number][];
   distance: number;
   duration: number;
+  /**
+   * Where the router actually put each waypoint. Sites set back from the road
+   * snap to the nearest street, so the drawn route can run *past* the marker.
+   * Keeping the snapped points lets the map join them to the real location.
+   */
+  snapped: [number, number][];
 };
 
 type State = {
@@ -150,11 +156,18 @@ export function useRouteDirections(
     error: null,
   });
 
-  const key = [
-    userPos ? userPos.join(",") : "none",
-    spots.map((s) => s.id).join(","),
-    transport,
-  ].join("|");
+  // A live GPS fix jitters by a few metres every second. Re-routing on every
+  // one of those would hammer the routing service and make the panel flicker,
+  // so the position is quantised: directions are refreshed only once the
+  // visitor has actually moved about 50 metres.
+  const cell = userPos
+    ? `${Math.round(userPos[0] / 0.0005)},${Math.round(userPos[1] / 0.0005)}`
+    : "none";
+  const key = [cell, spots.map((s) => s.id).join(","), transport].join("|");
+
+  // The exact fix is still used as the starting waypoint when a refresh runs.
+  const userPosRef = useRef<[number, number] | null>(userPos);
+  userPosRef.current = userPos;
 
   useEffect(() => {
     let cancelled = false;
@@ -163,8 +176,9 @@ export function useRouteDirections(
       return;
     }
 
+    const here = userPosRef.current;
     const waypoints: [number, number][] = [
-      ...(userPos ? [userPos] : []),
+      ...(here ? [here] : []),
       ...spots.map((s) => [s.lat, s.lng] as [number, number]),
     ];
     if (waypoints.length < 2) {
@@ -212,10 +226,14 @@ export function useRouteDirections(
         const coords: [number, number][] = (route.geometry?.coordinates ?? []).map(
           ([lng, lat]: [number, number]) => [lat, lng] as [number, number],
         );
+        const snapped: [number, number][] = (data.waypoints ?? []).map(
+          (w: any) => [w.location?.[1] ?? 0, w.location?.[0] ?? 0] as [number, number],
+        );
         setState({
           directions: {
             legs,
             coords,
+            snapped,
             distance: route.distance ?? 0,
             duration: travelSeconds(
               route.distance ?? 0,

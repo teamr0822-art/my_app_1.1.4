@@ -103,6 +103,7 @@ export function MapScreen({
           routeSpots={routeSpots}
           routeLegs={legs.length ? legs : undefined}
           activeLeg={activeLeg}
+          snappedWaypoints={directions?.snapped}
         />
 
         {showInfo && (

@@ -17,6 +17,8 @@ type Props = {
   routeLegs?: { coords: [number, number][] }[];
   /** Index of the leg the visitor is currently walking. */
   activeLeg?: number;
+  /** Router-snapped waypoints, used to join the road to the real site. */
+  snappedWaypoints?: [number, number][];
 };
 
 /**
@@ -34,6 +36,7 @@ export function LeafletMap({
   routeSpots = [],
   routeLegs,
   activeLeg = 0,
+  snappedWaypoints,
 }: Props) {
   const hostRef = useRef<HTMLDivElement>(null);
   const mapRef = useRef<LMap | null>(null);
@@ -279,14 +282,16 @@ export function LeafletMap({
         }).addTo(layer);
       });
 
-      // Direction arrows on the leg being walked, so "which way" is obvious.
-      const currentLeg = legs[activeLeg];
-      if (currentLeg && currentLeg.coords.length > 3) {
-        for (const [point, angle] of arrowsAlong(currentLeg.coords, 6)) {
+      // Direction arrows, evenly spaced by real distance so they do not bunch
+      // up where the road geometry happens to have many points.
+      legs.forEach((leg, index) => {
+        if (index < activeLeg || leg.coords.length < 2) return;
+        const current = index === activeLeg;
+        for (const [point, angle] of arrowsAlong(leg.coords, current ? 70 : 140)) {
           L.marker(point, {
             icon: L.divIcon({
               className: "",
-              html: arrowHtml(angle),
+              html: arrowHtml(angle, current),
               iconSize: [22, 22],
               iconAnchor: [11, 11],
             }),
@@ -294,6 +299,26 @@ export function LeafletMap({
             zIndexOffset: 800,
           }).addTo(layer);
         }
+      });
+
+      // The router snaps each stop to the nearest road. Without this the line
+      // looks like it walks straight past the marker; a dashed spur shows the
+      // last few metres from the street to the site itself.
+      if (snappedWaypoints?.length) {
+        const offset = snappedWaypoints.length - routeSpots.length;
+        routeSpots.forEach((spot, index) => {
+          const snap = snappedWaypoints[index + Math.max(0, offset)];
+          if (!snap) return;
+          const target: [number, number] = [spot.lat, spot.lng];
+          if (L.latLng(snap).distanceTo(L.latLng(target)) < 12) return;
+          L.polyline([snap, target], {
+            color: "#8a4a2c",
+            weight: 3,
+            opacity: 0.85,
+            dashArray: "2 6",
+            lineCap: "round",
+          }).addTo(layer);
+        });
       }
 
       routeSpots.forEach((s, index) => {
@@ -328,6 +353,7 @@ export function LeafletMap({
     routeSpots.map((s) => s.id).join(","),
     routeLegs,
     activeLeg,
+    snappedWaypoints,
   ]);
 
   // Update user marker.
@@ -377,26 +403,62 @@ function buildStraightLegs(
   return legs;
 }
 
-/** Evenly spaced points along a path, with the bearing at each one. */
+/**
+ * Points spaced by real distance along a path, each with the bearing of travel.
+ *
+ * Index-based spacing bunched the arrows wherever the road geometry was dense,
+ * and consecutive duplicate points (OSRM repeats the junction between steps)
+ * produced a zero-length segment whose bearing defaulted to due north — which
+ * is why some arrows pointed backwards.
+ */
 function arrowsAlong(
   coords: [number, number][],
-  count: number,
+  spacingMetres: number,
 ): [[number, number], number][] {
   const out: [[number, number], number][] = [];
-  const step = Math.max(1, Math.floor(coords.length / (count + 1)));
-  for (let i = step; i < coords.length - 1; i += step) {
-    const [lat1, lng1] = coords[i];
-    const [lat2, lng2] = coords[Math.min(i + 1, coords.length - 1)];
-    const angle = (Math.atan2(lng2 - lng1, lat2 - lat1) * 180) / Math.PI;
-    out.push([coords[i], angle]);
+  if (coords.length < 2) return out;
+
+  let carried = spacingMetres / 2;
+  for (let i = 0; i < coords.length - 1; i++) {
+    const a = coords[i];
+    const b = coords[i + 1];
+    const length = metres(a, b);
+    if (length < 0.5) continue; // duplicate point: no direction to read
+    const angle = bearing(a, b);
+    let travelled = carried;
+    while (travelled <= length) {
+      const t = travelled / length;
+      out.push([
+        [a[0] + (b[0] - a[0]) * t, a[1] + (b[1] - a[1]) * t],
+        angle,
+      ]);
+      travelled += spacingMetres;
+    }
+    carried = travelled - length;
   }
   return out;
 }
 
-function arrowHtml(angle: number): string {
+/** Rough planar distance in metres; plenty accurate over a city block. */
+function metres(a: [number, number], b: [number, number]): number {
+  const latMetres = (b[0] - a[0]) * 111320;
+  const lngMetres = (b[1] - a[1]) * 111320 * Math.cos((a[0] * Math.PI) / 180);
+  return Math.hypot(latMetres, lngMetres);
+}
+
+/** Compass bearing in degrees, clockwise from north, as drawn on screen. */
+function bearing(a: [number, number], b: [number, number]): number {
+  const north = b[0] - a[0];
+  const east = (b[1] - a[1]) * Math.cos((a[0] * Math.PI) / 180);
+  return (Math.atan2(east, north) * 180) / Math.PI;
+}
+
+function arrowHtml(angle: number, strong: boolean): string {
+  const size = strong ? 15 : 12;
+  const fill = strong ? "#ffffff" : "#fbf5ee";
   return `<div style="transform:rotate(${angle}deg);display:flex;align-items:center;justify-content:center;width:22px;height:22px">
-    <svg width="16" height="16" viewBox="0 0 16 16" aria-hidden="true">
-      <path d="M8 1 L13 12 L8 9.4 L3 12 Z" fill="#ffffff" stroke="#8a4a2c" stroke-width="1.2" stroke-linejoin="round"/>
+    <svg width="${size}" height="${size}" viewBox="0 0 16 16" aria-hidden="true">
+      <path d="M8 1 L13 12 L8 9.4 L3 12 Z" fill="${fill}" stroke="#8a4a2c" stroke-width="1.4" stroke-linejoin="round"/>
     </svg></div>`;
 }
 
