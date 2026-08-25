@@ -40,6 +40,8 @@ export function LeafletMap({
   const markersRef = useRef<Record<string, Marker>>({});
   const routeLayerRef = useRef<LayerGroup | null>(null);
   const resizeObserverRef = useRef<ResizeObserver | null>(null);
+  /** Itinerary already framed once, so zooming by hand is not undone. */
+  const fittedRouteRef = useRef<string | null>(null);
   // The map is created inside an async effect, so the route effect can run
   // before mapRef is populated. This flag re-runs the route effect once the
   // map actually exists.
@@ -255,7 +257,7 @@ export function LeafletMap({
         routeLegs && routeLegs.length
           ? routeLegs
           : // Straight dashed fallback: still shows the order when routing fails.
-            buildStraightLegs(userPos ?? null, stopPoints);
+            buildStraightLegs(userPosRef.current, stopPoints);
 
       const all: [number, number][] = legs.flatMap((leg) => leg.coords);
       const routed = Boolean(routeLegs && routeLegs.length);
@@ -294,20 +296,6 @@ export function LeafletMap({
         }
       }
 
-      // Start pin at the visitor's position.
-      if (userPos) {
-        L.marker(userPos, {
-          icon: L.divIcon({
-            className: "",
-            html: startBadgeHtml(),
-            iconSize: [46, 22],
-            iconAnchor: [23, 30],
-          }),
-          interactive: false,
-          zIndexOffset: 1100,
-        }).addTo(layer);
-      }
-
       routeSpots.forEach((s, index) => {
         L.marker([s.lat, s.lng], {
           icon: L.divIcon({
@@ -322,9 +310,14 @@ export function LeafletMap({
           .on("click", () => onSelectRef.current?.(s.id));
       });
 
-      const bounds = L.latLngBounds(all.length > 1 ? all : stopPoints);
-      if (userPos) bounds.extend(userPos);
-      map.fitBounds(bounds, { padding: [56, 56] });
+      const key = routeSpots.map((s) => s.id).join(",");
+      if (fittedRouteRef.current !== key) {
+        fittedRouteRef.current = key;
+        const bounds = L.latLngBounds(all.length > 1 ? all : stopPoints);
+        const here = userPosRef.current;
+        if (here) bounds.extend(here);
+        map.fitBounds(bounds, { padding: [56, 56] });
+      }
     })();
     return () => {
       cancelled = true;
@@ -335,7 +328,6 @@ export function LeafletMap({
     routeSpots.map((s) => s.id).join(","),
     routeLegs,
     activeLeg,
-    userPos?.join(","),
   ]);
 
   // Update user marker.
@@ -350,11 +342,14 @@ export function LeafletMap({
       } else {
         const icon = L.divIcon({
           className: "",
-          html: `<div style="width:18px;height:18px;border-radius:999px;background:#2b6cff;border:3px solid #fff;box-shadow:0 0 0 3px rgba(43,108,255,.3)"></div>`,
-          iconSize: [18, 18],
-          iconAnchor: [9, 9],
+          html: `<div style="display:flex;flex-direction:column;align-items:center;gap:2px">
+            <div style="padding:1px 7px;border-radius:999px;background:#2b6cff;color:#fff;border:2px solid #fff;box-shadow:0 1px 4px rgba(0,0,0,.35);font:700 10px/1.6 system-ui,sans-serif;white-space:nowrap">現在地</div>
+            <div style="width:18px;height:18px;border-radius:999px;background:#2b6cff;border:3px solid #fff;box-shadow:0 0 0 3px rgba(43,108,255,.3)"></div>
+          </div>`,
+          iconSize: [52, 42],
+          iconAnchor: [26, 33],
         });
-        userMarkerRef.current = L.marker(userPos, { icon }).addTo(map);
+        userMarkerRef.current = L.marker(userPos, { icon, zIndexOffset: 1100 }).addTo(map);
       }
     })();
     return () => {
@@ -403,10 +398,6 @@ function arrowHtml(angle: number): string {
     <svg width="16" height="16" viewBox="0 0 16 16" aria-hidden="true">
       <path d="M8 1 L13 12 L8 9.4 L3 12 Z" fill="#ffffff" stroke="#8a4a2c" stroke-width="1.2" stroke-linejoin="round"/>
     </svg></div>`;
-}
-
-function startBadgeHtml(): string {
-  return `<div style="padding:2px 8px;border-radius:999px;background:#2b6cff;color:#fff;border:2px solid #fff;box-shadow:0 1px 4px rgba(0,0,0,.35);font:700 11px/1.6 system-ui,sans-serif;white-space:nowrap">現在地</div>`;
 }
 
 /** Numbered badge marking a stop's position in the itinerary. */
