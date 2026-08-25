@@ -44,6 +44,22 @@ type State = {
   error: string | null;
 };
 
+/**
+ * The public OSRM demo server only hosts the car profile, so its durations are
+ * driving times whatever profile we ask for (10km "in 19 minutes" on foot).
+ * Distances are still real road distances, so we derive the time ourselves.
+ */
+const METRES_PER_MINUTE: Record<string, number> = {
+  "徒歩": 80, // ~4.8 km/h
+  "自転車": 250, // ~15 km/h
+};
+
+function travelSeconds(distance: number, transport: string, osrm: number): number {
+  const speed = METRES_PER_MINUTE[transport];
+  if (!speed) return osrm; // 公共交通: the driving estimate is the closer guess.
+  return (distance / speed) * 60;
+}
+
 function profileFor(transport: string): string {
   if (transport === "自転車") return "bike";
   if (transport === "公共交通") return "driving";
@@ -183,10 +199,11 @@ export function useRouteDirections(
           const rawSteps = (leg.steps ?? []).filter(
             (s: any) => (s?.distance ?? 0) > 5 || s?.maneuver?.type === "arrive",
           );
+          const legDistance = leg.distance ?? 0;
           return {
             coords,
-            distance: leg.distance ?? 0,
-            duration: leg.duration ?? 0,
+            distance: legDistance,
+            duration: travelSeconds(legDistance, transport, leg.duration ?? 0),
             steps: rawSteps.map((s: any, i: number) =>
               describeStep(s, i === rawSteps.length - 1),
             ),
@@ -200,7 +217,11 @@ export function useRouteDirections(
             legs,
             coords,
             distance: route.distance ?? 0,
-            duration: route.duration ?? 0,
+            duration: travelSeconds(
+              route.distance ?? 0,
+              transport,
+              route.duration ?? 0,
+            ),
           },
           loading: false,
           error: null,
