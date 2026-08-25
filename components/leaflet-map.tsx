@@ -49,6 +49,8 @@ export function LeafletMap({
   // before mapRef is populated. This flag re-runs the route effect once the
   // map actually exists.
   const [mapReady, setMapReady] = useState(false);
+  /** Bumped on zoom so the arrows can be respaced for the new scale. */
+  const [zoomTick, setZoomTick] = useState(0);
   const userMarkerRef = useRef<Marker | null>(null);
   const onSelectRef = useRef(onSelect);
   onSelectRef.current = onSelect;
@@ -186,6 +188,8 @@ export function LeafletMap({
 
       mapRef.current = map;
       setMapReady(true);
+      // Arrows are spaced in screen pixels, so they must be redrawn on zoom.
+      map.on("zoomend", () => setZoomTick((n) => n + 1));
 
       for (const s of spots) {
         const icon = L.divIcon({
@@ -287,7 +291,11 @@ export function LeafletMap({
       legs.forEach((leg, index) => {
         if (index < activeLeg || leg.coords.length < 2) return;
         const current = index === activeLeg;
-        for (const [point, angle] of arrowsAlong(leg.coords, current ? 70 : 140)) {
+        // Space the arrows by how far apart they land on screen, not by a fixed
+        // number of metres: at city-wide zoom a 70 m spacing crowded them into
+        // an unreadable dotted line.
+        const spacing = spacingForZoom(map.getZoom(), map.getCenter().lat, current ? 62 : 110);
+        for (const [point, angle] of arrowsAlong(leg.coords, spacing)) {
           L.marker(point, {
             icon: L.divIcon({
               className: "",
@@ -354,6 +362,7 @@ export function LeafletMap({
     routeLegs,
     activeLeg,
     snappedWaypoints,
+    zoomTick,
   ]);
 
   // Update user marker.
@@ -437,6 +446,13 @@ function arrowsAlong(
     carried = travelled - length;
   }
   return out;
+}
+
+/** Metres that correspond to a given on-screen gap at the current zoom. */
+function spacingForZoom(zoom: number, latitude: number, targetPixels: number): number {
+  const metresPerPixel =
+    (156543.03392 * Math.cos((latitude * Math.PI) / 180)) / Math.pow(2, zoom);
+  return Math.max(25, targetPixels * metresPerPixel);
 }
 
 /** Rough planar distance in metres; plenty accurate over a city block. */
