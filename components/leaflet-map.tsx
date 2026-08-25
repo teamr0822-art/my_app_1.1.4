@@ -39,6 +39,7 @@ export function LeafletMap({
   const mapRef = useRef<LMap | null>(null);
   const markersRef = useRef<Record<string, Marker>>({});
   const routeLayerRef = useRef<LayerGroup | null>(null);
+  const resizeObserverRef = useRef<ResizeObserver | null>(null);
   // The map is created inside an async effect, so the route effect can run
   // before mapRef is populated. This flag re-runs the route effect once the
   // map actually exists.
@@ -71,6 +72,8 @@ export function LeafletMap({
         // you walk.
         rotate: true,
         touchRotate: true,
+        // The plugin's own compass button would duplicate ours.
+        rotateControl: false,
         bearing: 0,
         maxZoom: 21,
       } as L.MapOptions).setView(center, zoom);
@@ -196,10 +199,20 @@ export function LeafletMap({
       // layout settles so Leaflet does not keep a zero-sized viewport.
       requestAnimationFrame(() => map.invalidateSize());
       setTimeout(() => map.invalidateSize(), 250);
+
+      // Keep the viewport correct when the window or panel size changes;
+      // otherwise Leaflet leaves grey gaps where it thinks there is no map.
+      if (typeof ResizeObserver !== "undefined" && hostRef.current) {
+        const observer = new ResizeObserver(() => map.invalidateSize());
+        observer.observe(hostRef.current);
+        resizeObserverRef.current = observer;
+      }
     })();
 
     return () => {
       cancelled = true;
+      resizeObserverRef.current?.disconnect();
+      resizeObserverRef.current = null;
       if (mapRef.current) {
         mapRef.current.remove();
         mapRef.current = null;
