@@ -6,6 +6,15 @@ import { searchWikipedia } from "@/lib/wikipedia";
 
 export const maxDuration = 30;
 
+/**
+ * Source entries carry the page URL appended to the title. Spoken aloud that
+ * becomes "エイチティーティーピーエス コロン スラッシュ…", so only the readable
+ * label reaches the model.
+ */
+function citationLabel(source: string): string {
+  return source.replace(/https?:\/\/[^\s、。）」』】]+/g, "").replace(/[\s　]+$/, "").trim();
+}
+
 function fallbackRoute(nearby: { name: string; grounding: string }[] = []) {
   const stops = nearby.slice(0, 5);
   if (!stops.length) return "候補スポットがありません。地域や出発地を指定してください。";
@@ -74,6 +83,13 @@ export async function POST(req: Request) {
       "あなたは日本の文化財をめぐる観光ルート作成AIです。日本語で答えてください。",
       "利用者の条件と候補スポットだけを根拠に、無理のない1つのルートを提案します。",
       "候補にないスポットを作らず、距離や時間は必ず『概算』と書いてください。",
+      "条件は飾りではありません。次の目安で必ず内容を変えてください。",
+      "・雨: 屋内・軒下・アーケードで過ごせる場所を優先し、立ち寄り数を減らして総距離を短くする。濡れにくい移動の工夫も一言添える。",
+      "・『歩きたくない』『ゆったり』などの要望: 立ち寄りを3か所以内、総距離1km程度までに抑える。",
+      "・『たくさん歩きたい』: 立ち寄りを増やして構わない。",
+      "・『食べ歩き』: 候補にない店名は挙げず、通り沿いや商店街など食事処が集まるエリアを経路に含め、その旨を書く。",
+      "条件どうしが噛み合わないとき（例: 雨で食べ歩き）は、無視せずどう折り合いをつけたかを一文で説明してください。",
+      "冒頭に『今日の条件』として、天気・気分・要望をどう反映したかを2〜3文でまとめてから、ルートを示してください。",
       "条件が不足して安全・実行可能な提案ができない場合は、勝手に補完せず確認質問を1つだけ返してください。",
       "回答形式: ルート名 / 立ち寄り順 / 概算の合計距離・時間 / 各区間の移動手段 / 途中変更の案内 / 注意事項。",
       "書式は必ずプレーンテキストにしてください。**や*、#、-、`などの記号による装飾は使わず、見出しは「立ち寄り順:」のように全角コロンで書き、箇条書きは「1. 」または「・」だけを使ってください。音声でも読み上げるため、記号が混ざると不自然になります。",
@@ -118,7 +134,7 @@ export async function POST(req: Request) {
       `時代: ${spot.era}`,
       `所在地: ${spot.address}`,
       `解説: ${spot.grounding}`,
-      `出典: ${spot.sources.join(" / ")}`,
+      `出典: ${spot.sources.map(citationLabel).join(" / ")}`,
       "",
       "【回答のルール】",
       "- まず上記資料の範囲で答える。",
@@ -129,6 +145,7 @@ export async function POST(req: Request) {
       `- 事実関係を答えたときは、最後に出典を一言添える（資料に基づくときは「（出典: ${spot.sources[0]}）」、`,
       "  ウィキペディアで調べたときは「（出典: ウィキペディア）」のように）。",
       "- 調べても分からないことは正直に伝え、作り話はしない。",
+      "- URLやリンクは読み上げに向かないので、出典は媒体名だけを述べる。",
       "- 挨拶や雑談にも自然に応じてよい。",
     ].join("\n");
   }

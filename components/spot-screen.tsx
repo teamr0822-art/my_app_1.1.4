@@ -72,7 +72,7 @@ export function SpotScreen({ spotId, nav }: { spotId: string; nav: Nav }) {
       const text = await voice.stopRecording();
       if (text) await ask(text);
     } else {
-      await voice.startRecording();
+      await voice.startRecording((text) => { if (text) void ask(text); });
     }
   };
 
@@ -184,7 +184,7 @@ export function SpotScreen({ spotId, nav }: { spotId: string; nav: Nav }) {
                   >
                     {spot.icon}
                   </span>
-                  <div className="max-w-[80%] rounded-2xl rounded-tl-md border border-[var(--color-border)] bg-[var(--color-panel)] px-3.5 py-2.5 text-[14px] leading-relaxed">
+                  <div className="max-w-[80%] rounded-2xl rounded-tl-md border border-[var(--color-border)] bg-[var(--color-panel)] px-3.5 py-2.5 text-[14px] leading-relaxed break-words [overflow-wrap:anywhere]">
                     {m.content || (
                       <span className="anim-spin inline-block h-3.5 w-3.5 rounded-full border-2 border-[var(--color-border)] border-t-[var(--color-terracotta)] align-middle" />
                     )}
@@ -192,7 +192,7 @@ export function SpotScreen({ spotId, nav }: { spotId: string; nav: Nav }) {
                 </div>
               ) : (
                 <div key={m.id} className="flex justify-end">
-                  <div className="max-w-[80%] rounded-2xl rounded-tr-md bg-[var(--color-green)] px-3.5 py-2.5 text-[14px] leading-relaxed text-white">
+                  <div className="max-w-[80%] rounded-2xl rounded-tr-md bg-[var(--color-green)] px-3.5 py-2.5 text-[14px] leading-relaxed break-words [overflow-wrap:anywhere] text-white">
                     {m.content}
                   </div>
                 </div>

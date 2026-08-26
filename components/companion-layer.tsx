@@ -27,6 +27,10 @@ export function CompanionLayer({
   const geo = useGeolocation();
   const voice = useVoice();
 
+  // The spot screen has its own microphone button in the same corner; two
+  // round buttons stacked on top of each other is unusable on a phone.
+  const micScreen = nav.screen === "spot";
+
   const near = useMemo(() => nearestSpot(geo.pos), [geo.pos]);
 
   // Three nearest spots as grounding context for the companion.
@@ -112,7 +116,7 @@ export function CompanionLayer({
       const text = await voice.stopRecording();
       if (text) await ask(text);
     } else {
-      await voice.startRecording();
+      await voice.startRecording((text) => { if (text) void ask(text); });
     }
   };
 
@@ -131,7 +135,7 @@ export function CompanionLayer({
   return (
     <>
       {/* Floating companion button */}
-      {!open && (
+      {!open && !micScreen && (
         <button
           type="button"
           onClick={openOverlay}
@@ -209,7 +213,7 @@ export function CompanionLayer({
                     >
                       <SparkIcon size={14} />
                     </span>
-                    <div className="max-w-[82%] rounded-2xl rounded-tl-md border border-[var(--color-border)] bg-[var(--color-panel-soft)] px-3.5 py-2.5 text-[14px] leading-relaxed">
+                    <div className="max-w-[82%] rounded-2xl rounded-tl-md border border-[var(--color-border)] bg-[var(--color-panel-soft)] px-3.5 py-2.5 text-[14px] leading-relaxed break-words [overflow-wrap:anywhere]">
                       {m.content || (
                         <span className="anim-spin inline-block h-3.5 w-3.5 rounded-full border-2 border-[var(--color-border)] border-t-[var(--color-green)] align-middle" />
                       )}
@@ -217,7 +221,7 @@ export function CompanionLayer({
                   </div>
                 ) : (
                   <div key={m.id} className="flex justify-end">
-                    <div className="max-w-[82%] rounded-2xl rounded-tr-md bg-[var(--color-green)] px-3.5 py-2.5 text-[14px] leading-relaxed text-white">
+                    <div className="max-w-[82%] rounded-2xl rounded-tr-md bg-[var(--color-green)] px-3.5 py-2.5 text-[14px] leading-relaxed break-words [overflow-wrap:anywhere] text-white">
                       {m.content}
                     </div>
                   </div>

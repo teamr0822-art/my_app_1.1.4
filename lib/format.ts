@@ -4,6 +4,17 @@
  * The app renders answers as plain text and reads them aloud, so "**ルート名:**"
  * showed literal asterisks on screen and was spoken as "アスタリスク".
  */
+/** Removes bare URLs; they are unreadable when spoken. */
+export function stripUrls(text: string): string {
+  return text
+    // Stop at Japanese punctuation: a full-width bracket right after the URL
+    // is part of the sentence, not part of the link.
+    .replace(/https?:\/\/[^\s、。，．）」』】〉》＞>]+/g, "")
+    .replace(/[ \t]{2,}/g, " ")
+    .replace(/（\s*）|\(\s*\)/g, "")
+    .trim();
+}
+
 export function stripMarkdown(text: string): string {
   return text
     // **bold** / __bold__ → bold

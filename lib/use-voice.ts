@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useRef, useState } from "react";
 import { useSettings } from "./settings-context";
-import { stripMarkdown } from "./format";
+import { stripMarkdown, stripUrls } from "./format";
 
 type SpeakOpts = { onEnd?: () => void };
 
@@ -69,7 +69,7 @@ export function useVoice() {
   const speak = useCallback(
     async (raw: string, opts?: SpeakOpts) => {
       // Markdown never reads well aloud ("アスタリスク アスタリスク").
-      const text = raw ? stripMarkdown(raw) : raw;
+      const text = raw ? stripUrls(stripMarkdown(raw)) : raw;
       // Mute mode: never play audio; UI still shows text.
       if (muted || !text?.trim()) {
         opts?.onEnd?.();
@@ -147,14 +147,24 @@ export function useVoice() {
     });
   }, []);
 
-  const startRecording = useCallback(async (): Promise<void> => {
+  const startRecording = useCallback(async (
+    /**
+     * Browser speech recognition stops on its own after a pause. When that
+     * happens there is no stopRecording() call waiting for the text, and the
+     * transcript used to be dropped on the floor — the mic looked broken.
+     */
+    onResult?: (text: string) => void,
+  ): Promise<void> => {
     if (recording) return;
     // Prefer live browser recognition whenever available: it is instant,
     // free, loses no audio, and works offline. Server upload is only used as
     // a fallback for browsers without the Web Speech recognition API.
     if (voiceEngine === "browser" || browserSRAvailable) {
       const t = await startBrowserRecognition();
-      resolveRef.current?.(t);
+      const waiting = resolveRef.current;
+      resolveRef.current = null;
+      if (waiting) waiting(t);
+      else if (t) onResult?.(t);
       return;
     }
     try {
@@ -170,7 +180,10 @@ export function useVoice() {
       setRecording(true);
     } catch {
       const t = await startBrowserRecognition();
-      resolveRef.current?.(t);
+      const waiting = resolveRef.current;
+      resolveRef.current = null;
+      if (waiting) waiting(t);
+      else if (t) onResult?.(t);
     }
   }, [voiceEngine, recording, startBrowserRecognition, browserSRAvailable]);
 
