@@ -23,10 +23,12 @@ export function HomeScreen({ nav }: { nav: Nav }) {
     <div className="flex flex-1 flex-col overflow-y-auto pb-28">
       {/* Header */}
       <header className="bg-[var(--color-terracotta)] px-5 pb-6 pt-[calc(20px+env(safe-area-inset-top))] text-white">
-        <p className="text-[12px] font-medium opacity-90">高知市 史跡AI音声ガイド</p>
-        <h1 className="mt-1 text-2xl font-extrabold tracking-tight">話して発見</h1>
-        <p className="mt-2 text-[13px] leading-relaxed opacity-95 text-pretty">
-          気になる史跡に話しかけると、AIガイドが出典にもとづいて答えてくれます。
+        <h1 className="text-[28px] font-extrabold tracking-tight">よりみっけ</h1>
+        <p className="mt-1.5 text-[13px] font-medium leading-relaxed opacity-95 text-pretty">
+          知らなかった街の魅力を、旅の途中で見つけよう。
+        </p>
+        <p className="mt-2 text-[12px] leading-relaxed opacity-85 text-pretty">
+          気になった場所に話しかけると、その土地の物語が返ってきます。
         </p>
 
         {/* Stat banner */}

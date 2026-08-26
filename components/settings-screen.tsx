@@ -199,7 +199,8 @@ export function SettingsScreen() {
               <InfoIcon size={18} />
             </span>
             <div className="text-[12px] leading-relaxed text-[var(--color-ink-soft)]">
-              <p className="font-bold text-[var(--color-ink)]">話して発見</p>
+              <p className="font-bold text-[var(--color-ink)]">よりみっけ</p>
+              <p className="mt-0.5">知らなかった街の魅力を、旅の途中で見つけよう。</p>
               <p className="mt-1">
                 高知市の指定文化財{STATS.kunishitei + STATS.kenshitei}件（国指定
                 {STATS.kunishitei}件・県指定{STATS.kenshitei}件）のうち、
