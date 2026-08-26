@@ -4,26 +4,34 @@
 @theme inline {
   --font-sans: var(--font-noto-sans-jp), system-ui, sans-serif;
 
-  /* Base palette (spec design tokens) */
-  --color-bg: #f4efe6;
-  --color-panel: #fbf8f2;
-  --color-panel-soft: #f2ece0;
-  --color-ink: #332a20;
-  --color-ink-soft: #7c7264;
-  --color-border: #e4dccc;
+  /*
+   * Palette: a walk through a wooded park. Sunlight-on-paper cream for the
+   * ground, canopy greens for structure, and a warm persimmon reserved for
+   * the few things that ask to be tapped.
+   */
+  --color-bg: #f3f1e3;
+  --color-panel: #fcfbf4;
+  --color-panel-soft: #eaeedd;
+  --color-ink: #2c3529;
+  --color-ink-soft: #616a5b;
+  --color-border: #dbe0ca;
 
-  /* Brand accents */
-  --color-terracotta: #c96f4a;
-  --color-terracotta-soft: #f6e3d9;
-  --color-green: #4f7a46;
-  --color-green-soft: #e5eede;
+  /* Brand accents: deep canopy, then sunlit moss */
+  --color-terracotta: #4a6f4d;
+  --color-terracotta-soft: #dde9d9;
+  --color-green: #5f7a3a;
+  --color-green-soft: #e6eed6;
+
+  /* Warm light filtering through the leaves; used sparingly for highlights */
+  --color-amber: #9c651c;
+  --color-amber-soft: #f6e7cd;
 
   /* Mute (restricted) palette */
-  --color-mute-bg: #fbe9e6;
-  --color-mute-panel: #fdf2f0;
-  --color-mute-border: #eec6bf;
-  --color-mute-ink: #b23b2c;
-  --color-mute-accent: #d9503c;
+  --color-mute-bg: #f7ece0;
+  --color-mute-panel: #fdf6ee;
+  --color-mute-border: #e6d2b6;
+  --color-mute-ink: #9a5a24;
+  --color-mute-accent: #c07434;
 
   --radius: 16px;
 }
@@ -33,7 +41,8 @@
 }
 
 html {
-  background: #cfc8ba;
+  /* The forest floor around the phone-width canvas */
+  background: #b6bfa8;
 }
 
 body {
@@ -59,8 +68,14 @@ body {
 
 /* Leaflet look */
 .leaflet-container {
-  background: #e8eadf;
+  background: #e3e9d8;
   font: inherit;
+}
+
+/* Take the glare off the raw OSM tiles so the map sits in the same world as
+   the rest of the app: a little softer, a little greener. */
+.leaflet-tile {
+  filter: saturate(0.86) contrast(0.96) brightness(1.03) hue-rotate(-6deg);
 }
 
 @keyframes breathe {
@@ -75,10 +90,10 @@ body {
 @keyframes micPulse {
   0%,
   100% {
-    box-shadow: 0 0 0 0 rgba(201, 111, 74, 0.35);
+    box-shadow: 0 0 0 0 rgba(74, 111, 77, 0.35);
   }
   50% {
-    box-shadow: 0 0 0 14px rgba(201, 111, 74, 0);
+    box-shadow: 0 0 0 14px rgba(74, 111, 77, 0);
   }
 }
 @keyframes spin {
