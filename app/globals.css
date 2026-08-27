@@ -58,12 +58,27 @@ body {
   width: 100%;
   max-width: 480px;
   margin: 0 auto;
+  /* Exactly one viewport tall: the screens inside scroll, the frame does not.
+     Without this the page itself grew and the nav sank to the bottom of the
+     document instead of staying on screen. */
+  height: 100dvh;
   min-height: 100dvh;
   background: var(--color-bg);
   display: flex;
   flex-direction: column;
   overflow: hidden;
   box-shadow: 0 0 40px rgba(0, 0, 0, 0.12);
+}
+
+/* The tab bar is pinned to the viewport, but kept inside the phone-width
+   canvas so it lines up with the app on a desktop screen. */
+.app-tabbar {
+  position: fixed;
+  bottom: 0;
+  left: 50%;
+  transform: translateX(-50%);
+  width: 100%;
+  max-width: 480px;
 }
 
 /* Leaflet look */

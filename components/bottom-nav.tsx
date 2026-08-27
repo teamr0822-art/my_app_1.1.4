@@ -12,7 +12,7 @@ export function BottomNav({ nav }: { nav: Nav }) {
   return (
     <nav
       aria-label="メインナビゲーション"
-      className="absolute inset-x-0 bottom-0 z-[600] flex items-end justify-around border-t border-[var(--color-border)] bg-[var(--color-panel)]/95 px-6 pb-[calc(8px+env(safe-area-inset-bottom))] pt-2 backdrop-blur"
+      className="app-tabbar z-[600] flex items-end justify-around border-t border-[var(--color-border)] bg-[var(--color-panel)]/95 px-6 pb-[calc(8px+env(safe-area-inset-bottom))] pt-2 backdrop-blur"
     >
       <NavButton
         active={isHome}

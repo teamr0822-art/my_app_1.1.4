@@ -101,7 +101,7 @@ export function RouteScreen({ nav }: { nav: Nav }) {
   };
 
   return (
-    <section className="flex min-h-0 flex-1 flex-col overflow-y-auto pb-24">
+    <section className="flex min-h-0 flex-1 flex-col overflow-y-auto pb-[calc(96px+env(safe-area-inset-bottom))]">
       <header className="border-b border-[var(--color-border)] px-5 pb-5 pt-8">
         <p className="font-mono text-xs tracking-[0.22em] text-[var(--color-terracotta)]">AI ROUTE GUIDE</p>
         <h1 className="mt-2 text-2xl font-bold text-balance">あなたに合う、今日の歩き方</h1>

@@ -20,7 +20,7 @@ export function HomeScreen({ nav }: { nav: Nav }) {
     .slice(0, 5);
 
   return (
-    <div className="flex flex-1 flex-col overflow-y-auto pb-28">
+    <div className="flex flex-1 flex-col overflow-y-auto pb-[calc(96px+env(safe-area-inset-bottom))]">
       {/* Header */}
       <header className="bg-[var(--color-terracotta)] px-5 pb-6 pt-[calc(20px+env(safe-area-inset-top))] text-white">
         <h1 className="text-[28px] font-extrabold tracking-tight">よりみっけ</h1>
