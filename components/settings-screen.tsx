@@ -2,6 +2,7 @@
 
 import { useSettings } from "@/lib/settings-context";
 import { STATS, DATA_SOURCE, SPOTS } from "@/lib/spots";
+import { replayOnboarding } from "@/components/onboarding";
 import { MicOffIcon, VolumeIcon, SparkIcon, InfoIcon } from "@/components/icons";
 
 const TTS_VOICES = [
@@ -193,6 +194,17 @@ export function SettingsScreen() {
       {/* About / data source */}
       <SectionTitle>このアプリについて</SectionTitle>
       <section className="px-4">
+        <button
+          type="button"
+          onClick={replayOnboarding}
+          className="mb-3 w-full rounded-2xl border border-[var(--color-border)] bg-[var(--color-panel)] px-4 py-3 text-left text-[13px] font-bold active:scale-[0.99]"
+        >
+          使い方をもう一度見る
+          <span className="mt-0.5 block text-[11px] font-normal text-[var(--color-ink-soft)]">
+            はじめての3ステップを表示します
+          </span>
+        </button>
+
         <div className="rounded-2xl border border-[var(--color-border)] bg-[var(--color-panel)] p-4">
           <div className="flex items-start gap-2.5">
             <span aria-hidden="true" className="mt-0.5 text-[var(--color-ink-soft)]">

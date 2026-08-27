@@ -164,7 +164,7 @@ export function SpotScreen({ spotId, nav }: { spotId: string; nav: Nav }) {
             <p className="mt-1.5 text-[12px] leading-relaxed text-[var(--color-ink-soft)]">
               {muted
                 ? "ミュートモード中：音声は流れず、文字でご案内します"
-                : "AIガイドが出典にもとづいて音声でご案内します"}
+                : "タップすると、この場所の話をはじめます"}
             </p>
           </div>
         </div>

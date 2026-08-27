@@ -10,6 +10,7 @@ import { SpotScreen } from "@/components/spot-screen";
 import { BottomNav } from "@/components/bottom-nav";
 import { RouteScreen } from "@/components/route-screen";
 import { CompanionLayer } from "@/components/companion-layer";
+import { Onboarding } from "@/components/onboarding";
 
 export type Screen = "home" | "map" | "route" | "settings" | "spot";
 
@@ -61,6 +62,7 @@ export default function Page() {
           {screen === "spot" && spotId && <SpotScreen spotId={spotId} nav={nav} />}
 
           {showBottomNav && <BottomNav nav={nav} />}
+          <Onboarding />
 
           <CompanionLayer nav={nav} bottomNavVisible={showBottomNav} />
         </main>
