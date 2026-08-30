@@ -1,7 +1,7 @@
 "use client";
 
 import { useSettings } from "@/lib/settings-context";
-import { STATS, DATA_SOURCE, SPOTS } from "@/lib/spots";
+import { AREAS, STATS, DATA_SOURCE, SPOTS } from "@/lib/spots";
 import { replayOnboarding } from "@/components/onboarding";
 import { MicOffIcon, VolumeIcon, SparkIcon, InfoIcon } from "@/components/icons";
 
@@ -30,16 +30,23 @@ function Toggle({
       aria-checked={on}
       aria-label={label}
       onClick={onClick}
-      className={`relative h-7 w-12 shrink-0 rounded-full transition-colors ${
-        on
-          ? danger
-            ? "bg-[var(--color-mute-accent)]"
-            : "bg-[var(--color-green)]"
-          : "bg-[var(--color-border)]"
-      }`}
+      /* The pill itself stays 28px tall — the button around it is padded to the
+         44px minimum so it can be hit reliably with a thumb. */
+      className="relative flex h-11 w-12 shrink-0 items-center"
     >
       <span
-        className={`absolute top-1 h-5 w-5 rounded-full bg-white shadow transition-all ${
+        aria-hidden="true"
+        className={`block h-7 w-12 rounded-full transition-colors ${
+          on
+            ? danger
+              ? "bg-[var(--color-mute-accent)]"
+              : "bg-[var(--color-green)]"
+            : "bg-[var(--color-border)]"
+        }`}
+      />
+      <span
+        aria-hidden="true"
+        className={`absolute top-1/2 h-5 w-5 -translate-y-1/2 rounded-full bg-white shadow transition-all ${
           on ? "left-6" : "left-1"
         }`}
       />
@@ -52,7 +59,7 @@ export function SettingsScreen() {
 
   return (
     <div
-      className={`flex flex-1 flex-col overflow-y-auto pb-[calc(96px+env(safe-area-inset-bottom))] ${
+      className={`flex flex-1 flex-col overflow-y-auto pb-[var(--tabbar-clearance)] ${
         s.muted ? "bg-[var(--color-mute-bg)]" : "bg-[var(--color-bg)]"
       }`}
     >
@@ -120,7 +127,7 @@ export function SettingsScreen() {
                   key={e}
                   type="button"
                   onClick={() => s.set("voiceEngine", e)}
-                  className={`rounded-full px-3 py-1.5 text-[12px] font-bold transition-colors ${
+                  className={`min-h-11 rounded-full px-4 text-[12px] font-bold transition-colors ${
                     s.voiceEngine === e
                       ? "bg-[var(--color-terracotta)] text-white"
                       : "text-[var(--color-ink-soft)]"
@@ -139,7 +146,7 @@ export function SettingsScreen() {
               onChange={(e) => s.set("ttsVoice", e.target.value)}
               disabled={s.voiceEngine !== "server"}
               aria-label="読み上げの声"
-              className="rounded-lg border border-[var(--color-border)] bg-[var(--color-bg)] px-2.5 py-1.5 text-[13px] outline-none disabled:opacity-50"
+              className="min-h-11 rounded-lg border border-[var(--color-border)] bg-[var(--color-bg)] px-2.5 text-[13px] outline-none disabled:opacity-50"
             >
               {TTS_VOICES.map((v) => (
                 <option key={v.id} value={v.id}>
@@ -159,7 +166,7 @@ export function SettingsScreen() {
               value={s.rate}
               onChange={(e) => s.set("rate", Number(e.target.value))}
               aria-label="読み上げ速度"
-              className="w-32 accent-[var(--color-terracotta)]"
+              className="h-11 w-32 accent-[var(--color-terracotta)]"
             />
           </Row>
         </div>
@@ -200,7 +207,7 @@ export function SettingsScreen() {
           className="mb-3 w-full rounded-2xl border border-[var(--color-border)] bg-[var(--color-panel)] px-4 py-3 text-left text-[13px] font-bold active:scale-[0.99]"
         >
           使い方をもう一度見る
-          <span className="mt-0.5 block text-[11px] font-normal text-[var(--color-ink-soft)]">
+          <span className="mt-0.5 block text-[12px] font-normal text-[var(--color-ink-soft)]">
             はじめての3ステップを表示します
           </span>
         </button>
@@ -214,15 +221,15 @@ export function SettingsScreen() {
               <p className="font-bold text-[var(--color-ink)]">よりみっけ</p>
               <p className="mt-0.5">知らなかった街の魅力を、旅の途中で見つけよう。</p>
               <p className="mt-1">
-                高知市の指定文化財{STATS.kunishitei + STATS.kenshitei}件（国指定
-                {STATS.kunishitei}件・県指定{STATS.kenshitei}件）のうち、
+                {AREAS.join("・")}の指定文化財{STATS.kunishitei + STATS.kenshitei}件
+                （国指定{STATS.kunishitei}件・県指定{STATS.kenshitei}件）のうち、
                 音声ガイド対応の{SPOTS.length}スポットを収録しています。
               </p>
               <p className="mt-2">
                 位置情報は住所をもとに国土地理院ジオコーディングで取得。AIガイドの
                 回答は各スポットの資料にもとづいて生成され、出典を明記します。
               </p>
-              <p className="mt-2 text-[11px]">出典: {DATA_SOURCE}</p>
+              <p className="mt-2 text-[12px]">出典: {DATA_SOURCE}</p>
             </div>
           </div>
         </div>
@@ -256,7 +263,7 @@ function Row({
       <div className="min-w-0 flex-1">
         <p className="text-[14px] font-semibold">{label}</p>
         {sub && (
-          <p className="mt-0.5 text-[11px] leading-relaxed text-[var(--color-ink-soft)]">
+          <p className="mt-0.5 text-[12px] leading-relaxed text-[var(--color-ink-soft)]">
             {sub}
           </p>
         )}

@@ -57,7 +57,12 @@ export function Onboarding() {
   const last = step === STEPS.length - 1;
 
   return (
-    <div className="fixed inset-0 z-[900] flex items-end justify-center bg-black/45 px-4 pb-[calc(24px+env(safe-area-inset-bottom))] backdrop-blur-[2px]">
+    <div
+      role="dialog"
+      aria-modal="true"
+      aria-labelledby="onboarding-title"
+      className="fixed inset-0 z-[900] flex items-end justify-center bg-black/45 px-4 pb-[calc(24px+env(safe-area-inset-bottom))] backdrop-blur-[2px]"
+    >
       <div className="anim-sheet w-full max-w-[432px] rounded-3xl border border-[var(--color-border)] bg-[var(--color-panel)] p-5 shadow-2xl">
         <div className="flex items-start gap-3">
           <span
@@ -67,10 +72,10 @@ export function Onboarding() {
             {current.icon}
           </span>
           <div className="min-w-0 flex-1">
-            <p className="text-[11px] font-bold tracking-wide text-[var(--color-terracotta)]">
+            <p className="text-[12px] font-bold tracking-wide text-[var(--color-terracotta)]">
               はじめかた {step + 1}／{STEPS.length}
             </p>
-            <h2 className="mt-0.5 text-[17px] font-extrabold">{current.title}</h2>
+            <h2 id="onboarding-title" className="mt-0.5 text-[17px] font-extrabold">{current.title}</h2>
           </div>
         </div>
 
@@ -95,14 +100,14 @@ export function Onboarding() {
           <button
             type="button"
             onClick={close}
-            className="px-2 py-2 text-[12px] font-bold text-[var(--color-ink-soft)]"
+            className="flex min-h-11 items-center px-3 text-[12px] font-bold text-[var(--color-ink-soft)]"
           >
             スキップ
           </button>
           <button
             type="button"
             onClick={() => (last ? close() : setStep(step + 1))}
-            className="rounded-xl bg-[var(--color-terracotta)] px-5 py-2.5 text-[13px] font-bold text-white"
+            className="flex min-h-11 items-center rounded-xl bg-[var(--color-terracotta)] px-5 text-[13px] font-bold text-white"
           >
             {last ? "はじめる" : "次へ"}
           </button>

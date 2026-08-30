@@ -2,7 +2,7 @@
 
 import { useEffect, useMemo, useRef, useState } from "react";
 import type { Nav } from "@/app/page";
-import { SPOTS, distanceMeters, formatDistance } from "@/lib/spots";
+import { SPOTS, areaOf, distanceMeters, formatDistance } from "@/lib/spots";
 import { useGeolocation } from "@/lib/use-geolocation";
 import { useGuideChat } from "@/lib/use-guide-chat";
 import { stripMarkdown } from "@/lib/format";
@@ -29,7 +29,7 @@ const MAX_CANDIDATES = 25;
 /** Never send fewer than this, even if nothing falls inside the radius. */
 const MIN_CANDIDATES = 8;
 
-const chip = "rounded-full border border-[var(--color-border)] px-3 py-2 text-sm transition hover:border-[var(--color-terracotta)]";
+const chip = "flex min-h-11 items-center rounded-full border border-[var(--color-border)] px-4 text-sm transition hover:border-[var(--color-terracotta)]";
 
 export function RouteScreen({ nav }: { nav: Nav }) {
   const [distance, setDistance] = useState("半日");
@@ -66,6 +66,7 @@ export function RouteScreen({ nav }: { nav: Nav }) {
       candidates.map(({ spot, d }) => ({
         name: spot.name,
         grounding: `${spot.address}（現在地から約${formatDistance(d)}）`,
+        city: areaOf(spot),
       })),
     [candidates],
   );
@@ -118,7 +119,7 @@ export function RouteScreen({ nav }: { nav: Nav }) {
   };
 
   return (
-    <section className="flex min-h-0 flex-1 flex-col overflow-y-auto pb-[calc(96px+env(safe-area-inset-bottom))]">
+    <section className="flex min-h-0 flex-1 flex-col overflow-y-auto pb-[var(--tabbar-clearance)]">
       <header className="border-b border-[var(--color-border)] px-5 pb-5 pt-8">
         <p className="font-mono text-xs tracking-[0.22em] text-[var(--color-terracotta)]">よりみっけルート</p>
         <h1 className="mt-2 text-2xl font-bold text-balance">あなたに合う、今日の歩き方</h1>
@@ -126,8 +127,8 @@ export function RouteScreen({ nav }: { nav: Nav }) {
       </header>
 
       <div className="flex flex-col gap-5 p-5">
-        <Option label="歩く時間・距離" values={["1時間", "半日", "1日"]} value={distance} onChange={setDistance} />
-        <Option label="移動手段" values={["徒歩", "自転車", "公共交通"]} value={transport} onChange={setTransport} />
+        <Option label="歩く時間・距離" values={Object.keys(RADIUS_BY_DISTANCE)} value={distance} onChange={setDistance} />
+        <Option label="移動手段" values={Object.keys(RADIUS_BY_TRANSPORT)} value={transport} onChange={setTransport} />
         <Option label="天気" values={["晴れ", "くもり", "雨"]} value={weather} onChange={setWeather} />
         <Option label="いまの気分" values={["ゆったり", "たくさん歩きたい", "歴史を深掘り", "食べ歩き"]} value={mood} onChange={setMood} />
 
@@ -136,7 +137,7 @@ export function RouteScreen({ nav }: { nav: Nav }) {
           <textarea value={request} onChange={(e) => setRequest(e.target.value)} placeholder="例：混雑を避けたい、眺めの良い場所に行きたい" className="min-h-24 resize-none rounded-2xl border border-[var(--color-border)] bg-[var(--color-panel)] p-3 font-normal outline-none placeholder:text-[var(--color-ink-soft)] focus:border-[var(--color-terracotta)]" />
         </label>
 
-        <button type="button" onClick={generate} disabled={streaming} className="flex items-center justify-center gap-2 rounded-2xl bg-[var(--color-terracotta)] px-4 py-3 font-bold text-white disabled:opacity-50">
+        <button type="button" onClick={() => { if (!streaming) generate(); }} aria-disabled={streaming} className="flex items-center justify-center gap-2 rounded-2xl bg-[var(--color-terracotta)] px-4 py-3 font-bold text-white aria-disabled:opacity-50">
           <SparkIcon size={18} /> {streaming ? "ルートを考えています…" : "ルートを作成する"}
         </button>
 
@@ -144,12 +145,36 @@ export function RouteScreen({ nav }: { nav: Nav }) {
 
         {answer && <div ref={resultRef} className="scroll-mt-4 rounded-2xl border border-[var(--color-border)] bg-[var(--color-panel)] p-4"><p className="mb-2 text-xs font-bold tracking-wider text-[var(--color-terracotta)]">今日の寄り道プラン</p><p className="whitespace-pre-wrap break-words [overflow-wrap:anywhere] text-sm leading-7">{answer}</p><button type="button" onClick={() => nav.startRoute(routeSpotIds, transport)} className="mt-4 w-full rounded-xl bg-[var(--color-green)] px-4 py-3 text-sm font-bold text-white">このルートで案内をはじめる</button></div>}
 
-        {messages.length > 0 && <div className="rounded-2xl border border-[var(--color-border)] p-4"><p className="mb-2 text-sm font-bold">途中で変更する</p><div className="flex gap-2"><input value={draft} onChange={(e) => setDraft(e.target.value)} onKeyDown={(e) => { if (e.key === "Enter" && !e.nativeEvent.isComposing && e.keyCode !== 229) { e.preventDefault(); if (draft.trim()) { send(draft); setDraft(""); } } }} placeholder="例：短くして、別の場所に変えて" className="min-w-0 flex-1 rounded-xl border border-[var(--color-border)] bg-transparent px-3 py-2 text-sm outline-none" /><button type="button" aria-label="変更を送信" onClick={() => { if (draft.trim()) { send(draft); setDraft(""); } }} className="rounded-xl bg-[var(--color-green)] px-3 text-white"><SendIcon size={17} /></button></div></div>}
+        {messages.length > 0 && <div className="rounded-2xl border border-[var(--color-border)] p-4"><p className="mb-2 text-sm font-bold">途中で変更する</p><div className="flex gap-2"><input value={draft} onChange={(e) => setDraft(e.target.value)} onKeyDown={(e) => { if (e.key === "Enter" && !e.nativeEvent.isComposing && e.keyCode !== 229) { e.preventDefault(); if (draft.trim()) { send(draft); setDraft(""); } } }} aria-label="ルートの変更内容" placeholder="例：短くして、別の場所に変えて" className="min-w-0 flex-1 rounded-xl border border-[var(--color-border)] bg-transparent px-3 py-2 text-sm outline-none" /><button type="button" aria-label="変更を送信" onClick={() => { if (draft.trim()) { send(draft); setDraft(""); } }} className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-[var(--color-green)] text-white"><SendIcon size={17} /></button></div></div>}
       </div>
     </section>
   );
 }
 
+/**
+ * One row of choices. The selected chip was previously distinguished by colour
+ * alone, which told a screen-reader user nothing; the group is now a real radio
+ * group, so the current value is announced and the arrow keys move through it.
+ */
 function Option({ label, values, value, onChange }: { label: string; values: string[]; value: string; onChange: (value: string) => void }) {
-  return <fieldset className="flex flex-col gap-2"><legend className="text-sm font-bold">{label}</legend><div className="flex flex-wrap gap-2">{values.map((item) => <button key={item} type="button" onClick={() => onChange(item)} className={`${chip} ${value === item ? "border-[var(--color-terracotta)] bg-[var(--color-terracotta)] text-white" : "text-[var(--color-ink-soft)]"}`}>{item}</button>)}</div></fieldset>;
+  return (
+    <fieldset className="flex flex-col gap-2">
+      <legend className="text-sm font-bold">{label}</legend>
+      <div role="radiogroup" aria-label={label} className="flex flex-wrap gap-2">
+        {values.map((item) => (
+          <button
+            key={item}
+            type="button"
+            role="radio"
+            aria-checked={value === item}
+            tabIndex={value === item ? 0 : -1}
+            onClick={() => onChange(item)}
+            className={`${chip} ${value === item ? "border-[var(--color-terracotta)] bg-[var(--color-terracotta)] text-white" : "text-[var(--color-ink-soft)]"}`}
+          >
+            {item}
+          </button>
+        ))}
+      </div>
+    </fieldset>
+  );
 }

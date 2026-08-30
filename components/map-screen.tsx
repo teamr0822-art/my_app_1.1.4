@@ -3,7 +3,7 @@
 import dynamic from "next/dynamic";
 import { useEffect, useMemo, useRef, useState } from "react";
 import type { Nav } from "@/app/page";
-import { SPOTS, STATS, KOCHI_CENTER, distanceMeters, formatDistance } from "@/lib/spots";
+import { SPOTS, STATS, KOCHI_CENTER, distanceMeters, fallbackAreaLabel, formatDistance } from "@/lib/spots";
 import { useGeolocation } from "@/lib/use-geolocation";
 import {
   useRouteDirections,
@@ -20,7 +20,7 @@ const LeafletMap = dynamic(
   {
     ssr: false,
     loading: () => (
-      <div className="flex h-full items-center justify-center bg-[#e8eadf] text-[13px] text-[var(--color-ink-soft)]">
+      <div className="flex h-full items-center justify-center bg-[var(--color-map-skeleton)] text-[13px] text-[var(--color-ink-soft)]">
         地図を読み込んでいます…
       </div>
     ),
@@ -134,7 +134,7 @@ export function MapScreen({
           <h1 className="text-[16px] font-extrabold">
             {hasRoute ? "ルート案内" : "史跡マップ"}
           </h1>
-          <p className="text-[11px] text-[var(--color-ink-soft)]">
+          <p className="text-[12px] text-[var(--color-ink-soft)]">
             {hasRoute && directions
               ? `全${routeSpots.length}スポット・${formatDistance(directions.distance)}・${formatDuration(directions.duration)}（${routeTransport}）`
               : `${STATS.kunishitei + STATS.kenshitei}件の指定文化財のうち、音声ガイド対応${SPOTS.length}件`}
@@ -182,7 +182,7 @@ export function MapScreen({
               <li>青い点が現在地、緑の丸がいま向かっているスポットです。</li>
               <li>白い矢印が進む向きを示しています。</li>
               <li>薄い線は通過済み、濃い線がこれから歩く道です。</li>
-              {!located && <li>現在地が取得できないため高知城周辺を表示しています。</li>}
+              {!located && <li>現在地が取得できないため{fallbackAreaLabel()}を表示しています。</li>}
             </ul>
           </div>
         )}
@@ -192,7 +192,7 @@ export function MapScreen({
           <div
             /* Clears the tab bar AND the scale bar / OpenStreetMap credit that
                sit just above it, so the sheet never covers the licence text. */
-            className="absolute inset-x-2 bottom-[104px] z-[500]"
+            className="absolute inset-x-2 bottom-[calc(var(--tabbar-clearance)+8px)] z-[500]"
           >
             <div className="overflow-hidden rounded-3xl border border-[var(--color-border)] bg-[var(--color-panel)] shadow-2xl">
               <NextUp
@@ -228,11 +228,11 @@ export function MapScreen({
                           />
                           <span
                             aria-hidden="true"
-                            className={`absolute left-0 top-3 flex h-6 w-6 items-center justify-center rounded-full text-[11px] font-bold text-white ${
+                            className={`absolute left-0 top-3 flex h-6 w-6 items-center justify-center rounded-full text-[12px] font-bold text-white ${
                               state === "current"
                                 ? "bg-[var(--color-green)] ring-4 ring-[var(--color-green)]/25"
                                 : state === "done"
-                                  ? "bg-[#b9ada0]"
+                                  ? "bg-[var(--color-neutral-soft)]"
                                   : "bg-[var(--color-terracotta)]"
                             }`}
                           >
@@ -249,7 +249,7 @@ export function MapScreen({
                                 <span className="block truncate text-[14px] font-bold">
                                   {spot.name}
                                 </span>
-                                <span className="block truncate text-[11px] text-[var(--color-ink-soft)]">
+                                <span className="block truncate text-[12px] text-[var(--color-ink-soft)]">
                                   {leg
                                     ? `${i === 0 && start ? "現在地" : "前の地点"}から ${formatDistance(leg.distance)}・${formatDuration(leg.duration)}`
                                     : spot.designation}
@@ -267,7 +267,7 @@ export function MapScreen({
                                   onClick={() =>
                                     setOpenSteps(openSteps === legIndex ? null : legIndex)
                                   }
-                                  className="mt-1 text-[11px] font-bold text-[var(--color-terracotta)]"
+                                  className="mt-1 text-[12px] font-bold text-[var(--color-terracotta)]"
                                 >
                                   {openSteps === legIndex
                                     ? "道順を閉じる"
@@ -333,7 +333,7 @@ export function MapScreen({
         )}
 
         {selected && (
-          <div className="anim-sheet absolute inset-x-3 bottom-24 z-[500]">
+          <div className="anim-sheet absolute inset-x-3 bottom-[calc(var(--tabbar-clearance)+8px)] z-[500]">
             <div className="rounded-2xl border border-[var(--color-border)] bg-[var(--color-panel)] p-3 shadow-xl">
               <div className="flex items-center gap-3">
                 <span
@@ -344,7 +344,7 @@ export function MapScreen({
                 </span>
                 <div className="min-w-0 flex-1">
                   <p className="truncate text-[14px] font-bold">{selected.name}</p>
-                  <p className="text-[11px] text-[var(--color-ink-soft)]">
+                  <p className="text-[12px] text-[var(--color-ink-soft)]">
                     {selected.designation}
                   </p>
                 </div>

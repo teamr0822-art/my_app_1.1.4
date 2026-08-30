@@ -22,7 +22,7 @@ const LeafletMap = dynamic(
   {
     ssr: false,
     loading: () => (
-      <div className="flex h-full items-center justify-center bg-[#e8eadf] text-[12px] text-[var(--color-ink-soft)]">
+      <div className="flex h-full items-center justify-center bg-[var(--color-map-skeleton)] text-[12px] text-[var(--color-ink-soft)]">
         地図を読み込んでいます…
       </div>
     ),
@@ -135,7 +135,7 @@ export function SpotScreen({ spotId, nav }: { spotId: string; nav: Nav }) {
           <p className="truncate text-[15px] font-extrabold leading-tight">
             {spot.name}
           </p>
-          <p className="truncate text-[11px] text-[var(--color-ink-soft)]">
+          <p className="truncate text-[12px] text-[var(--color-ink-soft)]">
             {spot.designation}・{spot.category}
           </p>
         </div>
@@ -144,14 +144,18 @@ export function SpotScreen({ spotId, nav }: { spotId: string; nav: Nav }) {
           onClick={() => toggle("muted")}
           aria-label={muted ? "ミュートを解除" : "ミュートにする"}
           aria-pressed={muted}
-          className={`flex h-9 items-center gap-1 rounded-full border px-2.5 text-[11px] font-bold ${
+          className={`flex h-11 shrink-0 items-center gap-1 rounded-full border px-3 text-[12px] font-bold ${
             muted
               ? "border-[var(--color-mute-border)] bg-[var(--color-mute-bg)] text-[var(--color-mute-ink)]"
-              : "border-[var(--color-border)] bg-[var(--color-panel-soft)] text-[var(--color-ink-soft)]"
+              : voice.speaking
+                ? "border-[var(--color-green)] bg-[var(--color-green-soft)] text-[var(--color-green)]"
+                : "border-[var(--color-border)] bg-[var(--color-panel-soft)] text-[var(--color-ink-soft)]"
           }`}
         >
           {muted ? <MicOffIcon size={16} /> : <VolumeIcon size={16} />}
-          {muted ? "ミュート中" : "音声ON"}
+          {/* Whether the guide is talking right now was audible only. Someone
+              who cannot hear it had no way to tell speaking from broken. */}
+          {muted ? "ミュート中" : voice.speaking ? "再生中" : "音声ON"}
         </button>
       </header>
 
@@ -171,7 +175,7 @@ export function SpotScreen({ spotId, nav }: { spotId: string; nav: Nav }) {
         <div className="flex shrink-0 items-start gap-2 border-b border-[var(--color-border)] bg-[var(--color-green-soft)] px-4 py-2.5">
           <MapIcon size={15} className="mt-0.5 shrink-0 text-[var(--color-green)]" />
           <div className="min-w-0">
-            <p className="text-[11px] font-bold text-[var(--color-green)]">
+            <p className="text-[12px] font-bold text-[var(--color-green)]">
               一般見学について
             </p>
             <p className="text-[12px] leading-relaxed text-[var(--color-ink)]">
@@ -209,7 +213,7 @@ export function SpotScreen({ spotId, nav }: { spotId: string; nav: Nav }) {
           </div>
 
           <div className="w-full">
-            <p className="mb-2 text-[11px] font-bold text-[var(--color-ink-soft)]">
+            <p className="mb-2 text-[12px] font-bold text-[var(--color-ink-soft)]">
               こんなことが聞けます
             </p>
             <div className="flex flex-wrap justify-center gap-2">
@@ -218,7 +222,7 @@ export function SpotScreen({ spotId, nav }: { spotId: string; nav: Nav }) {
                   key={q}
                   type="button"
                   onClick={() => beginWith(q)}
-                  className="flex items-center gap-1 rounded-full border border-[var(--color-border)] bg-[var(--color-panel-soft)] px-3 py-2 text-[12px] font-medium text-[var(--color-ink)]"
+                  className="flex min-h-11 items-center gap-1 rounded-full border border-[var(--color-border)] bg-[var(--color-panel-soft)] px-4 text-[12px] font-medium text-[var(--color-ink)]"
                 >
                   <SparkIcon size={13} className="text-[var(--color-terracotta)]" />
                   {q}
@@ -232,6 +236,8 @@ export function SpotScreen({ spotId, nav }: { spotId: string; nav: Nav }) {
           {/* Chat log */}
           <div
             ref={logRef}
+            aria-live="polite"
+            aria-relevant="additions text"
             className="flex flex-1 flex-col gap-3 overflow-y-auto px-4 py-4"
           >
             {chat.messages.map((m) =>
@@ -245,7 +251,7 @@ export function SpotScreen({ spotId, nav }: { spotId: string; nav: Nav }) {
                   </span>
                   <div className="max-w-[80%] rounded-2xl rounded-tl-md border border-[var(--color-border)] bg-[var(--color-panel)] px-3.5 py-2.5 text-[14px] leading-relaxed break-words [overflow-wrap:anywhere]">
                     {m.content || (
-                      <span className="anim-spin inline-block h-3.5 w-3.5 rounded-full border-2 border-[var(--color-border)] border-t-[var(--color-terracotta)] align-middle" />
+                      <span role="status" aria-label="考えています" className="anim-spin inline-block h-3.5 w-3.5 rounded-full border-2 border-[var(--color-border)] border-t-[var(--color-terracotta)] align-middle" />
                     )}
                   </div>
                 </div>
@@ -275,7 +281,7 @@ export function SpotScreen({ spotId, nav }: { spotId: string; nav: Nav }) {
                   type="button"
                   onClick={() => ask(q)}
                   disabled={busy || voice.recording}
-                  className="flex shrink-0 items-center gap-1 rounded-full border border-[var(--color-border)] bg-[var(--color-panel-soft)] px-3 py-1.5 text-[12px] font-medium text-[var(--color-ink)] disabled:opacity-50"
+                  className="flex min-h-11 shrink-0 items-center gap-1 rounded-full border border-[var(--color-border)] bg-[var(--color-panel-soft)] px-4 text-[12px] font-medium text-[var(--color-ink)] disabled:opacity-50"
                 >
                   <SparkIcon size={13} className="text-[var(--color-terracotta)]" />
                   {q}
@@ -300,7 +306,7 @@ export function SpotScreen({ spotId, nav }: { spotId: string; nav: Nav }) {
                 placeholder="質問を入力…"
                 aria-label="質問を入力"
                 disabled={busy}
-                className="min-w-0 flex-1 rounded-full border border-[var(--color-border)] bg-[var(--color-bg)] px-4 py-2.5 text-[14px] outline-none focus:border-[var(--color-terracotta)] disabled:opacity-60"
+                className="min-w-0 flex-1 rounded-full border border-[var(--color-border)] bg-[var(--color-bg)] px-4 py-2.5 text-[14px] outline-none focus:border-[var(--color-terracotta)] focus:ring-2 focus:ring-[var(--color-terracotta)]/40 disabled:opacity-60"
               />
               {input.trim() ? (
                 <button
@@ -316,7 +322,7 @@ export function SpotScreen({ spotId, nav }: { spotId: string; nav: Nav }) {
                   type="button"
                   onClick={onMic}
                   disabled={busy && !voice.recording}
-                  aria-label={voice.recording ? "録音を停止" : "マイクで話す"}
+                  aria-label={voice.recording ? "録音を停止" : voice.transcribing ? "音声を文字にしています" : "マイクで話す"}
                   className={`flex h-11 w-11 shrink-0 items-center justify-center rounded-full text-white disabled:opacity-50 ${
                     voice.recording
                       ? "anim-mic bg-[var(--color-mute-accent)]"

@@ -28,7 +28,7 @@ export function ToastProvider({ children }: { children: React.ReactNode }) {
         {toasts.map((t) => (
           <div
             key={t.id}
-            className="anim-toast max-w-full rounded-xl bg-[#332a20]/95 px-4 py-2.5 text-[12.5px] leading-relaxed text-white shadow-lg"
+            className="anim-toast max-w-full rounded-xl bg-[var(--color-scrim)]/95 px-4 py-2.5 text-[12.5px] leading-relaxed text-white shadow-lg"
           >
             {t.msg}
           </div>

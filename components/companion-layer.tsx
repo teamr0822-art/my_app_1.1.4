@@ -2,7 +2,7 @@
 
 import { useEffect, useMemo, useRef, useState } from "react";
 import type { Nav } from "@/app/page";
-import { SPOTS, nearestSpot, distanceMeters, formatDistance } from "@/lib/spots";
+import { SPOTS, areaOf, nearestSpot, distanceMeters, formatDistance } from "@/lib/spots";
 import { useGeolocation } from "@/lib/use-geolocation";
 import { useVoice } from "@/lib/use-voice";
 import { useGuideChat } from "@/lib/use-guide-chat";
@@ -39,7 +39,7 @@ export function CompanionLayer({
       .map((s) => ({ s, d: distanceMeters(geo.pos, [s.lat, s.lng]) }))
       .sort((a, b) => a.d - b.d)
       .slice(0, 3)
-      .map(({ s }) => ({ name: s.name, grounding: s.grounding }));
+      .map(({ s }) => ({ name: s.name, grounding: s.grounding, city: areaOf(s) }));
   }, [geo.pos]);
 
   const chat = useGuideChat({
@@ -157,7 +157,14 @@ export function CompanionLayer({
 
       {/* Overlay */}
       {open && (
-        <div className="fixed inset-0 z-50 flex flex-col bg-black/40">
+        <div
+          /* Above the fixed tab bar (z-600): at z-50 the tab bar rendered on
+             top of this full-screen sheet on the home, route and map screens. */
+          role="dialog"
+          aria-modal="true"
+          aria-label="おさんぽコンパニオン"
+          className="fixed inset-0 z-[700] flex flex-col bg-black/40"
+        >
           <button
             type="button"
             aria-label="閉じる"
@@ -177,7 +184,7 @@ export function CompanionLayer({
                 <p className="text-[14px] font-extrabold leading-tight">
                   歩きながら雑談
                 </p>
-                <p className="truncate text-[11px] text-[var(--color-ink-soft)]">
+                <p className="truncate text-[12px] text-[var(--color-ink-soft)]">
                   近くの{near.spot.name}・{formatDistance(near.meters)}
                 </p>
               </div>
@@ -186,7 +193,7 @@ export function CompanionLayer({
                 onClick={() => toggle("muted")}
                 aria-label={muted ? "ミュートを解除" : "ミュートにする"}
                 aria-pressed={muted}
-                className={`flex h-8 items-center gap-1 rounded-full border px-2 text-[11px] font-bold ${
+                className={`flex h-11 items-center gap-1 rounded-full border px-3 text-[12px] font-bold ${
                   muted
                     ? "border-[var(--color-mute-border)] bg-[var(--color-mute-bg)] text-[var(--color-mute-ink)]"
                     : "border-[var(--color-border)] bg-[var(--color-panel-soft)] text-[var(--color-ink-soft)]"
@@ -199,7 +206,7 @@ export function CompanionLayer({
                 type="button"
                 onClick={closeOverlay}
                 aria-label="閉じる"
-                className="flex h-8 w-8 items-center justify-center rounded-full text-[var(--color-ink-soft)] active:bg-[var(--color-panel-soft)]"
+                className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full text-[var(--color-ink-soft)] active:bg-[var(--color-panel-soft)]"
               >
                 <CloseIcon size={18} />
               </button>
@@ -208,6 +215,8 @@ export function CompanionLayer({
             {/* Chat log */}
             <div
               ref={logRef}
+            aria-live="polite"
+            aria-relevant="additions text"
               className="flex max-h-[42vh] min-h-[180px] flex-col gap-3 overflow-y-auto border-t border-[var(--color-border)] px-4 py-3"
             >
               {chat.messages.map((m) =>
@@ -221,7 +230,7 @@ export function CompanionLayer({
                     </span>
                     <div className="max-w-[82%] rounded-2xl rounded-tl-md border border-[var(--color-border)] bg-[var(--color-panel-soft)] px-3.5 py-2.5 text-[14px] leading-relaxed break-words [overflow-wrap:anywhere]">
                       {m.content || (
-                        <span className="anim-spin inline-block h-3.5 w-3.5 rounded-full border-2 border-[var(--color-border)] border-t-[var(--color-green)] align-middle" />
+                        <span role="status" aria-label="考えています" className="anim-spin inline-block h-3.5 w-3.5 rounded-full border-2 border-[var(--color-border)] border-t-[var(--color-green)] align-middle" />
                       )}
                     </div>
                   </div>
@@ -242,7 +251,7 @@ export function CompanionLayer({
 
             {/* Controls */}
             <div className="flex items-center gap-2 px-3 pt-3">
-              <label className="flex items-center gap-1.5 text-[11px] font-medium text-[var(--color-ink-soft)]">
+              <label className="flex items-center gap-1.5 text-[12px] font-medium text-[var(--color-ink-soft)]">
                 <input
                   type="checkbox"
                   checked={companionAutoListen}
@@ -286,7 +295,7 @@ export function CompanionLayer({
                     type="button"
                     onClick={onMic}
                     disabled={muted || (busy && !voice.recording)}
-                    aria-label={voice.recording ? "録音を停止" : "マイクで話す"}
+                    aria-label={muted ? "ミュート中はマイクを使えません" : voice.recording ? "録音を停止" : "マイクで話す"}
                     className={`flex h-11 w-11 shrink-0 items-center justify-center rounded-full text-white disabled:opacity-40 ${
                       voice.recording
                         ? "anim-mic bg-[var(--color-mute-accent)]"

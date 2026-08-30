@@ -31,6 +31,39 @@ const data = dataset as SpotDataset;
 
 export const KOCHI_CENTER: [number, number] = [33.5626, 133.5493];
 
+/**
+ * Where the map and the "near you" list start when the device has no fix.
+ * Named separately from KOCHI_CENTER so the fallback can move to another city
+ * without every call site reading as "Kochi".
+ */
+export const FALLBACK_CENTER: [number, number] = KOCHI_CENTER;
+
+/**
+ * The city a spot belongs to, for anything shown to a visitor or sent to the
+ * model. The dataset already spans three cities, so nothing may assume Kochi.
+ */
+export function areaOf(spot: Pick<Spot, "city" | "prefecture">): string {
+  return spot.city ?? spot.prefecture ?? "";
+}
+
+/** e.g. 「高知市周辺」 — the area label used when there is no live position. */
+export function fallbackAreaLabel(): string {
+  const near = nearestSpot(FALLBACK_CENTER);
+  const area = near ? areaOf(near.spot) : "";
+  return area ? `${area}周辺` : "登録エリア";
+}
+
+/** Every city present in the dataset, in descending order of spot count. */
+export const AREAS: string[] = Array.from(
+  data.spots.reduce((counts, spot) => {
+    const area = areaOf(spot);
+    if (area) counts.set(area, (counts.get(area) ?? 0) + 1);
+    return counts;
+  }, new Map<string, number>()),
+)
+  .sort((a, b) => b[1] - a[1])
+  .map(([area]) => area);
+
 export const SPOTS: Spot[] = data.spots;
 
 const aggregateStats: { kunishitei: number; kenshitei: number; note: string } = data.stats ? data.stats : Object.values(data.statsByPrefecture ?? {}).reduce<{ kunishitei: number; kenshitei: number; note: string }>(

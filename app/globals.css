@@ -19,7 +19,14 @@
   /* Brand accents: deep canopy, then sunlit moss */
   --color-terracotta: #4a6f4d;
   --color-terracotta-soft: #dde9d9;
-  --color-green: #5f7a3a;
+  /*
+   * Nudged one step darker than the original #5f7a3a. As a button background
+   * the difference is invisible, but as TEXT on the soft green panels (the
+   * access strip on a spot, the "next stop" line) the old value measured 4.1:1
+   * — under the 4.5:1 the WCAG AA text minimum asks for. This value clears it
+   * on every surface it is used on: 4.6 on green-soft, 5.3 on panel.
+   */
+  --color-green: #587136;
   --color-green-soft: #e6eed6;
 
   /* Warm light filtering through the leaves; used sparingly for highlights */
@@ -32,6 +39,19 @@
   --color-mute-border: #e6d2b6;
   --color-mute-ink: #9a5a24;
   --color-mute-accent: #c07434;
+
+  /*
+   * Colours the map needs that the page palette had no name for. They lived as
+   * raw hex inside components, which meant a re-theme was never really one
+   * file. The blue is deliberate and the only blue in the app: a "you are here"
+   * dot has to read as the device, not as one more forest-green pin.
+   */
+  --color-map-skeleton: #e8eadf;
+  --color-neutral-soft: #b9ada0;
+  --color-scrim: #332a20;
+  --color-location: #356f9c;
+  --color-route-done: #b3bda9;
+  --color-green-deep: #3d5c41;
 
   --radius: 16px;
 }
@@ -72,6 +92,17 @@ body {
 
 /* The tab bar is pinned to the viewport, but kept inside the phone-width
    canvas so it lines up with the app on a desktop screen. */
+/*
+ * One source of truth for how much room the fixed tab bar takes. Three screens
+ * had each hand-tuned their own clearance (96px, 104px, and 74px inside the
+ * map), so growing the bar — a longer label wrapping, a fifth tab — would have
+ * hidden content behind it on whichever screen was not updated.
+ */
+:root {
+  --tabbar-h: 70px;
+  --tabbar-clearance: calc(var(--tabbar-h) + 26px + env(safe-area-inset-bottom));
+}
+
 .app-tabbar {
   position: fixed;
   bottom: 0;
@@ -98,7 +129,7 @@ body {
    credit to that same edge, so both ended up hidden behind the tabs. Lift
    them clear: the attribution is a licence requirement, not decoration. */
 .hh-map-full .leaflet-bottom {
-  margin-bottom: calc(74px + env(safe-area-inset-bottom));
+  margin-bottom: calc(var(--tabbar-h) + 4px + env(safe-area-inset-bottom));
 }
 
 @keyframes breathe {

@@ -191,7 +191,17 @@ export function useVoice() {
     // Live browser recognition path (matches startRecording preference).
     if (voiceEngine === "browser" || browserSRAvailable) {
       const rec = recognitionRef.current;
-      if (rec) rec.stop();
+      // Recognition ends by itself after a pause. If the visitor taps stop just
+      // after that has happened there is nothing left to stop, and returning a
+      // promise here left the caller awaiting a resolver that only a LATER
+      // recording would ever call — the screen stayed stuck on "考え中" with the
+      // microphone, the chips and the text box all disabled, and no way out but
+      // reloading the page.
+      if (!rec) {
+        setRecording(false);
+        return "";
+      }
+      rec.stop();
       return new Promise((resolve) => {
         resolveRef.current = resolve;
       });

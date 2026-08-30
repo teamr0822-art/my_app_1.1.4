@@ -136,7 +136,7 @@ export function LeafletMap({
             b.title = label;
             b.innerHTML = html;
             b.style.cssText =
-              "width:42px;height:42px;display:flex;align-items:center;justify-content:center;background:transparent;border:0;cursor:pointer;color:#2c3529;font-size:18px;line-height:1";
+              "width:42px;height:42px;display:flex;align-items:center;justify-content:center;background:transparent;border:0;cursor:pointer;color:var(--color-ink);font-size:18px;line-height:1";
             L.DomEvent.on(b, "click", (e) => {
               L.DomEvent.stop(e);
               onClick();
@@ -167,7 +167,7 @@ export function LeafletMap({
             const pos = userPosRef.current;
             if (pos) map.setView(pos, Math.max(map.getZoom(), 18));
           });
-          button(viewGroup, "ルート全体を表示", "<span style=\"font-size:11px;font-weight:700\">全体</span>", () => {
+          button(viewGroup, "ルート全体を表示", "<span style=\"font-size:12px;font-weight:700\">全体</span>", () => {
             const points = routeSpotsRef.current.map(
               (s) => [s.lat, s.lng] as [number, number],
             );
@@ -298,7 +298,7 @@ export function LeafletMap({
         const done = index < activeLeg;
         const current = index === activeLeg;
         L.polyline(leg.coords, {
-          color: done ? "#b3bda9" : "#4a6f4d",
+          color: done ? "var(--color-route-done)" : "var(--color-terracotta)",
           weight: current ? 7 : 4,
           opacity: done ? 0.55 : current ? 0.95 : 0.5,
           dashArray: routed ? undefined : "6 8",
@@ -339,7 +339,7 @@ export function LeafletMap({
           const target: [number, number] = [spot.lat, spot.lng];
           if (L.latLng(snap).distanceTo(L.latLng(target)) < 12) return;
           L.polyline([snap, target], {
-            color: "#3d5c41",
+            color: "var(--color-green-deep)",
             weight: 3,
             opacity: 0.85,
             dashArray: "2 6",
@@ -468,8 +468,8 @@ export function LeafletMap({
         const icon = L.divIcon({
           className: "",
           html: `<div style="display:flex;flex-direction:column;align-items:center;gap:2px">
-            <div style="padding:1px 7px;border-radius:999px;background:#356f9c;color:#fff;border:2px solid #fff;box-shadow:0 1px 4px rgba(0,0,0,.35);font:700 10px/1.6 system-ui,sans-serif;white-space:nowrap">現在地</div>
-            <div style="width:18px;height:18px;border-radius:999px;background:#356f9c;border:3px solid #fff;box-shadow:0 0 0 3px rgba(53,111,156,.3)"></div>
+            <div style="padding:1px 7px;border-radius:999px;background:var(--color-location);color:#fff;border:2px solid #fff;box-shadow:0 1px 4px rgba(0,0,0,.35);font:700 12px/1.6 system-ui,sans-serif;white-space:nowrap">現在地</div>
+            <div style="width:18px;height:18px;border-radius:999px;background:var(--color-location);border:3px solid #fff;box-shadow:0 0 0 3px rgba(53,111,156,.3)"></div>
           </div>`,
           iconSize: [52, 42],
           iconAnchor: [26, 33],
@@ -487,7 +487,7 @@ export function LeafletMap({
 
 /** North-pointing needle drawn inside the compass button. */
 function compassSvg(): string {
-  return `<span style="display:block;width:20px;height:20px;transition:transform .15s"><svg viewBox="0 0 20 20" width="20" height="20"><path d="M10 2 L13.4 11 L10 9 L6.6 11 Z" fill="#c98a3c"/><path d="M10 18 L6.6 11 L10 13 L13.4 11 Z" fill="#b3bda9"/></svg></span>`;
+  return `<span style="display:block;width:20px;height:20px;transition:transform .15s"><svg viewBox="0 0 20 20" width="20" height="20"><path d="M10 2 L13.4 11 L10 9 L6.6 11 Z" fill="var(--color-amber)"/><path d="M10 18 L6.6 11 L10 13 L13.4 11 Z" fill="var(--color-route-done)"/></svg></span>`;
 }
 
 function buildStraightLegs(
@@ -561,16 +561,16 @@ function bearing(a: [number, number], b: [number, number]): number {
 
 function arrowHtml(angle: number, strong: boolean): string {
   const size = strong ? 15 : 12;
-  const fill = strong ? "#ffffff" : "#f3f5e9";
+  const fill = strong ? "#ffffff" : "var(--color-panel)";
   return `<div style="transform:rotate(${angle}deg);display:flex;align-items:center;justify-content:center;width:22px;height:22px">
     <svg width="${size}" height="${size}" viewBox="0 0 16 16" aria-hidden="true">
-      <path d="M8 1 L13 12 L8 9.4 L3 12 Z" fill="${fill}" stroke="#3d5c41" stroke-width="1.4" stroke-linejoin="round"/>
+      <path d="M8 1 L13 12 L8 9.4 L3 12 Z" fill="${fill}" stroke="var(--color-green-deep)" stroke-width="1.4" stroke-linejoin="round"/>
     </svg></div>`;
 }
 
 /** Numbered badge marking a stop's position in the itinerary. */
 function stopBadgeHtml(order: number, active: boolean): string {
-  const bg = active ? "#9c651c" : "#4a6f4d";
+  const bg = active ? "var(--color-amber)" : "var(--color-terracotta)";
   const ring = active ? "3px solid #fff" : "2px solid #fff";
   const size = active ? 30 : 26;
   const glow = active ? "0 0 0 4px rgba(156,101,28,.32)," : "";
@@ -578,9 +578,9 @@ function stopBadgeHtml(order: number, active: boolean): string {
 }
 
 function markerHtml(glyph: string, active: boolean): string {
-  const bg = active ? "#4a6f4d" : "#fcfbf4";
-  const fg = active ? "#fff" : "#2c3529";
-  const ring = active ? "#4a6f4d" : "#dbe0ca";
+  const bg = active ? "var(--color-terracotta)" : "var(--color-panel)";
+  const fg = active ? "#fff" : "var(--color-ink)";
+  const ring = active ? "var(--color-terracotta)" : "var(--color-border)";
   return `<div style="display:flex;flex-direction:column;align-items:center;">
     <div style="width:40px;height:40px;border-radius:999px;background:${bg};border:2px solid ${ring};display:flex;align-items:center;justify-content:center;font-size:20px;box-shadow:0 4px 10px rgba(0,0,0,.2);color:${fg}">${glyph}</div>
     <div style="width:0;height:0;border-left:6px solid transparent;border-right:6px solid transparent;border-top:8px solid ${bg};margin-top:-2px;"></div>

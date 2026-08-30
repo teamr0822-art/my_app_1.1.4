@@ -1,9 +1,21 @@
 import { streamText, generateText, tool, stepCountIs, type ModelMessage } from "ai";
 import { z } from "zod";
-import { getSpot, type Spot } from "@/lib/spots";
+import { areaOf, getSpot, type Spot } from "@/lib/spots";
 import { CHAT_MODEL, hasGeminiKey } from "@/lib/ai";
 import { searchWikipedia } from "@/lib/wikipedia";
 import { rateLimit, clientKey } from "@/lib/rate-limit";
+
+/**
+ * The dataset covers Kochi, Hiroshima and Ibusuki, so the guide must never
+ * introduce itself as a guide to whichever city happened to be first. The city
+ * comes from the spot being discussed, or from the nearest candidate.
+ */
+function areaFromNearby(nearby?: NearbySpot[]): string {
+  return nearby?.find((s) => s.city)?.city ?? "この街";
+}
+
+/** A candidate spot as the client sends it: name, source text, and its city. */
+type NearbySpot = { name: string; grounding: string; city?: string };
 
 export const maxDuration = 30;
 
@@ -16,7 +28,7 @@ function citationLabel(source: string): string {
   return source.replace(/https?:\/\/[^\s、。）」』】]+/g, "").replace(/[\s　]+$/, "").trim();
 }
 
-function fallbackRoute(nearby: { name: string; grounding: string }[] = []) {
+function fallbackRoute(nearby: NearbySpot[] = []) {
   const stops = nearby.slice(0, 5);
   if (!stops.length) return "候補スポットがありません。地域や出発地を指定してください。";
   return [
@@ -52,7 +64,7 @@ function offlineSpotAnswer(spot: Spot | undefined): string | null {
     .join("\n");
 }
 
-function offlineCompanionAnswer(nearby: { name: string; grounding: string }[] = []): string | null {
+function offlineCompanionAnswer(nearby: NearbySpot[] = []): string | null {
   const spot = nearby.find((s) => s.grounding?.trim());
   if (!spot) return null;
   return [
@@ -92,7 +104,7 @@ type Body = {
   messages: ModelMessage[];
   spotId?: string;
   mode?: "spot" | "companion" | "route";
-  nearby?: { name: string; grounding: string }[];
+  nearby?: NearbySpot[];
 };
 
 export async function POST(req: Request) {
@@ -154,7 +166,7 @@ export async function POST(req: Request) {
             .join("\n\n")
         : "近くに登録された文化財の情報はありません。";
     system = [
-      "あなたは高知市のまち歩きに寄り添うAIコンパニオンです。",
+      `あなたは${areaFromNearby(nearby)}のまち歩きに寄り添うAIコンパニオンです。`,
       "利用者と歩きながら、気さくに雑談する相棒として日本語で話します。",
       "以下は近くの文化財の情報です。話題に関係すれば自然に触れてください。",
       "",
@@ -173,7 +185,7 @@ export async function POST(req: Request) {
       return new Response("Unknown spot", { status: 400 });
     }
     system = [
-      `あなたは高知市の文化財「${spot.name}」の案内をするAI音声ガイドです。`,
+      `あなたは${areaOf(spot)}の文化財「${spot.name}」の案内をするAI音声ガイドです。`,
       "訪れた人の質問に、下記の資料にもとづいて日本語で答えます。",
       "",
       "【このスポットの資料】",

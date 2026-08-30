@@ -5,6 +5,7 @@ import {
   SPOTS,
   STATS,
   DATA_SOURCE,
+  fallbackAreaLabel,
   formatDistance,
   distanceMeters,
 } from "@/lib/spots";
@@ -22,7 +23,7 @@ export function HomeScreen({ nav }: { nav: Nav }) {
   const nearest = spots[0];
 
   return (
-    <div className="flex flex-1 flex-col overflow-y-auto pb-[calc(96px+env(safe-area-inset-bottom))]">
+    <div className="flex flex-1 flex-col overflow-y-auto pb-[var(--tabbar-clearance)]">
       {/* Header */}
       <header className="bg-[var(--color-terracotta)] px-5 pb-6 pt-[calc(20px+env(safe-area-inset-top))] text-white">
         <h1 className="text-[28px] font-extrabold tracking-tight">よりみっけ</h1>
@@ -57,7 +58,7 @@ export function HomeScreen({ nav }: { nav: Nav }) {
               <MicIcon size={20} />
             </span>
             <span className="block text-[14px] font-extrabold">話しかけてみる</span>
-            <span className="block text-[11px] leading-4 text-[var(--color-ink-soft)]">
+            <span className="block line-clamp-2 text-[12px] leading-4 text-[var(--color-ink-soft)]">
               {nearest ? `いちばん近い${nearest.name}から` : "近くの場所から"}
             </span>
           </button>
@@ -74,7 +75,7 @@ export function HomeScreen({ nav }: { nav: Nav }) {
               <SparkIcon size={20} />
             </span>
             <span className="block text-[14px] font-extrabold">寄り道をつくる</span>
-            <span className="block text-[11px] leading-4 text-[var(--color-ink-soft)]">
+            <span className="block line-clamp-2 text-[12px] leading-4 text-[var(--color-ink-soft)]">
               時間と気分から道すじを提案
             </span>
           </button>
@@ -86,12 +87,12 @@ export function HomeScreen({ nav }: { nav: Nav }) {
         <div className="mb-3 flex items-baseline justify-between">
           <div>
             <h2 className="text-[15px] font-extrabold">近くの寄り道さき</h2>
-            <p className="mt-0.5 text-[11px] text-[var(--color-ink-soft)]">
+            <p className="mt-0.5 text-[12px] text-[var(--color-ink-soft)]">
               タップすると、その場所の話を聞けます
             </p>
           </div>
-          <span className="text-[11px] font-medium text-[var(--color-ink-soft)]">
-            {located ? "現在地から近い順" : "高知城周辺"}
+          <span className="text-[12px] font-medium text-[var(--color-ink-soft)]">
+            {located ? "現在地から近い順" : fallbackAreaLabel()}
           </span>
         </div>
 
@@ -114,10 +115,10 @@ export function HomeScreen({ nav }: { nav: Nav }) {
                     {s.name}
                   </span>
                   <span className="mt-1 flex flex-wrap items-center gap-1.5">
-                    <span className="rounded-md bg-[var(--color-terracotta-soft)] px-1.5 py-0.5 text-[10px] font-bold text-[var(--color-terracotta)]">
+                    <span className="rounded-md bg-[var(--color-terracotta-soft)] px-1.5 py-0.5 text-[12px] font-bold text-[var(--color-terracotta)]">
                       {s.designation}
                     </span>
-                    <span className="text-[11px] text-[var(--color-ink-soft)]">
+                    <span className="text-[12px] text-[var(--color-ink-soft)]">
                       {s.category}・{formatDistance(s.meters)}
                     </span>
                   </span>
@@ -132,7 +133,7 @@ export function HomeScreen({ nav }: { nav: Nav }) {
         </ul>
       </section>
 
-      <p className="mt-5 px-5 text-[10.5px] leading-relaxed text-[var(--color-ink-soft)]">
+      <p className="mt-5 px-5 text-[12px] leading-relaxed text-[var(--color-ink-soft)]">
         {DATA_SOURCE}
       </p>
     </div>
@@ -149,11 +150,16 @@ function Stat({
   label: string;
 }) {
   return (
-    <div className="flex-1 rounded-xl bg-white/15 px-2.5 py-2 text-center">
-      <div className="text-[10px] font-medium opacity-90">{label}</div>
+    <div
+      /* A white tint over the green header left white text at 3.7:1 — the
+         headline numbers were the least legible text on the screen. Tinting
+         the tile darker instead of lighter takes the same design to 6.3:1. */
+      className="flex-1 rounded-xl bg-black/15 px-2.5 py-2 text-center"
+    >
+      <div className="text-[12px] font-medium text-white/90">{label}</div>
       <div className="mt-0.5 text-lg font-extrabold leading-none">
         {value}
-        <span className="ml-0.5 text-[10px] font-bold opacity-90">{unit}</span>
+        <span className="ml-0.5 text-[12px] font-bold text-white/90">{unit}</span>
       </div>
     </div>
   );
