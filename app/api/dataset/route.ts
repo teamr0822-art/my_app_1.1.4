@@ -37,15 +37,63 @@ function notAPlace(spot: { name: string; designation: string }): string | null {
 
 type Article = { title: string; text: string };
 
-/** 誤った記事を貼るとAIがそのまま嘘をつくので、地名の一致で裏を取る。 */
+/**
+ * 検索に使う中心語。「原爆ドーム(旧広島県産業奨励館)」→「原爆ドーム」のように、
+ * 括弧書きや「附」「及び」以降を落として、記事名に近い形にする。
+ */
+function coreName(name: string): string {
+  return name
+    .replace(/[（(][^）)]*[）)]/g, "")
+    .replace(/\s*(附|付)\s*$/g, "")
+    .split(/及び|並びに|・/)[0]
+    .trim();
+}
+
+/** 市区町村・都道府県そのものの記事。個別のスポットの説明にはならない。 */
+function isAreaArticle(title: string): boolean {
+  return /^[^\s(（]{2,8}[都道府県市区町村]$/.test(title) || /^[^\s(（]+[都道府県市区町村]\s*[（(]/.test(title);
+}
+
+/** 「広島城跡」と「広島城」のように、同じ場所を指す言い換え。 */
+const SAME_PLACE = /^(跡|址|阯|跡地|遺構)?$/;
+
+/**
+ * 「不動院鐘楼」と「不動院」のように、建物の一部とその親。
+ * 親の記事はその建物の説明を含むので、案内の材料として使える。
+ */
+const PART_OF = /^(鐘楼|楼門|山門|唐門|翼廊|手水舎|本地堂|御供所|脇門|本堂|金堂|庫裏|多宝塔|塔|庭園|本丸|天守|石垣|門|堂|社殿|拝殿|本殿|居室|旧宅)/;
+
+/**
+ * 誤った記事を貼るとAIがそのまま嘘をつくので、名前の重なりで裏を取る。
+ * 地名が本文にあるだけでは足りない ——「広島市」の記事はどのスポットにも
+ * 一致してしまうため、記事名とスポット名が実際に重なることを求める。
+ */
 function looksRight(spot: Spot, article: Article | null): boolean {
   if (!article || article.text.length < 40) return false;
-  const hay = article.title + " " + article.text;
-  const city = spot.city ?? "";
-  const pref = spot.prefecture ?? "";
-  if (city && (hay.includes(city) || hay.includes(city.replace(/[市区町村]$/, "")))) return true;
-  if (pref && (hay.includes(pref) || hay.includes(pref.replace(/[都道府県]$/, "")))) return true;
-  return article.title === spot.name;
+  if (isAreaArticle(article.title)) return false;
+
+  const core = coreName(spot.name);
+  if (core.length < 2) return false;
+
+  // 記事名から地名の冠を外す（「広島東照宮」→「東照宮」）
+  const cityCore = (spot.city ?? "").replace(/[市区町村]$/, "");
+  const prefCore = (spot.prefecture ?? "").replace(/[都道府県]$/, "");
+  const titles = new Set([coreName(article.title)]);
+  for (const t of [...titles]) {
+    for (const prefix of [cityCore, prefCore]) {
+      if (prefix && t.startsWith(prefix) && t.length > prefix.length + 1) titles.add(t.slice(prefix.length));
+    }
+  }
+
+  for (const title of titles) {
+    if (title.length < 2) continue;
+    if (title.includes(core)) return true;              // 記事のほうが広い名前
+    if (core.startsWith(title)) {                        // スポットが親の一部
+      const rest = core.slice(title.length);
+      if (SAME_PLACE.test(rest) || PART_OF.test(rest)) return true;
+    }
+  }
+  return false;
 }
 
 /** 読み上げる前提なので、文の切れ目で短くする。 */
@@ -73,7 +121,9 @@ async function extract(title: string): Promise<Article | null> {
 }
 
 async function findArticle(spot: Spot): Promise<Article | null> {
-  for (const q of [`${spot.name} ${spot.city ?? ""}`.trim(), spot.name]) {
+  const core = coreName(spot.name);
+  const queries = [...new Set([`${core} ${spot.city ?? ""}`.trim(), core, spot.name])];
+  for (const q of queries) {
     const json = await wiki({ action: "query", list: "search", srlimit: "3", srsearch: q });
     const titles: string[] = (json?.query?.search ?? []).map((s: any) => s.title);
     for (const t of titles.slice(0, 2)) {
