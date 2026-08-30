@@ -93,6 +93,14 @@ body {
   filter: saturate(0.86) contrast(0.96) brightness(1.03) hue-rotate(-6deg);
 }
 
+/* The full-screen map runs to the bottom of the window, where the fixed tab
+   bar sits on top of it. Leaflet pins the scale bar and the OpenStreetMap
+   credit to that same edge, so both ended up hidden behind the tabs. Lift
+   them clear: the attribution is a licence requirement, not decoration. */
+.hh-map-full .leaflet-bottom {
+  margin-bottom: calc(74px + env(safe-area-inset-bottom));
+}
+
 @keyframes breathe {
   0%,
   100% {

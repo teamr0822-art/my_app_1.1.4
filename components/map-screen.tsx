@@ -93,7 +93,7 @@ export function MapScreen({
 
       <div className="relative min-h-0 flex-1">
         <LeafletMap
-          className="absolute inset-0 h-full w-full"
+          className="hh-map-full absolute inset-0 h-full w-full"
           center={located ? pos : KOCHI_CENTER}
           zoom={14}
           spots={SPOTS}

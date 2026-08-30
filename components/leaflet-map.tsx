@@ -64,7 +64,13 @@ export function LeafletMap({
     let cancelled = false;
     (async () => {
       const L = (await import("leaflet")).default;
-      await import("leaflet/dist/leaflet.css");
+      // NOTE: leaflet.css is imported once from app/globals.css, ahead of this
+      // app's own .leaflet-* rules. Importing it again here injected a second
+      // copy AFTER globals.css at runtime, so Leaflet's defaults won the
+      // cascade and quietly undid the map's styling: the container fell back
+      // to Leaflet grey (#ddd) instead of #e3e9d8, and `.leaflet-tile{filter:
+      // inherit}` cancelled the tone filter that matches the tiles to the rest
+      // of the app. Leave this import out.
       // Adds real map rotation (two-finger twist on touch, bearing API here).
       // Imported for its side effects, after Leaflet itself.
       (window as unknown as { L?: unknown }).L = L;
