@@ -74,7 +74,11 @@ export function useGuideChat(extra: ExtraPayload) {
         });
         if (!res.ok || !res.body) {
           const detail = await res.text().catch(() => "");
-          const error = new Error(detail || `通信に失敗しました（${res.status}）。`);
+          // Some responses (400/405 guards) carry an English developer message.
+          // Only surface the body when it is a message written for the visitor;
+          // otherwise fall back to a Japanese sentence.
+          const readable = /[぀-ヿ一-鿿]/.test(detail) ? detail.trim() : "";
+          const error = new Error(readable || `通信に失敗しました（${res.status}）。`);
           (error as { status?: number }).status = res.status;
           throw error;
         }

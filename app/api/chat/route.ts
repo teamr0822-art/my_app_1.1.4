@@ -210,7 +210,7 @@ export async function POST(req: Request) {
           : offlineSpotAnswer(spot);
     return new Response(
       offline ??
-        "AIキーが設定されていません。環境変数 GEMINI_API_KEY を設定してください。",
+        "いまAIと通信できませんでした。少し時間をおいて、もう一度お試しください。",
       { headers: { "Content-Type": "text/plain; charset=utf-8" } },
     );
   }
@@ -296,9 +296,9 @@ export async function POST(req: Request) {
         controller.enqueue(
           encoder.encode(offline ? `${offline}` : reason),
         );
-        if (offline && mode === "route") {
-          controller.enqueue(encoder.encode(`\n\n（${reason}）`));
-        }
+        // The route fallback text already tells the visitor the plan was built
+        // without the AI, so appending the reason only added noise on screen.
+        // The provider error is in the server log if it is needed.
       }
       controller.close();
     },
@@ -309,17 +309,35 @@ export async function POST(req: Request) {
   });
 }
 
-/** Turns a provider error into something a visitor can act on. */
+/**
+ * Turns a provider error into one short Japanese sentence a visitor can read.
+ *
+ * The raw provider message is English and often mentions billing consoles and
+ * API keys; on a projector during a demo that reads as a broken app. The raw
+ * text is already written to the server log by the onError handler above, so
+ * nothing is lost by keeping it off the screen.
+ */
 function describeFailure(raw: string | null): string {
   const text = (raw ?? "").toLowerCase();
   if (!raw) return "AIから応答がありませんでした。少し時間をおいて、もう一度お試しください。";
+  if (
+    text.includes("prepayment") ||
+    text.includes("credits are depleted") ||
+    text.includes("billing") ||
+    text.includes("insufficient")
+  ) {
+    return "AIの利用枠が切れています。復旧までは資料からの案内をお届けします。";
+  }
   if (text.includes("429") || text.includes("quota") || text.includes("rate limit") || text.includes("resource_exhausted")) {
-    return "AIの利用上限に達しました（無料枠の制限）。しばらく待ってからもう一度お試しください。";
+    return "AIの利用上限に達しました。しばらく待ってからもう一度お試しください。";
   }
   if (text.includes("401") || text.includes("403") || text.includes("api key") || text.includes("permission")) {
-    return "AIキーが無効か、権限がありません。GEMINI_API_KEY の設定を確認してください。";
+    return "AIに接続できませんでした。設定を確認しています。";
   }
-  return `AIの応答に失敗しました（${raw.slice(0, 200)}）`;
+  if (text.includes("timeout") || text.includes("aborted")) {
+    return "AIの応答に時間がかかりすぎました。もう一度お試しください。";
+  }
+  return "いまAIと通信できませんでした。少し時間をおいて、もう一度お試しください。";
 }
 
 /** Provider hiccups worth one retry: rate limits, overload, 5xx, timeouts. */
