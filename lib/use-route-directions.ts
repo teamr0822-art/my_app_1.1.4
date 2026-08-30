@@ -66,6 +66,32 @@ function travelSeconds(distance: number, transport: string, osrm: number): numbe
   return (distance / speed) * 60;
 }
 
+/** The public demo router is slow and occasionally silent; never wait forever. */
+const ROUTE_TIMEOUT_MS = 12_000;
+
+/**
+ * One retry, because the free OSRM demo server drops requests under load and a
+ * failed lookup means the map falls back to straight lines with no directions.
+ */
+async function fetchRoute(url: string): Promise<any> {
+  let lastError: unknown = null;
+  for (let attempt = 0; attempt < 2; attempt++) {
+    const controller = new AbortController();
+    const timer = setTimeout(() => controller.abort(), ROUTE_TIMEOUT_MS);
+    try {
+      const response = await fetch(url, { signal: controller.signal });
+      if (!response.ok) throw new Error(`routing ${response.status}`);
+      return await response.json();
+    } catch (err) {
+      lastError = err;
+      if (attempt === 0) await new Promise((r) => setTimeout(r, 700));
+    } finally {
+      clearTimeout(timer);
+    }
+  }
+  throw lastError instanceof Error ? lastError : new Error("routing failed");
+}
+
 function profileFor(transport: string): string {
   if (transport === "自転車") return "bike";
   if (transport === "公共交通") return "driving";
@@ -195,8 +221,7 @@ export function useRouteDirections(
         `https://router.project-osrm.org/route/v1/${profileFor(transport)}/${path}` +
         `?overview=full&geometries=geojson&steps=true`;
       try {
-        const response = await fetch(url);
-        const data = await response.json();
+        const data = await fetchRoute(url);
         if (cancelled) return;
         if (data.code !== "Ok" || !data.routes?.[0]) {
           setState({ directions: null, loading: false, error: data.code ?? "error" });

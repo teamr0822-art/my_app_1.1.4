@@ -11,8 +11,17 @@ import { BottomNav } from "@/components/bottom-nav";
 import { RouteScreen } from "@/components/route-screen";
 import { CompanionLayer } from "@/components/companion-layer";
 import { Onboarding } from "@/components/onboarding";
+import { ErrorBoundary } from "@/components/error-boundary";
 
 export type Screen = "home" | "map" | "route" | "settings" | "spot";
+
+const SCREEN_LABEL: Record<Screen, string> = {
+  home: "ホーム",
+  map: "地図",
+  route: "ルート作成",
+  settings: "設定",
+  spot: "スポット案内",
+};
 
 export type Nav = {
   screen: Screen;
@@ -55,16 +64,25 @@ export default function Page() {
     <SettingsProvider>
       <ToastProvider>
         <main className="app-frame">
-          {screen === "home" && <HomeScreen nav={nav} />}
-          {screen === "map" && <MapScreen nav={nav} routeIds={routeIds} routeTransport={routeTransport} />}
-          {screen === "route" && <RouteScreen nav={nav} />}
-          {screen === "settings" && <SettingsScreen />}
-          {screen === "spot" && spotId && <SpotScreen spotId={spotId} nav={nav} />}
+          {/* One boundary per screen visit: if the map throws, the tab bar
+              still works and moving to another tab clears the error, instead
+              of the whole app going blank. */}
+          <ErrorBoundary key={screen} label={SCREEN_LABEL[screen]} onReset={() => setScreen("home")}>
+            {screen === "home" && <HomeScreen nav={nav} />}
+            {screen === "map" && (
+              <MapScreen nav={nav} routeIds={routeIds} routeTransport={routeTransport} />
+            )}
+            {screen === "route" && <RouteScreen nav={nav} />}
+            {screen === "settings" && <SettingsScreen />}
+            {screen === "spot" && spotId && <SpotScreen spotId={spotId} nav={nav} />}
+          </ErrorBoundary>
 
           {showBottomNav && <BottomNav nav={nav} />}
           <Onboarding />
 
-          <CompanionLayer nav={nav} bottomNavVisible={showBottomNav} />
+          <ErrorBoundary label="コンパニオン">
+            <CompanionLayer nav={nav} bottomNavVisible={showBottomNav} />
+          </ErrorBoundary>
         </main>
       </ToastProvider>
     </SettingsProvider>

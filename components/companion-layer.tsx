@@ -42,7 +42,13 @@ export function CompanionLayer({
       .map(({ s }) => ({ name: s.name, grounding: s.grounding }));
   }, [geo.pos]);
 
-  const chat = useGuideChat({ mode: "companion", nearby });
+  const chat = useGuideChat({
+    mode: "companion",
+    nearby,
+    fallbackText: nearby[0]?.grounding?.trim()
+      ? `いまAIとつながらないので、手元の資料からお話ししますね。\n\n${nearby[0].name}\n${nearby[0].grounding.trim()}`
+      : undefined,
+  });
   const [open, setOpen] = useState(false);
   const [greeted, setGreeted] = useState(false);
   const [input, setInput] = useState("");

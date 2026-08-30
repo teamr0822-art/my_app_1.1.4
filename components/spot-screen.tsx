@@ -40,7 +40,14 @@ export function SpotScreen({ spotId, nav }: { spotId: string; nav: Nav }) {
   const spot = getSpot(spotId);
   const { muted, toggle } = useSettings();
   const voice = useVoice();
-  const chat = useGuideChat({ spotId, mode: "spot" });
+  // If the AI cannot answer, the guide still has the spot's own material.
+  const chat = useGuideChat({
+    spotId,
+    mode: "spot",
+    fallbackText: spot?.grounding?.trim()
+      ? `いまAIとつながらないので、手元の資料からお伝えします。\n\n${spot.grounding.trim()}`
+      : undefined,
+  });
   const [started, setStarted] = useState(false);
   const [input, setInput] = useState("");
   const composingRef = useRef(false);
@@ -50,7 +57,24 @@ export function SpotScreen({ spotId, nav }: { spotId: string; nav: Nav }) {
     if (logRef.current) logRef.current.scrollTop = logRef.current.scrollHeight;
   }, [chat.messages]);
 
-  if (!spot) return null;
+  // The spot screen hides the tab bar, so returning null here used to leave
+  // the visitor on a blank page with no way back.
+  if (!spot) {
+    return (
+      <div className="flex h-full flex-col items-center justify-center gap-3 px-8 text-center">
+        <p className="text-base font-semibold text-[var(--color-ink)]">
+          このスポットの情報が見つかりませんでした
+        </p>
+        <button
+          type="button"
+          onClick={() => nav.go("home")}
+          className="rounded-full bg-[var(--color-terracotta)] px-5 py-2 text-sm font-semibold text-white"
+        >
+          ホームに戻る
+        </button>
+      </div>
+    );
+  }
 
   const begin = () => {
     if (started) return;

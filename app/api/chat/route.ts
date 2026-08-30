@@ -1,8 +1,9 @@
-import { streamText, tool, stepCountIs, type ModelMessage } from "ai";
+import { streamText, generateText, tool, stepCountIs, type ModelMessage } from "ai";
 import { z } from "zod";
-import { getSpot } from "@/lib/spots";
+import { getSpot, type Spot } from "@/lib/spots";
 import { CHAT_MODEL, hasGeminiKey } from "@/lib/ai";
 import { searchWikipedia } from "@/lib/wikipedia";
+import { rateLimit, clientKey } from "@/lib/rate-limit";
 
 export const maxDuration = 30;
 
@@ -27,6 +28,38 @@ function fallbackRoute(nearby: { name: string; grounding: string }[] = []) {
     "合計距離・時間: 概算（道路状況で変わります）",
     "移動手段: 徒歩を基本にしています。",
     "途中で気分が変わったら、「短くする」「次を変更する」と入力してください。",
+  ].join("\n");
+}
+
+/**
+ * Every spot ships with its own source material, so an AI outage does not have
+ * to mean an empty screen: the guide simply reads the material it already has.
+ * This is what keeps the app usable when the quota runs out mid-presentation.
+ */
+function offlineSpotAnswer(spot: Spot | undefined): string | null {
+  const body = spot?.grounding?.trim();
+  if (!spot || !body) return null;
+  const source = spot.sources?.[0] ? citationLabel(spot.sources[0]) : "";
+  return [
+    `${spot.name}について、手元の資料からお伝えします。`,
+    "",
+    body,
+    source ? `（出典: ${source}）` : "",
+    "",
+    "いまAIとの通信ができないため、資料そのままの案内です。時間をおいてもう一度お試しください。",
+  ]
+    .filter(Boolean)
+    .join("\n");
+}
+
+function offlineCompanionAnswer(nearby: { name: string; grounding: string }[] = []): string | null {
+  const spot = nearby.find((s) => s.grounding?.trim());
+  if (!spot) return null;
+  return [
+    `いまAIとつながらないので、手元の資料からお話ししますね。`,
+    "",
+    `${spot.name}`,
+    spot.grounding.trim(),
   ].join("\n");
 }
 
@@ -64,6 +97,22 @@ type Body = {
 
 export async function POST(req: Request) {
   if (req.method !== "POST") return new Response("Method not allowed", { status: 405 });
+
+  // Public endpoint, paid model behind it: cap how fast one caller can spend.
+  const limit = rateLimit(clientKey(req), 20, 60_000);
+  if (!limit.ok) {
+    return new Response(
+      `リクエストが多すぎます。${limit.retryAfter}秒ほど待ってからもう一度お試しください。`,
+      {
+        status: 429,
+        headers: {
+          "Content-Type": "text/plain; charset=utf-8",
+          "Retry-After": String(limit.retryAfter),
+        },
+      },
+    );
+  }
+
   let body: Body;
   try {
     body = await req.json();
@@ -75,6 +124,7 @@ export async function POST(req: Request) {
     return new Response("messages must be an array", { status: 400 });
   }
 
+  const spot = spotId ? getSpot(spotId) : undefined;
   let system: string;
 
   if (mode === "route") {
@@ -119,7 +169,6 @@ export async function POST(req: Request) {
       "- 調べても分からないことは正直に「わからない」と伝える。作り話をしない。",
     ].join("\n");
   } else {
-    const spot = spotId ? getSpot(spotId) : undefined;
     if (!spot) {
       return new Response("Unknown spot", { status: 400 });
     }
@@ -153,14 +202,16 @@ export async function POST(req: Request) {
   // Without a Gemini API key we cannot reach the model at all. For route mode
   // we still return something usable; other modes report the misconfiguration.
   if (!hasGeminiKey) {
-    if (mode === "route") {
-      return new Response(fallbackRoute(nearby), {
-        headers: { "Content-Type": "text/plain; charset=utf-8" },
-      });
-    }
+    const offline =
+      mode === "route"
+        ? fallbackRoute(nearby)
+        : mode === "companion"
+          ? offlineCompanionAnswer(nearby)
+          : offlineSpotAnswer(spot);
     return new Response(
-      "AIキーが設定されていません。環境変数 GEMINI_API_KEY を設定してください。",
-      { status: 503, headers: { "Content-Type": "text/plain; charset=utf-8" } },
+      offline ??
+        "AIキーが設定されていません。環境変数 GEMINI_API_KEY を設定してください。",
+      { headers: { "Content-Type": "text/plain; charset=utf-8" } },
     );
   }
 
@@ -177,6 +228,9 @@ export async function POST(req: Request) {
     // Allow the model to call the tool and then answer with the result.
     stopWhen: stepCountIs(4),
     maxOutputTokens: 2048,
+    // The function itself is capped at 30s; stop a little earlier so a stalled
+    // provider still leaves room to send the offline answer below.
+    abortSignal: AbortSignal.timeout(18_000),
     providerOptions: {
       google: {
         // Gemini 2.5 "thinking" is on by default. On longer prompts it spent
@@ -205,14 +259,46 @@ export async function POST(req: Request) {
         failure = failure ?? (err instanceof Error ? err.message : String(err));
       }
       if (!wrote) {
+        // One quiet retry: rate limits and 5xx from the provider are usually
+        // gone a second later, and a visitor should not have to know that.
+        if (isTransient(failure)) {
+          await new Promise((r) => setTimeout(r, 800));
+          try {
+            const retry = await generateText({
+              model: MODEL,
+              system,
+              messages,
+              maxOutputTokens: 2048,
+              abortSignal: AbortSignal.timeout(6_000),
+              providerOptions: {
+                google: { thinkingConfig: { thinkingBudget: 0, includeThoughts: false } },
+              },
+            });
+            if (retry.text.trim()) {
+              controller.enqueue(encoder.encode(retry.text));
+              wrote = true;
+            }
+          } catch (err) {
+            failure = failure ?? (err instanceof Error ? err.message : String(err));
+          }
+        }
+      }
+      if (!wrote) {
+        // Still nothing. Rather than an apology, fall back to the material the
+        // app already carries so the visitor still gets an answer.
+        const offline =
+          mode === "route"
+            ? fallbackRoute(nearby)
+            : mode === "companion"
+              ? offlineCompanionAnswer(nearby)
+              : offlineSpotAnswer(spot);
         const reason = describeFailure(failure);
         controller.enqueue(
-          encoder.encode(
-            mode === "route"
-              ? `${reason}\n\n${fallbackRoute(nearby)}`
-              : reason,
-          ),
+          encoder.encode(offline ? `${offline}` : reason),
         );
+        if (offline && mode === "route") {
+          controller.enqueue(encoder.encode(`\n\n（${reason}）`));
+        }
       }
       controller.close();
     },
@@ -234,4 +320,22 @@ function describeFailure(raw: string | null): string {
     return "AIキーが無効か、権限がありません。GEMINI_API_KEY の設定を確認してください。";
   }
   return `AIの応答に失敗しました（${raw.slice(0, 200)}）`;
+}
+
+/** Provider hiccups worth one retry: rate limits, overload, 5xx, timeouts. */
+function isTransient(raw: string | null): boolean {
+  const text = (raw ?? "").toLowerCase();
+  if (!raw) return true; // empty response with no error: worth one more try
+  return (
+    text.includes("429") ||
+    text.includes("rate limit") ||
+    text.includes("resource_exhausted") ||
+    text.includes("overload") ||
+    text.includes("unavailable") ||
+    text.includes("timeout") ||
+    text.includes("503") ||
+    text.includes("500") ||
+    text.includes("fetch failed") ||
+    text.includes("econnreset")
+  );
 }

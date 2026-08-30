@@ -12,7 +12,16 @@ type ExtraPayload = {
   spotId?: string;
   mode?: "spot" | "companion" | "route";
   nearby?: { name: string; grounding: string }[];
+  /**
+   * Shown verbatim when the AI cannot answer at all. Callers pass the spot's
+   * own source material, so an outage degrades to "read the material" instead
+   * of an apology with nothing behind it.
+   */
+  fallbackText?: string;
 };
+
+/** Bound every request so a stalled network cannot freeze the UI. */
+const REQUEST_TIMEOUT_MS = 30_000;
 
 let idc = 0;
 const nextId = () => `m${Date.now()}_${idc++}`;
@@ -48,56 +57,95 @@ export function useGuideChat(extra: ExtraPayload) {
       const assistantId = nextId();
       setMessages((m) => [...m, { id: assistantId, role: "assistant", content: "" }]);
 
-      let full = "";
-      try {
+      // A hung fetch is worse than a failed one: the screen would sit on
+      // "考え中" forever. Every attempt is bounded, and a transient failure is
+      // retried once before the visitor is told anything went wrong.
+      const attempt = async (signal: AbortSignal): Promise<string> => {
         const res = await fetch("/api/chat", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
+          signal,
           body: JSON.stringify({
             messages: history.map((m) => ({ role: m.role, content: m.content })),
-            ...extraRef.current,
+            spotId: extraRef.current.spotId,
+            mode: extraRef.current.mode,
+            nearby: extraRef.current.nearby,
           }),
         });
         if (!res.ok || !res.body) {
-          const detail = await res.text();
-          throw new Error(detail || `ルート作成に失敗しました（${res.status}）。`);
+          const detail = await res.text().catch(() => "");
+          const error = new Error(detail || `通信に失敗しました（${res.status}）。`);
+          (error as { status?: number }).status = res.status;
+          throw error;
         }
 
         const contentType = res.headers.get("content-type") ?? "";
         if (!contentType.includes("text/plain")) {
           const payload = await res.json().catch(() => null);
-          const text = typeof payload?.text === "string" ? payload.text : typeof payload?.message === "string" ? payload.message : "";
+          const text =
+            typeof payload?.text === "string"
+              ? payload.text
+              : typeof payload?.message === "string"
+                ? payload.message
+                : "";
           if (!text) throw new Error("AIから有効な回答が返りませんでした。");
-          full = text;
-          setMessages((m) => m.map((msg) => msg.id === assistantId ? { ...msg, content: full } : msg));
-          return full;
+          setMessages((m) =>
+            m.map((msg) => (msg.id === assistantId ? { ...msg, content: text } : msg)),
+          );
+          return text;
         }
+
         const reader = res.body.getReader();
         const decoder = new TextDecoder();
+        let acc = "";
         while (true) {
           const { done, value } = await reader.read();
           if (done) break;
-          full += decoder.decode(value, { stream: true });
+          acc += decoder.decode(value, { stream: true });
           setMessages((m) =>
-            m.map((msg) => (msg.id === assistantId ? { ...msg, content: full } : msg)),
+            m.map((msg) => (msg.id === assistantId ? { ...msg, content: acc } : msg)),
           );
         }
+        return acc;
+      };
+
+      let full = "";
+      try {
+        for (let tryIndex = 0; tryIndex < 2; tryIndex++) {
+          const controller = new AbortController();
+          const timer = setTimeout(() => controller.abort(), REQUEST_TIMEOUT_MS);
+          try {
+            full = await attempt(controller.signal);
+            if (full.trim()) break;
+          } catch (error) {
+            const status = (error as { status?: number })?.status;
+            const retryable = status === undefined || status >= 500 || status === 429;
+            if (tryIndex === 1 || !retryable) throw error;
+            console.log("[v0] chat retry after", error);
+            await new Promise((r) => setTimeout(r, 900));
+          } finally {
+            clearTimeout(timer);
+          }
+        }
       } catch (error) {
-        console.log("[v0] route generation fallback", error);
-        full = extraRef.current.mode === "route"
-          ? "AIに接続できなかったため、登録済みスポットから概算ルートを作成できませんでした。もう一度試すか、条件を短くしてお試しください。"
-          : "申し訳ありません。うまく応答できませんでした。もう一度お試しください。";
+        console.log("[v0] chat failed", error);
+        full = "";
         setMessages((m) =>
-          m.map((msg) => (msg.id === assistantId ? { ...msg, content: full } : msg)),
+          m.map((msg) => (msg.id === assistantId ? { ...msg, content: "" } : msg)),
         );
       } finally {
         setStreaming(false);
       }
+
       if (!full.trim()) {
         full = extraRef.current.mode === "route"
-          ? "AIから空の回答が返りました。条件を少し変えて、もう一度お試しください。"
-          : "回答を受け取れませんでした。もう一度お試しください。";
-        setMessages((m) => m.map((msg) => msg.id === assistantId ? { ...msg, content: full } : msg));
+          ? "いまルートを作れませんでした。通信状況を確認して、条件を少し変えてもう一度お試しください。"
+          : extraRef.current.fallbackText?.trim()
+            ? extraRef.current.fallbackText.trim()
+            : "いま応答を受け取れませんでした。少し待ってからもう一度お試しください。";
+        setMessages((m) =>
+          m.map((msg) => (msg.id === assistantId ? { ...msg, content: full } : msg)),
+        );
       }
       onComplete?.(full);
       return full;
