@@ -58,6 +58,8 @@ export function LeafletMap({
   userPosRef.current = userPos ?? null;
   const routeSpotsRef = useRef<Spot[]>(routeSpots);
   routeSpotsRef.current = routeSpots;
+  /** Set by the declutter effect; called by the map's zoom/move handlers. */
+  const declutterRef = useRef<(() => void) | null>(null);
 
   // Init map once.
   useEffect(() => {
@@ -204,10 +206,21 @@ export function LeafletMap({
           iconSize: [40, 48],
           iconAnchor: [20, 46],
         });
-        const marker = L.marker([s.lat, s.lng], { icon }).addTo(map);
+        const marker = L.marker([s.lat, s.lng], {
+          icon,
+          // Icon-only markers are invisible to screen readers and to anyone
+          // navigating by keyboard, so give each pin its name.
+          title: `${s.name}（${s.designation}）`,
+          alt: s.name,
+          keyboard: true,
+        });
         marker.on("click", () => onSelectRef.current?.(s.id));
         markersRef.current[s.id] = marker;
       }
+      // Which of those 151 pins are actually on screen is decided by
+      // declutter() below, not by adding them all at once.
+      map.on("zoomend moveend", () => declutterRef.current?.());
+      declutterRef.current?.();
 
       // The map is mounted inside a flex panel that can change size after
       // dynamic import resolution and screen transitions. Recalculate after
@@ -370,6 +383,77 @@ export function LeafletMap({
     snappedWaypoints,
     zoomTick,
   ]);
+
+  /**
+   * 151 pins in three cities means a solid clump of overlapping icons around
+   * every town centre — at the default zoom roughly a hundred pairs sit on top
+   * of one another, so neither the map nor the individual pins can be read.
+   *
+   * Rather than pull in a clustering dependency, the map keeps one pin per
+   * cell of a screen-space grid: whichever spot in that cell carries the
+   * strongest designation wins, the rest stay off the map until the visitor
+   * zooms in far enough for them to have room. Zooming in therefore reveals
+   * more pins, which is the behaviour people already expect from a map.
+   *
+   * While an itinerary is being walked the map shows only its stops: during
+   * guidance every other pin is noise.
+   */
+  useEffect(() => {
+    if (!mapReady) return;
+    const map = mapRef.current;
+    if (!map) return;
+
+    /** National designations outrank prefectural, which outrank municipal. */
+    const rank = (spot: Spot): number => {
+      const d = spot.designation ?? "";
+      if (/国宝|国指定|重要文化財|特別/.test(d)) return 3;
+      if (/県指定|府指定|道指定|都指定/.test(d)) return 2;
+      if (/市指定|町指定|村指定|登録/.test(d)) return 1;
+      return 0;
+    };
+
+    const run = () => {
+      const routeIds = new Set(routeSpotsRef.current.map((s) => s.id));
+      const guiding = routeIds.size > 0;
+      const bounds = map.getBounds().pad(0.25);
+      // One pin per grid cell; a cell a little wider than the 40px icon keeps
+      // neighbours from touching.
+      const CELL = 52;
+      const best = new Map<string, { id: string; score: number }>();
+      const keep = new Set<string>();
+
+      for (const spot of spots) {
+        const isRoute = routeIds.has(spot.id);
+        // The stop being read about, and every stop on the itinerary, are
+        // never hidden: those are the pins the visitor is looking for.
+        if (isRoute || spot.id === activeId) {
+          keep.add(spot.id);
+          continue;
+        }
+        if (guiding) continue;
+        if (!bounds.contains([spot.lat, spot.lng])) continue;
+
+        const pt = map.latLngToContainerPoint([spot.lat, spot.lng]);
+        const cell = `${Math.floor(pt.x / CELL)}:${Math.floor(pt.y / CELL)}`;
+        const score = rank(spot);
+        const held = best.get(cell);
+        if (!held || score > held.score) best.set(cell, { id: spot.id, score });
+      }
+      for (const { id } of best.values()) keep.add(id);
+
+      for (const [id, marker] of Object.entries(markersRef.current)) {
+        const onMap = map.hasLayer(marker);
+        if (keep.has(id) && !onMap) marker.addTo(map);
+        else if (!keep.has(id) && onMap) map.removeLayer(marker);
+      }
+    };
+
+    declutterRef.current = run;
+    run();
+    return () => {
+      declutterRef.current = null;
+    };
+  }, [mapReady, spots, activeId, routeSpots, zoomTick]);
 
   // Update user marker.
   useEffect(() => {

@@ -84,6 +84,15 @@ export function SpotScreen({ spotId, nav }: { spotId: string; nav: Nav }) {
     voice.speak(greeting);
   };
 
+  /**
+   * Starting from one of the suggested questions: greet first so the screen
+   * reads the same either way, then ask on the visitor's behalf.
+   */
+  const beginWith = async (question: string) => {
+    if (!started) begin();
+    await ask(question);
+  };
+
   const ask = async (text: string) => {
     if (!started) setStarted(true);
     if (voice.speaking) voice.stopSpeaking();
@@ -118,7 +127,7 @@ export function SpotScreen({ spotId, nav }: { spotId: string; nav: Nav }) {
           type="button"
           onClick={() => nav.go("home")}
           aria-label="スポット一覧に戻る"
-          className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full text-[var(--color-ink-soft)] active:bg-[var(--color-panel-soft)]"
+          className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full text-[var(--color-ink-soft)] active:bg-[var(--color-panel-soft)]"
         >
           <ChevronLeftIcon size={22} />
         </button>
@@ -173,7 +182,14 @@ export function SpotScreen({ spotId, nav }: { spotId: string; nav: Nav }) {
       )}
 
       {!started ? (
-        <div className="flex flex-1 flex-col items-center justify-center gap-5 px-8 text-center">
+        /*
+         * This screen used to be one button floating in the middle of an empty
+         * panel: nothing told a first-time visitor what they could actually ask
+         * for. The question chips that the conversation already offers are
+         * shown here too, so the screen answers "what is this for?" before the
+         * first tap — and tapping one starts the guide with that question.
+         */
+        <div className="flex flex-1 flex-col items-center justify-center gap-6 px-6 py-6 text-center">
           <button
             type="button"
             onClick={begin}
@@ -190,6 +206,25 @@ export function SpotScreen({ spotId, nav }: { spotId: string; nav: Nav }) {
                 ? "ミュートモード中：音声は流れず、文字でご案内します"
                 : "タップすると、この場所の話をはじめます"}
             </p>
+          </div>
+
+          <div className="w-full">
+            <p className="mb-2 text-[11px] font-bold text-[var(--color-ink-soft)]">
+              こんなことが聞けます
+            </p>
+            <div className="flex flex-wrap justify-center gap-2">
+              {QUESTION_CHIPS.map((q) => (
+                <button
+                  key={q}
+                  type="button"
+                  onClick={() => beginWith(q)}
+                  className="flex items-center gap-1 rounded-full border border-[var(--color-border)] bg-[var(--color-panel-soft)] px-3 py-2 text-[12px] font-medium text-[var(--color-ink)]"
+                >
+                  <SparkIcon size={13} className="text-[var(--color-terracotta)]" />
+                  {q}
+                </button>
+              ))}
+            </div>
           </div>
         </div>
       ) : (

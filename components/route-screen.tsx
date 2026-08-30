@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import type { Nav } from "@/app/page";
 import { SPOTS, distanceMeters, formatDistance } from "@/lib/spots";
 import { useGeolocation } from "@/lib/use-geolocation";
@@ -90,6 +90,23 @@ export function RouteScreen({ nav }: { nav: Nav }) {
     return found.length ? found : pool.slice(0, 5).map((spot) => spot.id);
   }, [answer, candidates]);
 
+  /**
+   * The proposal lands below the form, past the fold: on a phone, tapping
+   * "ルートを作成する" looked like nothing had happened. Bring the result into
+   * view as soon as it starts arriving.
+   */
+  const resultRef = useRef<HTMLDivElement>(null);
+  const scrolledFor = useRef<string | null>(null);
+  useEffect(() => {
+    if (!answer || !resultRef.current) return;
+    // Only scroll once per proposal, so the visitor can scroll away while the
+    // rest of the text is still streaming in.
+    const key = answer.slice(0, 24);
+    if (scrolledFor.current === key) return;
+    scrolledFor.current = key;
+    resultRef.current.scrollIntoView({ behavior: "smooth", block: "start" });
+  }, [answer]);
+
   const generate = async () => {
     const prompt = `観光ルートを作成してください。条件: 出発エリア=${area || "現在地周辺"}、合計移動距離/時間=${distance}、移動手段=${transport}、天気=${weather}、気分=${mood}、追加要望=${request || "なし"}。候補スポットはすべて現在地の近くにあります。距離が離れすぎるスポットは無理に入れず、${distance}で回りきれる範囲にまとめてください。不明な条件があれば先に確認質問をしてください。`;
     setError(null);
@@ -103,7 +120,7 @@ export function RouteScreen({ nav }: { nav: Nav }) {
   return (
     <section className="flex min-h-0 flex-1 flex-col overflow-y-auto pb-[calc(96px+env(safe-area-inset-bottom))]">
       <header className="border-b border-[var(--color-border)] px-5 pb-5 pt-8">
-        <p className="font-mono text-xs tracking-[0.22em] text-[var(--color-terracotta)]">AI ROUTE GUIDE</p>
+        <p className="font-mono text-xs tracking-[0.22em] text-[var(--color-terracotta)]">よりみっけルート</p>
         <h1 className="mt-2 text-2xl font-bold text-balance">あなたに合う、今日の歩き方</h1>
         <p className="mt-2 text-sm leading-6 text-[var(--color-ink-soft)]">気分が変わっても大丈夫。途中で条件を変えて、何度でも組み直せます。</p>
       </header>
@@ -125,7 +142,7 @@ export function RouteScreen({ nav }: { nav: Nav }) {
 
         {error && <div role="alert" className="rounded-2xl border border-red-300/40 bg-red-950/20 p-4 text-sm"><p>{error}</p><button type="button" onClick={generate} className="mt-3 rounded-xl border border-[var(--color-border)] px-3 py-2 font-bold">もう一度試す</button></div>}
 
-        {answer && <div className="rounded-2xl border border-[var(--color-border)] bg-[var(--color-panel)] p-4"><p className="mb-2 text-xs font-bold tracking-wider text-[var(--color-terracotta)]">AIからの提案</p><p className="whitespace-pre-wrap break-words [overflow-wrap:anywhere] text-sm leading-7">{answer}</p><button type="button" onClick={() => nav.startRoute(routeSpotIds, transport)} className="mt-4 w-full rounded-xl bg-[var(--color-green)] px-4 py-3 text-sm font-bold text-white">このルートで案内をはじめる</button></div>}
+        {answer && <div ref={resultRef} className="scroll-mt-4 rounded-2xl border border-[var(--color-border)] bg-[var(--color-panel)] p-4"><p className="mb-2 text-xs font-bold tracking-wider text-[var(--color-terracotta)]">今日の寄り道プラン</p><p className="whitespace-pre-wrap break-words [overflow-wrap:anywhere] text-sm leading-7">{answer}</p><button type="button" onClick={() => nav.startRoute(routeSpotIds, transport)} className="mt-4 w-full rounded-xl bg-[var(--color-green)] px-4 py-3 text-sm font-bold text-white">このルートで案内をはじめる</button></div>}
 
         {messages.length > 0 && <div className="rounded-2xl border border-[var(--color-border)] p-4"><p className="mb-2 text-sm font-bold">途中で変更する</p><div className="flex gap-2"><input value={draft} onChange={(e) => setDraft(e.target.value)} onKeyDown={(e) => { if (e.key === "Enter" && !e.nativeEvent.isComposing && e.keyCode !== 229) { e.preventDefault(); if (draft.trim()) { send(draft); setDraft(""); } } }} placeholder="例：短くして、別の場所に変えて" className="min-w-0 flex-1 rounded-xl border border-[var(--color-border)] bg-transparent px-3 py-2 text-sm outline-none" /><button type="button" aria-label="変更を送信" onClick={() => { if (draft.trim()) { send(draft); setDraft(""); } }} className="rounded-xl bg-[var(--color-green)] px-3 text-white"><SendIcon size={17} /></button></div></div>}
       </div>

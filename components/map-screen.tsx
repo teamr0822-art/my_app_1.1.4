@@ -39,7 +39,11 @@ export function MapScreen({
   /** Which leg the visitor is walking. Leg 0 = current position → stop 1. */
   const [activeLeg, setActiveLeg] = useState(0);
   const [expanded, setExpanded] = useState(true);
-  const [openSteps, setOpenSteps] = useState<number | null>(0);
+  // Opening the itinerary AND the first leg's turn list at once buried the map
+  // under the panel the moment guidance started. The stop list stays open (it
+  // is the point of the screen); the street-by-street directions wait to be
+  // asked for.
+  const [openSteps, setOpenSteps] = useState<number | null>(null);
 
   const selected = SPOTS.find((s) => s.id === selectedId) ?? null;
   const routeSpots = useMemo(
@@ -85,7 +89,7 @@ export function MapScreen({
           type="button"
           onClick={() => setShowInfo((v) => !v)}
           aria-label="凡例を表示"
-          className="flex h-9 w-9 items-center justify-center rounded-full border border-[var(--color-border)] bg-[var(--color-panel-soft)] text-[var(--color-ink-soft)]"
+          className="flex h-11 w-11 items-center justify-center rounded-full border border-[var(--color-border)] bg-[var(--color-panel-soft)] text-[var(--color-ink-soft)]"
         >
           <InfoIcon size={18} />
         </button>
