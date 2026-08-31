@@ -9,49 +9,65 @@
    * ground, canopy greens for structure, and a warm persimmon reserved for
    * the few things that ask to be tapped.
    */
-  --color-bg: #f3f1e3;
-  --color-panel: #fcfbf4;
-  --color-panel-soft: #eaeedd;
-  --color-ink: #2c3529;
-  --color-ink-soft: #616a5b;
-  --color-border: #dbe0ca;
-
-  /* Brand accents: deep canopy, then sunlit moss */
-  --color-terracotta: #4a6f4d;
-  --color-terracotta-soft: #dde9d9;
   /*
-   * Nudged one step darker than the original #5f7a3a. As a button background
-   * the difference is invisible, but as TEXT on the soft green panels (the
-   * access strip on a spot, the "next stop" line) the old value measured 4.1:1
-   * — under the 4.5:1 the WCAG AA text minimum asks for. This value clears it
-   * on every surface it is used on: 4.6 on green-soft, 5.3 on panel.
+   * Palette: a summer evening in the countryside.
+   *
+   * Paper bleached by the sun for the ground, the blue of a clear afternoon sky
+   * for everything you act on, and — kept for the few things that should catch
+   * the eye — the two colours of a firework over a rice field: sunflower gold
+   * and a sunset red.
+   *
+   * Every colour here has been measured. Anything used as TEXT clears 4.5:1 on
+   * every surface it can land on; the two vivid ones (--color-sun and
+   * --color-sunset) are decoration only — fills, sparks, rules — and never
+   * carry words, which is why their darker -ink partners exist.
    */
-  --color-green: #587136;
-  --color-green-soft: #e6eed6;
+  --color-bg: #f5f3e4;
+  --color-panel: #fdfcf5;
+  --color-panel-soft: #eceedd;
+  --color-ink: #26302c;
+  --color-ink-soft: #5a6459;
+  --color-border: #e0dcc4;
 
-  /* Warm light filtering through the leaves; used sparingly for highlights */
-  --color-amber: #9c651c;
-  --color-amber-soft: #f6e7cd;
+  /* Primary: the sky. Buttons, the active tab, anything you can act on. */
+  --color-terracotta: #3d6f8e;
+  --color-terracotta-soft: #e7f0f6;
+
+  /* Supporting: the green of the fields, no longer carrying the whole app. */
+  --color-green: #587136;
+  --color-green-soft: #e8eed7;
+
+  /* Fireworks. Vivid pair for decoration, dark pair for anything with text. */
+  --color-sun: #e0952a;
+  --color-sun-ink: #8f5f1b;
+  --color-sun-soft: #fbf0d6;
+  --color-sunset: #d1583c;
+  --color-sunset-ink: #b04a32;
+  --color-sunset-soft: #fbe8e0;
+
+  /* Used as a fill behind white text, so darker than the vivid sunflower. */
+  --color-amber: #a16b1e;
+  --color-amber-soft: #fbf0d6;
 
   /* Mute (restricted) palette */
   --color-mute-bg: #f7ece0;
   --color-mute-panel: #fdf6ee;
   --color-mute-border: #e6d2b6;
   --color-mute-ink: #9a5a24;
-  --color-mute-accent: #c07434;
+  --color-mute-accent: #b3672c;
 
   /*
-   * Colours the map needs that the page palette had no name for. They lived as
-   * raw hex inside components, which meant a re-theme was never really one
-   * file. The blue is deliberate and the only blue in the app: a "you are here"
-   * dot has to read as the device, not as one more forest-green pin.
+   * Colours the map needs that the page palette had no name for.
+   * The location dot is a deeper, more saturated blue than the sky used for
+   * buttons: on the map it has to read as "this is you", not as one more piece
+   * of app furniture.
    */
-  --color-map-skeleton: #e8eadf;
-  --color-neutral-soft: #b9ada0;
-  --color-scrim: #332a20;
-  --color-location: #356f9c;
-  --color-route-done: #b3bda9;
-  --color-green-deep: #3d5c41;
+  --color-map-skeleton: #e6ecef;
+  --color-neutral-soft: #b0a894;
+  --color-scrim: #2b2622;
+  --color-location: #1f4f8f;
+  --color-route-done: #bdb9a4;
+  --color-green-deep: #34402f;
 
   --radius: 16px;
 }
@@ -61,8 +77,23 @@
 }
 
 html {
-  /* The forest floor around the phone-width canvas */
-  background: #b6bfa8;
+  /*
+   * Around the phone-width canvas: the sky over a field at dusk, deep at the
+   * top and warming towards the horizon. On a phone none of this is visible;
+   * on a laptop or a projector it is most of the screen, and a flat slab of
+   * colour there was the dullest part of the whole design.
+   */
+  background: #1e2f4d;
+  background-image: linear-gradient(
+    to bottom,
+    #1b2b47 0%,
+    #35507a 38%,
+    #7d7f92 66%,
+    #c98d63 86%,
+    #e0a878 100%
+  );
+  background-attachment: fixed;
+  min-height: 100%;
 }
 
 body {
@@ -114,14 +145,20 @@ body {
 
 /* Leaflet look */
 .leaflet-container {
-  background: #e3e9d8;
+  background: var(--color-map-skeleton);
   font: inherit;
 }
 
 /* Take the glare off the raw OSM tiles so the map sits in the same world as
    the rest of the app: a little softer, a little greener. */
 .leaflet-tile {
-  filter: saturate(0.86) contrast(0.96) brightness(1.03) hue-rotate(-6deg);
+  /*
+   * Warms the raw OSM tiles towards late afternoon so the map belongs to the
+   * same summer evening as the rest of the app. Kept gentle on purpose: push
+   * this further and street names start losing contrast against the roads,
+   * which is the one thing a walking map cannot afford.
+   */
+  filter: saturate(0.92) contrast(0.97) brightness(1.04) sepia(0.12) hue-rotate(-4deg);
 }
 
 /* The full-screen map runs to the bottom of the window, where the fixed tab

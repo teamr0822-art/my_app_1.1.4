@@ -146,7 +146,7 @@ export function CompanionLayer({
           type="button"
           onClick={openOverlay}
           aria-label="お散歩コンパニオンを開く"
-          className="anim-breathe fixed right-4 z-40 flex h-14 w-14 items-center justify-center rounded-full bg-[var(--color-green)] text-white shadow-xl"
+          className="anim-breathe fixed right-4 z-40 flex h-14 w-14 items-center justify-center rounded-full bg-[var(--color-amber)] text-white shadow-xl"
           style={{
             bottom: `calc(${bottomNavVisible ? 86 : 20}px + env(safe-area-inset-bottom))`,
           }}

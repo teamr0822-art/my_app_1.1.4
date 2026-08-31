@@ -63,8 +63,10 @@ function NavButton({
       >
         <span
           aria-hidden="true"
+          /* The app's one warm point: a firework red at rest, turning the same
+             sky blue as every other active control once you are on the map. */
           className={`flex h-14 w-14 items-center justify-center rounded-full border-4 border-[var(--color-panel)] text-white shadow-lg transition ${
-            active ? "bg-[var(--color-terracotta)]" : "bg-[var(--color-green)]"
+            active ? "bg-[var(--color-terracotta)]" : "bg-[var(--color-sunset-ink)]"
           }`}
         >
           {icon}

@@ -25,18 +25,31 @@ export function HomeScreen({ nav }: { nav: Nav }) {
   return (
     <div className="flex flex-1 flex-col overflow-y-auto pb-[var(--tabbar-clearance)]">
       {/* Header */}
-      <header className="bg-[var(--color-terracotta)] px-5 pb-6 pt-[calc(20px+env(safe-area-inset-top))] text-white">
-        <h1 className="text-[28px] font-extrabold tracking-tight">よりみっけ</h1>
-        <p className="mt-1.5 text-[13px] font-medium leading-relaxed opacity-95 text-pretty">
+      {/*
+        The header is the one place the app gets to set a mood, so it holds the
+        evening sky the rest of the palette is drawn from: deep blue overhead,
+        warming towards the horizon, with a firework opening over it. The
+        gradient darkens upward on purpose — the title and the three figures sit
+        in its darkest band, where white text measures better than 7:1.
+      */}
+      <header
+        /* shrink-0 matters: `overflow-hidden` (needed so the firework is clipped
+           to the sky) also lets this flex item shrink below its content and
+           clip the title and the figures with it. */
+        className="relative shrink-0 overflow-hidden bg-[linear-gradient(168deg,#1c2e4d_0%,#2f5478_52%,#3d6f8e_100%)] px-5 pb-6 pt-[calc(20px+env(safe-area-inset-top))] text-white"
+      >
+        <Firework />
+        <h1 className="relative text-[28px] font-extrabold tracking-tight">よりみっけ</h1>
+        <p className="relative mt-1.5 text-[13px] font-medium leading-relaxed text-pretty">
           知らなかった街の魅力を、旅の途中で見つけよう。
         </p>
-        <p className="mt-2 text-[12px] leading-relaxed opacity-85 text-pretty">
+        <p className="relative mt-2 text-[12px] leading-relaxed text-white/90 text-pretty">
           気になった場所に話しかけると、その土地の物語が返ってきます。
         </p>
 
         {/* Stat banner: the unit goes with the number, so "48" is never a
             bare figure the reader has to decode. */}
-        <div className="mt-4 flex gap-2">
+        <div className="relative mt-4 flex gap-2">
           <Stat value={STATS.kunishitei} unit="件" label="国の指定文化財" />
           <Stat value={STATS.kenshitei} unit="件" label="県の指定文化財" />
           <Stat value={SPOTS.length} unit="か所" label="話しかけられる" />
@@ -137,6 +150,47 @@ export function HomeScreen({ nav }: { nav: Nav }) {
         {DATA_SOURCE}
       </p>
     </div>
+  );
+}
+
+/**
+ * A firework over the header. Drawn rather than animated: this screen is opened
+ * outdoors, often in a hurry, and a looping animation behind the title would
+ * compete with the text for attention — and with anyone who has asked their
+ * device for less motion.
+ */
+function Firework() {
+  const rays = Array.from({ length: 16 }, (_, i) => (i * 360) / 16);
+  return (
+    <svg
+      aria-hidden="true"
+      viewBox="0 0 120 120"
+      className="pointer-events-none absolute -right-8 -top-6 h-32 w-32 opacity-55"
+    >
+      <g transform="translate(60 60)">
+        {rays.map((deg, i) => (
+          <g key={deg} transform={`rotate(${deg})`}>
+            <line
+              x1="0"
+              y1="-8"
+              x2="0"
+              y2={i % 2 ? "-38" : "-46"}
+              stroke={i % 2 ? "var(--color-sunset)" : "var(--color-sun)"}
+              strokeWidth="1.6"
+              strokeLinecap="round"
+              opacity="0.85"
+            />
+            <circle
+              cx="0"
+              cy={i % 2 ? "-41" : "-49"}
+              r="2"
+              fill={i % 2 ? "var(--color-sunset)" : "var(--color-sun)"}
+            />
+          </g>
+        ))}
+        <circle r="3.5" fill="var(--color-sun)" opacity="0.9" />
+      </g>
+    </svg>
   );
 }
 

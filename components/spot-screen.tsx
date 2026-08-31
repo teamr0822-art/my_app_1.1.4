@@ -198,7 +198,7 @@ export function SpotScreen({ spotId, nav }: { spotId: string; nav: Nav }) {
             type="button"
             onClick={begin}
             aria-label="案内をはじめる"
-            className="anim-breathe relative flex h-32 w-32 items-center justify-center rounded-full bg-[var(--color-terracotta)] text-6xl text-white shadow-xl"
+            className="anim-breathe relative flex h-32 w-32 items-center justify-center rounded-full bg-[var(--color-sunset-ink)] text-6xl text-white shadow-xl"
           >
             <span aria-hidden="true">{spot.icon}</span>
             <span className="anim-mic absolute inset-0 rounded-full" />

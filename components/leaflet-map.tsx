@@ -196,8 +196,9 @@ export function LeafletMap({
 
       mapRef.current = map;
       setMapReady(true);
-      // Arrows are spaced in screen pixels, so they must be redrawn on zoom.
-      map.on("zoomend", () => setZoomTick((n) => n + 1));
+      // The direction arrows are spaced in screen pixels and drawn at a screen
+      // angle, so both zooming and turning the map invalidate them.
+      map.on("zoomend rotate", () => setZoomTick((n) => n + 1));
 
       for (const s of spots) {
         const icon = L.divIcon({
@@ -314,11 +315,20 @@ export function LeafletMap({
         // number of metres: at city-wide zoom a 70 m spacing crowded them into
         // an unreadable dotted line.
         const spacing = spacingForZoom(map.getZoom(), map.getCenter().lat, current ? 62 : 110);
+        // A compass bearing is only the on-screen angle while north is up.
+        // Turning the map swings the route line round to bearing + B on screen,
+        // but leaflet-rotate deliberately keeps marker icons upright — it undoes
+        // the rotation for them — so an arrow drawn at the plain compass bearing
+        // stayed where it was and ended up wrong by exactly B. Adding the map's
+        // bearing back puts each arrow on its line again.
+        // (Measured: without this, 30 degrees of map rotation left the arrows
+        // 30 degrees off the line; subtracting instead of adding made it 60.)
+        const mapBearing = map.getBearing?.() ?? 0;
         for (const [point, angle] of arrowsAlong(leg.coords, spacing)) {
           L.marker(point, {
             icon: L.divIcon({
               className: "",
-              html: arrowHtml(angle, current),
+              html: arrowHtml(angle + mapBearing, current),
               iconSize: [22, 22],
               iconAnchor: [11, 11],
             }),
@@ -564,7 +574,7 @@ function arrowHtml(angle: number, strong: boolean): string {
   const fill = strong ? "#ffffff" : "var(--color-panel)";
   return `<div style="transform:rotate(${angle}deg);display:flex;align-items:center;justify-content:center;width:22px;height:22px">
     <svg width="${size}" height="${size}" viewBox="0 0 16 16" aria-hidden="true">
-      <path d="M8 1 L13 12 L8 9.4 L3 12 Z" fill="${fill}" stroke="var(--color-green-deep)" stroke-width="1.4" stroke-linejoin="round"/>
+      <path d="M8 1 L13 12 L8 9.4 L3 12 Z" fill="${fill}" stroke="var(--color-ink)" stroke-width="1.4" stroke-linejoin="round"/>
     </svg></div>`;
 }
 
