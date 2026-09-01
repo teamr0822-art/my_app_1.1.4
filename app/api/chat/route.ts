@@ -239,12 +239,17 @@ export async function POST(req: Request) {
   let failure: string | null = null;
   /** Which model actually answered — reported by the debug switch. */
   let usedModel = CHAT_MODEL_ID;
+  /** One line per model tried, so a failure names the model that produced it. */
+  const attemptLog: string[] = [];
 
   const result = streamText({
     model: MODEL,
     system,
     messages,
     tools: { searchWikipedia: wikipediaTool },
+    // Fail fast: when the primary model is busy the fallback list below is a
+    // better answer than sitting in this call's own backoff.
+    maxRetries: 1,
     // Allow the model to call the tool and then answer with the result.
     stopWhen: stepCountIs(4),
     maxOutputTokens: 2048,
@@ -286,7 +291,7 @@ export async function POST(req: Request) {
         // of thing but belongs to ONE model at ONE moment, so after asking the
         // primary again we work down the fallback list rather than waiting.
         if (isTransient(failure)) {
-          await new Promise((r) => setTimeout(r, 800));
+          await new Promise((r) => setTimeout(r, 400));
           for (const id of [CHAT_MODEL_ID, ...CHAT_MODEL_IDS.slice(1)]) {
             try {
               const retry = await generateText({
@@ -294,7 +299,13 @@ export async function POST(req: Request) {
                 system,
                 messages,
                 maxOutputTokens: 2048,
-                abortSignal: AbortSignal.timeout(6_000),
+                // maxRetries: 0 matters. The SDK's own retry sleeps between
+                // attempts, and an abortSignal cuts that sleep short — every
+                // model then died with "Delay was aborted" instead of actually
+                // being tried, and the whole list burned 23 seconds getting
+                // nowhere. One clean attempt each, fail fast, move on.
+                maxRetries: 0,
+                abortSignal: AbortSignal.timeout(7_000),
                 providerOptions: {
                   google: { thinkingConfig: { thinkingBudget: 0, includeThoughts: false } },
                 },
@@ -305,9 +316,12 @@ export async function POST(req: Request) {
                 wrote = true;
                 break;
               }
+              attemptLog.push(`${id}: 空の応答`);
             } catch (err) {
-              failure = err instanceof Error ? err.message : String(err);
-              console.error(`[guide] model ${id} failed:`, failure);
+              const detail = err instanceof Error ? err.message : String(err);
+              failure = detail;
+              attemptLog.push(`${id}: ${detail.slice(0, 160)}`);
+              console.error(`[guide] model ${id} failed:`, detail);
             }
           }
         }
@@ -315,7 +329,7 @@ export async function POST(req: Request) {
       if (!wrote && debug) {
         controller.enqueue(
           encoder.encode(
-            `[debug] tried=${CHAT_MODEL_IDS.join(",")} last=${usedModel}\n${(failure ?? "(no error captured)").slice(0, 800)}`,
+            `[debug] answered=${wrote ? usedModel : "(none)"}\nprimary: ${(failure ?? "-").slice(0, 200)}\n${attemptLog.join("\n") || "(fallbacks not reached)"}`,
           ),
         );
         controller.close();
