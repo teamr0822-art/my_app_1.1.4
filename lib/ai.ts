@@ -33,7 +33,14 @@ const google = createGoogleGenerativeAI({ apiKey: GEMINI_API_KEY })
  * model. It is an env var so the next time Google retires one it is a Vercel
  * setting, not a code change: set GEMINI_MODEL to the new name.
  */
-const DEFAULT_MODEL_IDS = ["gemini-3.7-flash", "gemini-3.6-flash", "gemini-flash-latest"]
+const DEFAULT_MODEL_IDS = [
+  "gemini-3.7-flash",
+  "gemini-3.6-flash",
+  "gemini-flash-latest",
+  // Older family, kept last: it takes a different "thinking" setting (see
+  // callOptionsFor in the chat route) and is the least likely to be busy.
+  "gemini-2.5-flash",
+]
 
 /**
  * Models to try, in order. GEMINI_MODEL (if set) goes first, then the defaults.

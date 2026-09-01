@@ -98,6 +98,28 @@ const wikipediaTool = tool({
   },
 });
 
+/**
+ * "Thinking" settings are model-family specific.
+ *
+ * gemini-2.5-flash needed `thinkingBudget: 0`: left on, it spent the whole
+ * output allowance on internal thought and streamed no text. Newer models
+ * reject the very same block — gemini-3.6-flash answers "Request contains an
+ * invalid argument" — so it is sent only to the family that needs it, and the
+ * others get a larger output allowance instead so their thinking and their
+ * answer both fit.
+ */
+function callOptionsFor(modelId: string) {
+  const isLegacyThinking = modelId.startsWith("gemini-2.");
+  return isLegacyThinking
+    ? {
+        maxOutputTokens: 2048,
+        providerOptions: {
+          google: { thinkingConfig: { thinkingBudget: 0, includeThoughts: false } },
+        },
+      }
+    : { maxOutputTokens: 4096 };
+}
+
 const MODEL = CHAT_MODEL;
 
 type Body = {
@@ -252,19 +274,10 @@ export async function POST(req: Request) {
     maxRetries: 1,
     // Allow the model to call the tool and then answer with the result.
     stopWhen: stepCountIs(4),
-    maxOutputTokens: 2048,
+    ...callOptionsFor(CHAT_MODEL_ID),
     // The function itself is capped at 30s; stop a little earlier so a stalled
     // provider still leaves room to send the offline answer below.
     abortSignal: AbortSignal.timeout(18_000),
-    providerOptions: {
-      google: {
-        // Gemini 2.5 "thinking" is on by default. On longer prompts it spent
-        // the whole response on internal thought parts and streamed no text,
-        // which surfaced as an empty answer. This app needs short, grounded
-        // replies, so thinking is turned off.
-        thinkingConfig: { thinkingBudget: 0, includeThoughts: false },
-      },
-    },
     onError: ({ error }) => {
       failure = error instanceof Error ? error.message : String(error);
       console.error("[v0] chat streamText error:", error);
@@ -298,7 +311,7 @@ export async function POST(req: Request) {
                 model: chatModel(id),
                 system,
                 messages,
-                maxOutputTokens: 2048,
+                ...callOptionsFor(id),
                 // maxRetries: 0 matters. The SDK's own retry sleeps between
                 // attempts, and an abortSignal cuts that sleep short — every
                 // model then died with "Delay was aborted" instead of actually
@@ -306,9 +319,6 @@ export async function POST(req: Request) {
                 // nowhere. One clean attempt each, fail fast, move on.
                 maxRetries: 0,
                 abortSignal: AbortSignal.timeout(7_000),
-                providerOptions: {
-                  google: { thinkingConfig: { thinkingBudget: 0, includeThoughts: false } },
-                },
               });
               if (retry.text.trim()) {
                 usedModel = id;
