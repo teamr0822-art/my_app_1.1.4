@@ -28,10 +28,12 @@ const google = createGoogleGenerativeAI({ apiKey: GEMINI_API_KEY })
  *    Please update your code to use models/gemini-3.6-flash"
  *
  * — which looked exactly like a broken key, because nothing on screen said the
- * model was the problem. It is an env var now so the next time Google retires a
- * model it is a Vercel setting, not a code change and a redeploy.
+ * model was the problem. Switching to the model named in that message did not
+ * fix it either, so the default is now the current generally-available Flash
+ * model. It is an env var so the next time Google retires one it is a Vercel
+ * setting, not a code change: set GEMINI_MODEL to the new name.
  */
-export const CHAT_MODEL_ID = process.env.GEMINI_MODEL?.trim() || "gemini-3.6-flash"
+export const CHAT_MODEL_ID = process.env.GEMINI_MODEL?.trim() || "gemini-3.7-flash"
 
 export const CHAT_MODEL = google(CHAT_MODEL_ID)
 

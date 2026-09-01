@@ -1,7 +1,7 @@
 import { streamText, generateText, tool, stepCountIs, type ModelMessage } from "ai";
 import { z } from "zod";
 import { areaOf, getSpot, type Spot } from "@/lib/spots";
-import { CHAT_MODEL, hasGeminiKey } from "@/lib/ai";
+import { CHAT_MODEL, hasGeminiKey, CHAT_MODEL_ID } from "@/lib/ai";
 import { searchWikipedia } from "@/lib/wikipedia";
 import { rateLimit, clientKey } from "@/lib/rate-limit";
 
@@ -105,6 +105,12 @@ type Body = {
   spotId?: string;
   mode?: "spot" | "companion" | "route";
   nearby?: NearbySpot[];
+  /**
+   * Opt-in switch used only when something is being diagnosed: the response
+   * becomes the raw provider error instead of the guide's answer. Nothing in
+   * the app ever sets it, so a visitor cannot see this.
+   */
+  debug?: boolean;
 };
 
 export async function POST(req: Request) {
@@ -131,7 +137,7 @@ export async function POST(req: Request) {
   } catch {
     return new Response("Invalid request body", { status: 400 });
   }
-  const { messages, spotId, mode = "spot", nearby } = body;
+  const { messages, spotId, mode = "spot", nearby, debug } = body;
   if (!Array.isArray(messages)) {
     return new Response("messages must be an array", { status: 400 });
   }
@@ -294,6 +300,15 @@ export async function POST(req: Request) {
             failure = failure ?? (err instanceof Error ? err.message : String(err));
           }
         }
+      }
+      if (!wrote && debug) {
+        controller.enqueue(
+          encoder.encode(
+            `[debug] model=${CHAT_MODEL_ID}\n${(failure ?? "(no error captured)").slice(0, 800)}`,
+          ),
+        );
+        controller.close();
+        return;
       }
       if (!wrote) {
         // Still nothing. Rather than an apology, fall back to the material the
