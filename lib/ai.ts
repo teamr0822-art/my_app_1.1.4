@@ -33,9 +33,26 @@ const google = createGoogleGenerativeAI({ apiKey: GEMINI_API_KEY })
  * model. It is an env var so the next time Google retires one it is a Vercel
  * setting, not a code change: set GEMINI_MODEL to the new name.
  */
-export const CHAT_MODEL_ID = process.env.GEMINI_MODEL?.trim() || "gemini-3.7-flash"
+const DEFAULT_MODEL_IDS = ["gemini-3.7-flash", "gemini-3.6-flash", "gemini-flash-latest"]
 
-export const CHAT_MODEL = google(CHAT_MODEL_ID)
+/**
+ * Models to try, in order. GEMINI_MODEL (if set) goes first, then the defaults.
+ *
+ * The list exists because a brand-new model can be busy: the newest Flash
+ * answered "This model is currently experiencing high demand", which is not a
+ * configuration problem and not something a visitor standing in front of a
+ * shrine should have to wait out. When the first model is overloaded the guide
+ * quietly asks the next one instead.
+ */
+export const CHAT_MODEL_IDS: string[] = Array.from(
+  new Set([process.env.GEMINI_MODEL?.trim(), ...DEFAULT_MODEL_IDS].filter(Boolean) as string[]),
+)
+
+export const CHAT_MODEL_ID = CHAT_MODEL_IDS[0]
+
+export const chatModel = (id: string) => google(id)
+
+export const CHAT_MODEL = chatModel(CHAT_MODEL_ID)
 
 /**
  * Server-side audio (STT/TTS) still runs through the Vercel AI Gateway, which

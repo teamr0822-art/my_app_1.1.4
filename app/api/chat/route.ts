@@ -1,7 +1,7 @@
 import { streamText, generateText, tool, stepCountIs, type ModelMessage } from "ai";
 import { z } from "zod";
 import { areaOf, getSpot, type Spot } from "@/lib/spots";
-import { CHAT_MODEL, hasGeminiKey, CHAT_MODEL_ID } from "@/lib/ai";
+import { CHAT_MODEL, CHAT_MODEL_ID, CHAT_MODEL_IDS, chatModel, hasGeminiKey } from "@/lib/ai";
 import { searchWikipedia } from "@/lib/wikipedia";
 import { rateLimit, clientKey } from "@/lib/rate-limit";
 
@@ -237,6 +237,8 @@ export async function POST(req: Request) {
   // instead of silently returning an empty 200 (which reads as "the AI said
   // nothing"). Rate limits and quota errors are the common cause.
   let failure: string | null = null;
+  /** Which model actually answered — reported by the debug switch. */
+  let usedModel = CHAT_MODEL_ID;
 
   const result = streamText({
     model: MODEL,
@@ -279,32 +281,41 @@ export async function POST(req: Request) {
       if (!wrote) {
         // One quiet retry: rate limits and 5xx from the provider are usually
         // gone a second later, and a visitor should not have to know that.
+        //
+        // "This model is currently experiencing high demand" is the same kind
+        // of thing but belongs to ONE model at ONE moment, so after asking the
+        // primary again we work down the fallback list rather than waiting.
         if (isTransient(failure)) {
           await new Promise((r) => setTimeout(r, 800));
-          try {
-            const retry = await generateText({
-              model: MODEL,
-              system,
-              messages,
-              maxOutputTokens: 2048,
-              abortSignal: AbortSignal.timeout(6_000),
-              providerOptions: {
-                google: { thinkingConfig: { thinkingBudget: 0, includeThoughts: false } },
-              },
-            });
-            if (retry.text.trim()) {
-              controller.enqueue(encoder.encode(retry.text));
-              wrote = true;
+          for (const id of [CHAT_MODEL_ID, ...CHAT_MODEL_IDS.slice(1)]) {
+            try {
+              const retry = await generateText({
+                model: chatModel(id),
+                system,
+                messages,
+                maxOutputTokens: 2048,
+                abortSignal: AbortSignal.timeout(6_000),
+                providerOptions: {
+                  google: { thinkingConfig: { thinkingBudget: 0, includeThoughts: false } },
+                },
+              });
+              if (retry.text.trim()) {
+                usedModel = id;
+                controller.enqueue(encoder.encode(retry.text));
+                wrote = true;
+                break;
+              }
+            } catch (err) {
+              failure = err instanceof Error ? err.message : String(err);
+              console.error(`[guide] model ${id} failed:`, failure);
             }
-          } catch (err) {
-            failure = failure ?? (err instanceof Error ? err.message : String(err));
           }
         }
       }
       if (!wrote && debug) {
         controller.enqueue(
           encoder.encode(
-            `[debug] model=${CHAT_MODEL_ID}\n${(failure ?? "(no error captured)").slice(0, 800)}`,
+            `[debug] tried=${CHAT_MODEL_IDS.join(",")} last=${usedModel}\n${(failure ?? "(no error captured)").slice(0, 800)}`,
           ),
         );
         controller.close();
@@ -355,6 +366,9 @@ function describeFailure(raw: string | null): string {
   ) {
     return "AIの利用枠が切れています。復旧までは資料からの案内をお届けします。";
   }
+  if (text.includes("high demand") || text.includes("overload") || text.includes("unavailable")) {
+    return "AIが混み合っています。少し待つとつながります。";
+  }
   if (text.includes("429") || text.includes("quota") || text.includes("rate limit") || text.includes("resource_exhausted")) {
     return "AIの利用上限に達しました。しばらく待ってからもう一度お試しください。";
   }
@@ -385,6 +399,7 @@ function isTransient(raw: string | null): boolean {
     text.includes("rate limit") ||
     text.includes("resource_exhausted") ||
     text.includes("overload") ||
+    text.includes("high demand") ||
     text.includes("unavailable") ||
     text.includes("timeout") ||
     text.includes("503") ||
