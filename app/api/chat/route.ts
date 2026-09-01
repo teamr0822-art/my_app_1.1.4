@@ -343,6 +343,15 @@ function describeFailure(raw: string | null): string {
   if (text.includes("429") || text.includes("quota") || text.includes("rate limit") || text.includes("resource_exhausted")) {
     return "AIの利用上限に達しました。しばらく待ってからもう一度お試しください。";
   }
+  // A retired model reads as a broken key unless it is called out: the request
+  // is rejected for the model, not the credentials.
+  if (
+    text.includes("no longer available") ||
+    text.includes("is not found for api version") ||
+    (text.includes("model") && text.includes("not found"))
+  ) {
+    return "AIのモデルが使えなくなっています。設定の更新が必要です。";
+  }
   if (text.includes("401") || text.includes("403") || text.includes("api key") || text.includes("permission")) {
     return "AIに接続できませんでした。設定を確認しています。";
   }

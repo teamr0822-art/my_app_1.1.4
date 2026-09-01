@@ -1,6 +1,6 @@
 import { generateText } from "ai";
 
-import { CHAT_MODEL, hasGeminiKey } from "@/lib/ai";
+import { CHAT_MODEL, CHAT_MODEL_ID, hasGeminiKey } from "@/lib/ai";
 
 export const maxDuration = 30;
 export const dynamic = "force-dynamic";
@@ -41,7 +41,13 @@ export async function GET() {
     文字数: raw.length,
     前後の空白や改行: raw.length !== trimmed.length ? "あり（要修正）" : "なし",
     先頭4文字: trimmed.slice(0, 4) || "(空)",
-    Googleのキーらしい形式: trimmed.startsWith("AIza"),
+    // Google issues more than one key format ("AIza…" and the newer "AQ.…"),
+    // so this is a note, not a verdict.
+    キーの形式: trimmed.startsWith("AIza")
+      ? "AIza形式"
+      : trimmed.startsWith("AQ.")
+        ? "AQ.形式（新しい方）"
+        : "見慣れない形式",
     アプリがキーありと判定: hasGeminiKey,
   };
 
@@ -55,6 +61,7 @@ export async function GET() {
       {
         結論: "キーがアプリまで届いていません。Vercelの環境変数を見直してください。",
         key,
+        使っているモデル: CHAT_MODEL_ID,
         環境変数の名前,
       },
       { headers: { "Cache-Control": "no-store" } },
@@ -79,6 +86,7 @@ export async function GET() {
           ? "Geminiは正常に応答しました。AIガイドも動くはずです。"
           : "Geminiは応答しましたが本文が空でした。",
         かかった時間ms: Date.now() - t0,
+        使っているモデル: CHAT_MODEL_ID,
         応答: result.text.slice(0, 100),
         key,
       },
@@ -90,6 +98,7 @@ export async function GET() {
       {
         結論: "キーは届いていますが、Geminiの呼び出しが失敗しました。下のエラー本文が原因です。",
         かかった時間ms: Date.now() - t0,
+        使っているモデル: CHAT_MODEL_ID,
         エラー: redact(message).slice(0, 1200),
         key,
       },
