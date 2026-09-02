@@ -161,12 +161,7 @@ type Body = {
   spotId?: string;
   mode?: "spot" | "companion" | "route";
   nearby?: NearbySpot[];
-  /**
-   * Opt-in switch used only when something is being diagnosed: the response
-   * becomes the raw provider error instead of the guide's answer. Nothing in
-   * the app ever sets it, so a visitor cannot see this.
-   */
-  debug?: boolean;
+
 };
 
 export async function POST(req: Request) {
@@ -193,7 +188,7 @@ export async function POST(req: Request) {
   } catch {
     return new Response("Invalid request body", { status: 400 });
   }
-  const { messages, spotId, mode = "spot", nearby, debug } = body;
+  const { messages, spotId, mode = "spot", nearby } = body;
   if (!Array.isArray(messages)) {
     return new Response("messages must be an array", { status: 400 });
   }
@@ -293,9 +288,9 @@ export async function POST(req: Request) {
   // instead of silently returning an empty 200 (which reads as "the AI said
   // nothing"). Rate limits and quota errors are the common cause.
   let failure: string | null = null;
-  /** Which model actually answered — reported by the debug switch. */
+  /** Which model actually answered — written to the server log. */
   let usedModel = CHAT_PRIMARY ? labelOf(CHAT_PRIMARY) : "(none)";
-  /** One line per model tried, so a failure names the model that produced it. */
+  /** One line per model tried; written to the server log on a total failure. */
   const attemptLog: string[] = [];
 
   const result = streamText({
@@ -375,18 +370,12 @@ export async function POST(req: Request) {
           }
         }
       }
-      if (!wrote && debug) {
-        controller.enqueue(
-          encoder.encode(
-            `[debug] candidates=${CHAT_CANDIDATES.map(labelOf).join(",")}\nanswered=${wrote ? usedModel : "(none)"}\nprimary: ${(failure ?? "-").slice(0, 200)}\n${attemptLog.join("\n") || "(fallbacks not reached)"}`,
-          ),
-        );
-        controller.close();
-        return;
-      }
       if (!wrote) {
         // Still nothing. Rather than an apology, fall back to the material the
         // app already carries so the visitor still gets an answer.
+        if (attemptLog.length) {
+          console.error("[guide] every candidate failed:\n" + attemptLog.join("\n"));
+        }
         const offline =
           mode === "route"
             ? fallbackRoute(nearby)
