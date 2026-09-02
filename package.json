@@ -11,10 +11,11 @@
   },
   "dependencies": {
     "@ai-sdk/google": "^4.0.50",
-    "ai": "latest",
+    "@ai-sdk/groq": "^4.0.35",
+    "ai": "7.0.79",
     "leaflet": "^1.9.4",
     "leaflet-rotate": "^0.2.8",
-    "next": "latest",
+    "next": "16.3.2",
     "react": "^19.0.0",
     "react-dom": "^19.0.0",
     "zod": "^3.23.8"

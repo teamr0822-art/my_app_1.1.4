@@ -1,7 +1,14 @@
 import { streamText, generateText, tool, stepCountIs, type ModelMessage } from "ai";
 import { z } from "zod";
 import { areaOf, getSpot, type Spot } from "@/lib/spots";
-import { CHAT_MODEL, CHAT_MODEL_ID, CHAT_MODEL_IDS, chatModel, hasGeminiKey } from "@/lib/ai";
+import {
+  CHAT_CANDIDATES,
+  CHAT_PRIMARY,
+  chatModel,
+  hasAnyKey,
+  labelOf,
+  type Candidate,
+} from "@/lib/ai";
 import { searchWikipedia } from "@/lib/wikipedia";
 import { rateLimit, clientKey } from "@/lib/rate-limit";
 
@@ -108,8 +115,9 @@ const wikipediaTool = tool({
  * others get a larger output allowance instead so their thinking and their
  * answer both fit.
  */
-function callOptionsFor(modelId: string) {
-  const isLegacyThinking = modelId.startsWith("gemini-2.");
+function callOptionsFor(candidate: Candidate) {
+  const isLegacyThinking =
+    candidate.provider === "google" && candidate.id.startsWith("gemini-2.");
   return isLegacyThinking
     ? {
         maxOutputTokens: 2048,
@@ -120,7 +128,7 @@ function callOptionsFor(modelId: string) {
     : { maxOutputTokens: 4096 };
 }
 
-const MODEL = CHAT_MODEL;
+
 
 type Body = {
   messages: ModelMessage[];
@@ -241,7 +249,7 @@ export async function POST(req: Request) {
 
   // Without a Gemini API key we cannot reach the model at all. For route mode
   // we still return something usable; other modes report the misconfiguration.
-  if (!hasGeminiKey) {
+  if (!hasAnyKey || !CHAT_PRIMARY) {
     const offline =
       mode === "route"
         ? fallbackRoute(nearby)
@@ -260,12 +268,12 @@ export async function POST(req: Request) {
   // nothing"). Rate limits and quota errors are the common cause.
   let failure: string | null = null;
   /** Which model actually answered — reported by the debug switch. */
-  let usedModel = CHAT_MODEL_ID;
+  let usedModel = CHAT_PRIMARY ? labelOf(CHAT_PRIMARY) : "(none)";
   /** One line per model tried, so a failure names the model that produced it. */
   const attemptLog: string[] = [];
 
   const result = streamText({
-    model: MODEL,
+    model: chatModel(CHAT_PRIMARY),
     system,
     messages,
     tools: { searchWikipedia: wikipediaTool },
@@ -274,7 +282,7 @@ export async function POST(req: Request) {
     maxRetries: 1,
     // Allow the model to call the tool and then answer with the result.
     stopWhen: stepCountIs(4),
-    ...callOptionsFor(CHAT_MODEL_ID),
+    ...callOptionsFor(CHAT_PRIMARY),
     // The function itself is capped at 30s; stop a little earlier so a stalled
     // provider still leaves room to send the offline answer below.
     abortSignal: AbortSignal.timeout(18_000),
@@ -303,15 +311,20 @@ export async function POST(req: Request) {
         // "This model is currently experiencing high demand" is the same kind
         // of thing but belongs to ONE model at ONE moment, so after asking the
         // primary again we work down the fallback list rather than waiting.
-        if (isTransient(failure)) {
-          await new Promise((r) => setTimeout(r, 400));
-          for (const id of [CHAT_MODEL_ID, ...CHAT_MODEL_IDS.slice(1)]) {
+        {
+          // Always walk the list, not only on a "transient" error. With two
+          // providers configured, a hard failure on the first one (a bad key,
+          // a retired model) is exactly when the OTHER provider should be
+          // asked; gating this on transience let one bad key silence a
+          // perfectly healthy second provider.
+          if (isTransient(failure)) await new Promise((r) => setTimeout(r, 400));
+          for (const candidate of CHAT_CANDIDATES) {
             try {
               const retry = await generateText({
-                model: chatModel(id),
+                model: chatModel(candidate),
                 system,
                 messages,
-                ...callOptionsFor(id),
+                ...callOptionsFor(candidate),
                 // maxRetries: 0 matters. The SDK's own retry sleeps between
                 // attempts, and an abortSignal cuts that sleep short — every
                 // model then died with "Delay was aborted" instead of actually
@@ -321,17 +334,17 @@ export async function POST(req: Request) {
                 abortSignal: AbortSignal.timeout(7_000),
               });
               if (retry.text.trim()) {
-                usedModel = id;
+                usedModel = labelOf(candidate);
                 controller.enqueue(encoder.encode(retry.text));
                 wrote = true;
                 break;
               }
-              attemptLog.push(`${id}: 空の応答`);
+              attemptLog.push(`${labelOf(candidate)}: 空の応答`);
             } catch (err) {
               const detail = err instanceof Error ? err.message : String(err);
               failure = detail;
-              attemptLog.push(`${id}: ${detail.slice(0, 160)}`);
-              console.error(`[guide] model ${id} failed:`, detail);
+              attemptLog.push(`${labelOf(candidate)}: ${detail.slice(0, 160)}`);
+              console.error(`[guide] ${labelOf(candidate)} failed:`, detail);
             }
           }
         }
@@ -339,7 +352,7 @@ export async function POST(req: Request) {
       if (!wrote && debug) {
         controller.enqueue(
           encoder.encode(
-            `[debug] answered=${wrote ? usedModel : "(none)"}\nprimary: ${(failure ?? "-").slice(0, 200)}\n${attemptLog.join("\n") || "(fallbacks not reached)"}`,
+            `[debug] candidates=${CHAT_CANDIDATES.map(labelOf).join(",")}\nanswered=${wrote ? usedModel : "(none)"}\nprimary: ${(failure ?? "-").slice(0, 200)}\n${attemptLog.join("\n") || "(fallbacks not reached)"}`,
           ),
         );
         controller.close();
@@ -421,6 +434,10 @@ function isTransient(raw: string | null): boolean {
   return (
     text.includes("429") ||
     text.includes("rate limit") ||
+    // Free-tier quota is counted per model, so a model that has run out is a
+    // reason to ask the NEXT model — not a reason to stop. Without this the
+    // fallback list was skipped entirely the moment a quota ran dry.
+    text.includes("quota") ||
     text.includes("resource_exhausted") ||
     text.includes("overload") ||
     text.includes("high demand") ||

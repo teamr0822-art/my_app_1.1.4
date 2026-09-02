@@ -1,65 +1,93 @@
 import "server-only"
 import { createGoogleGenerativeAI } from "@ai-sdk/google"
+import { createGroq } from "@ai-sdk/groq"
 
 /**
- * Text generation runs on the Google Gemini API (Google AI Studio).
+ * The guide can talk to two providers, and will use whichever is working.
  *
- * The free tier requires no credit card: create an API key at
- * https://aistudio.google.com/apikey and set it as GEMINI_API_KEY
- * (GOOGLE_GENERATIVE_AI_API_KEY is also accepted).
+ * Google Gemini (https://aistudio.google.com/apikey) → GEMINI_API_KEY
+ * Groq          (https://console.groq.com/keys)      → GROQ_API_KEY
+ *
+ * Either one alone is enough. Setting both is the point of this file: a free
+ * Gemini key runs out of its daily allowance, and a brand-new Gemini model can
+ * answer "This model is currently experiencing high demand" for an afternoon.
+ * Neither is a bug to fix, and neither should stop a visitor standing in front
+ * of a shrine from hearing about it — so when one provider will not answer the
+ * guide quietly asks the next candidate instead.
  */
 export const GEMINI_API_KEY =
   process.env.GEMINI_API_KEY?.trim() ||
   process.env.GOOGLE_GENERATIVE_AI_API_KEY?.trim() ||
   ""
 
+export const GROQ_API_KEY = process.env.GROQ_API_KEY?.trim() || ""
+
 export const hasGeminiKey = GEMINI_API_KEY.length > 8
+export const hasGroqKey = GROQ_API_KEY.length > 8
+export const hasAnyKey = hasGeminiKey || hasGroqKey
 
 const google = createGoogleGenerativeAI({ apiKey: GEMINI_API_KEY })
+const groq = createGroq({ apiKey: GROQ_API_KEY })
+
+export type Provider = "google" | "groq"
+export type Candidate = { provider: Provider; id: string }
 
 /**
- * Which Gemini model to talk to.
- *
- * This was pinned to gemini-2.5-flash. That model has since been closed to new
- * API keys: an existing key kept working, but issuing a *fresh* key and putting
- * it in produced
- *
- *   "This model models/gemini-2.5-flash is no longer available to new users.
- *    Please update your code to use models/gemini-3.6-flash"
- *
- * — which looked exactly like a broken key, because nothing on screen said the
- * model was the problem. Switching to the model named in that message did not
- * fix it either, so the default is now the current generally-available Flash
- * model. It is an env var so the next time Google retires one it is a Vercel
- * setting, not a code change: set GEMINI_MODEL to the new name.
+ * Gemini names change under you: gemini-2.5-flash was closed to new API keys
+ * without warning, and the replacement its own error message named had already
+ * been superseded. GEMINI_MODEL / GROQ_MODEL exist so the next time that
+ * happens it is a Vercel setting rather than a code change.
  */
-const DEFAULT_MODEL_IDS = [
+const GEMINI_IDS = [
   "gemini-3.7-flash",
   "gemini-3.6-flash",
   "gemini-flash-latest",
-  // Older family, kept last: it takes a different "thinking" setting (see
+  // Older family, kept last: it needs a different "thinking" setting (see
   // callOptionsFor in the chat route) and is the least likely to be busy.
   "gemini-2.5-flash",
 ]
 
+/** Groq production models that handle Japanese and support tool calling. */
+const GROQ_IDS = ["openai/gpt-oss-120b", "llama-3.3-70b-versatile"]
+
 /**
- * Models to try, in order. GEMINI_MODEL (if set) goes first, then the defaults.
- *
- * The list exists because a brand-new model can be busy: the newest Flash
- * answered "This model is currently experiencing high demand", which is not a
- * configuration problem and not something a visitor standing in front of a
- * shrine should have to wait out. When the first model is overloaded the guide
- * quietly asks the next one instead.
+ * Which provider gets asked first. Groq leads when a key is present: its free
+ * allowance is far larger than Gemini's and it answers noticeably faster, which
+ * matters when someone is waiting on a street corner. AI_PRIMARY=gemini flips
+ * it back.
  */
-export const CHAT_MODEL_IDS: string[] = Array.from(
-  new Set([process.env.GEMINI_MODEL?.trim(), ...DEFAULT_MODEL_IDS].filter(Boolean) as string[]),
-)
+const primary: Provider =
+  process.env.AI_PRIMARY?.trim().toLowerCase() === "gemini"
+    ? "google"
+    : hasGroqKey
+      ? "groq"
+      : "google"
 
-export const CHAT_MODEL_ID = CHAT_MODEL_IDS[0]
+const geminiCandidates: Candidate[] = hasGeminiKey
+  ? Array.from(
+      new Set([process.env.GEMINI_MODEL?.trim(), ...GEMINI_IDS].filter(Boolean) as string[]),
+    ).map((id) => ({ provider: "google" as const, id }))
+  : []
 
-export const chatModel = (id: string) => google(id)
+const groqCandidates: Candidate[] = hasGroqKey
+  ? Array.from(
+      new Set([process.env.GROQ_MODEL?.trim(), ...GROQ_IDS].filter(Boolean) as string[]),
+    ).map((id) => ({ provider: "groq" as const, id }))
+  : []
 
-export const CHAT_MODEL = chatModel(CHAT_MODEL_ID)
+/** Every model worth trying, best first. Empty when no key is configured. */
+export const CHAT_CANDIDATES: Candidate[] =
+  primary === "groq"
+    ? [...groqCandidates, ...geminiCandidates]
+    : [...geminiCandidates, ...groqCandidates]
+
+export const chatModel = (c: Candidate) =>
+  c.provider === "groq" ? groq(c.id) : google(c.id)
+
+/** Label used in logs and in the diagnostic switch. */
+export const labelOf = (c: Candidate) => `${c.provider}:${c.id}`
+
+export const CHAT_PRIMARY: Candidate | undefined = CHAT_CANDIDATES[0]
 
 /**
  * Server-side audio (STT/TTS) still runs through the Vercel AI Gateway, which
