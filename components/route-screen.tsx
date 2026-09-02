@@ -95,7 +95,13 @@ export function RouteScreen({ nav }: { nav: Nav }) {
     const now = new Date();
     const target = new Date(now);
     target.setHours(h, m, 0, 0);
-    return Math.round((target.getTime() - now.getTime()) / 60000);
+    let diff = Math.round((target.getTime() - now.getTime()) / 60000);
+    // A clock time has no date on it. At 22:40 the default of "two hours from
+    // now" is 00:40 — tomorrow — and reading it as today made the form open
+    // already broken every evening. Roll past midnight, but only when doing so
+    // gives a plausible trip: at 10:00, "09:00" is a mistake, not a 23-hour walk.
+    if (diff <= 0 && diff + 24 * 60 <= 12 * 60) diff += 24 * 60;
+    return diff;
   }, [useEndTime, endTime]);
 
   /** A deadline already past is the one input that cannot be planned around. */
