@@ -47,8 +47,25 @@ const GEMINI_IDS = [
   "gemini-2.5-flash",
 ]
 
-/** Groq production models that handle Japanese and support tool calling. */
-const GROQ_IDS = ["openai/gpt-oss-120b", "llama-3.3-70b-versatile"]
+/**
+ * Groq models, best first.
+ *
+ * gpt-oss-120b leads because it is the one this account was measured answering
+ * (311ms — an order of magnitude quicker than Gemini was managing). It is a
+ * reasoning model, so it needs the settings in callOptionsFor: left alone it
+ * spends the whole allowance thinking and returns empty text, the same trap
+ * gemini-2.5-flash had.
+ *
+ * llama-3.3-70b-versatile is deliberately NOT here: this account answered
+ * "The model `llama-3.3-70b-versatile` does not exist or you do not have
+ * access to it."
+ */
+const GROQ_IDS = [
+  "openai/gpt-oss-120b",
+  "moonshotai/kimi-k2-instruct-0905",
+  "openai/gpt-oss-20b",
+  "llama-3.1-8b-instant",
+]
 
 /**
  * Which provider gets asked first. Groq leads when a key is present: its free

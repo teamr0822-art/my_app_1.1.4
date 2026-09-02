@@ -81,9 +81,15 @@ export async function GET() {
       const r = await generateText({
         model: chatModel(candidate),
         prompt: "「はい」とだけ答えてください。",
-        maxOutputTokens: 32,
+        // Room to spare on purpose. A 32-token budget made a reasoning model
+        // look broken: it answered in 311ms, having spent every token thinking,
+        // and the probe reported an empty response.
+        maxOutputTokens: 512,
         maxRetries: 0,
-        abortSignal: AbortSignal.timeout(10_000),
+        abortSignal: AbortSignal.timeout(15_000),
+        providerOptions: {
+          groq: { reasoningEffort: "low", reasoningFormat: "hidden" },
+        },
       });
       results.push({
         モデル: labelOf(candidate),

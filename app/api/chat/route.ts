@@ -115,9 +115,35 @@ const wikipediaTool = tool({
  * others get a larger output allowance instead so their thinking and their
  * answer both fit.
  */
-function callOptionsFor(candidate: Candidate) {
-  const isLegacyThinking =
-    candidate.provider === "google" && candidate.id.startsWith("gemini-2.");
+type JsonValue = string | number | boolean | null | JsonValue[] | { [key: string]: JsonValue };
+
+/**
+ * An explicit return type matters here: without it TypeScript infers a union of
+ * three differently-shaped objects and decides `google` may be `undefined`,
+ * which the SDK's provider-options type rejects.
+ */
+function callOptionsFor(candidate: Candidate): {
+  maxOutputTokens: number;
+  providerOptions: { [provider: string]: { [key: string]: JsonValue } };
+} {
+  if (candidate.provider === "groq") {
+    return {
+      maxOutputTokens: 2048,
+      providerOptions: {
+        groq: {
+          // Groq's gpt-oss models reason before answering. Measured against
+          // this account, the model replied in 311ms with an EMPTY answer:
+          // the reasoning had used the whole allowance and nothing was left to
+          // say out loud. Keeping the reasoning short and out of the response
+          // is what turns that into an actual answer — and short, grounded
+          // replies are all this guide wants anyway.
+          reasoningEffort: "low",
+          reasoningFormat: "hidden",
+        },
+      },
+    };
+  }
+  const isLegacyThinking = candidate.id.startsWith("gemini-2.");
   return isLegacyThinking
     ? {
         maxOutputTokens: 2048,
@@ -125,7 +151,7 @@ function callOptionsFor(candidate: Candidate) {
           google: { thinkingConfig: { thinkingBudget: 0, includeThoughts: false } },
         },
       }
-    : { maxOutputTokens: 4096 };
+    : { maxOutputTokens: 4096, providerOptions: {} };
 }
 
 
