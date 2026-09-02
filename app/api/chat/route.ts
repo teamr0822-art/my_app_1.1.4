@@ -209,7 +209,14 @@ export async function POST(req: Request) {
       "・『食べ歩き』: 候補にない店名は挙げず、通り沿いや商店街など食事処が集まるエリアを経路に含め、その旨を書く。",
       "条件どうしが噛み合わないとき（例: 雨で食べ歩き）は、無視せずどう折り合いをつけたかを一文で説明してください。",
       "冒頭に『今日の条件』として、天気・気分・要望をどう反映したかを2〜3文でまとめてから、ルートを示してください。",
-      "条件が不足して安全・実行可能な提案ができない場合は、勝手に補完せず確認質問を1つだけ返してください。",
+      // The form already collects distance, transport, weather and mood, so the
+      // conditions are never actually missing — but invited to ask, the model
+      // would sometimes reply with ONLY a question ("約1km・3か所を想定して
+      // いますが問題ありませんか？"). On screen that reads as the button not
+      // having worked, and it leaves the "start this route" button pointing at
+      // nothing. A route every time; assumptions stated inside it.
+      "必ずルートを提案してください。確認だけを返して終わってはいけません。",
+      "条件があいまいなときは、いちばん無理のない解釈を『今日の条件』の中で一言ことわった上で、そのままルートを示してください。",
       "回答形式: ルート名 / 立ち寄り順 / 概算の合計距離・時間 / 各区間の移動手段 / 途中変更の案内 / 注意事項。",
       "書式は必ずプレーンテキストにしてください。**や*、#、-、`などの記号による装飾は使わず、見出しは「立ち寄り順:」のように全角コロンで書き、箇条書きは「1. 」または「・」だけを使ってください。音声でも読み上げるため、記号が混ざると不自然になります。",
       "利用者は途中で気分や条件を変えます。変更依頼には、現在の条件を確認して柔軟に組み直してください。",
