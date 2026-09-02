@@ -151,6 +151,33 @@ export function RouteScreen({ nav }: { nav: Nav }) {
   const routeSpots = useMemo(() => {
     const pool = candidates.map(({ spot }) => spot);
     if (!answer) return pool.slice(0, 5);
+
+    /*
+     * Read the stops out of the "立ち寄り順" list, not out of the whole reply.
+     *
+     * Matching anywhere in the text looked right until a plan of three stops
+     * produced a guided list of four: the fourth was named further down, in
+     * "if you have time you could also…". A place the plan deliberately left
+     * out must not turn up in the route.
+     */
+    const lines = answer.split("\n").map((l) => l.trim());
+    const start = lines.findIndex((l) => l.includes("立ち寄り順"));
+    const ordered: typeof pool = [];
+    if (start >= 0) {
+      for (const line of lines.slice(start + 1)) {
+        // The numbered list ends where the next section begins.
+        if (/^(合計|概算|各区間|移動手段|途中|注意|所要)/.test(line)) break;
+        if (!/^\d+[.)．]/.test(line)) continue;
+        const hit = pool.find(
+          (spot) => line.includes(spot.name) && !ordered.includes(spot),
+        );
+        if (hit) ordered.push(hit);
+      }
+    }
+    if (ordered.length) return ordered;
+
+    // No recognisable list: fall back to names in order of appearance, and
+    // failing that to the nearest few, so the button always leads somewhere.
     const found = pool
       .map((spot) => ({ spot, at: answer.indexOf(spot.name) }))
       .filter((hit) => hit.at >= 0)
