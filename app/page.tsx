@@ -72,9 +72,18 @@ export default function Page() {
             {screen === "map" && (
               <MapScreen nav={nav} routeIds={routeIds} routeTransport={routeTransport} />
             )}
-            {screen === "route" && <RouteScreen nav={nav} />}
             {screen === "settings" && <SettingsScreen />}
             {screen === "spot" && spotId && <SpotScreen spotId={spotId} nav={nav} />}
+          </ErrorBoundary>
+
+          {/*
+            Outside the boundary above, and never unmounted: that boundary is
+            keyed on the screen, so anything inside it is rebuilt from scratch
+            on every tab change. The route plan has to outlive that — you start
+            walking, then decide you want it the other way round.
+          */}
+          <ErrorBoundary label={SCREEN_LABEL.route} onReset={() => setScreen("home")}>
+            <RouteScreen nav={nav} hidden={screen !== "route"} />
           </ErrorBoundary>
 
           {showBottomNav && <BottomNav nav={nav} />}

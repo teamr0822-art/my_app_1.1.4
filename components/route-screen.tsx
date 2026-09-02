@@ -71,7 +71,14 @@ const MIN_CANDIDATES = 8;
 
 const chip = "flex min-h-11 items-center rounded-full border border-[var(--color-border)] px-4 text-sm transition hover:border-[var(--color-terracotta)]";
 
-export function RouteScreen({ nav }: { nav: Nav }) {
+/**
+ * `hidden` keeps this screen mounted while another tab is on top.
+ *
+ * Unmounting it threw away the plan, the conditions and the "途中で変更する"
+ * box the moment guidance started — so anyone who wanted the course reversed
+ * after setting off found an empty form and had to build it again.
+ */
+export function RouteScreen({ nav, hidden = false }: { nav: Nav; hidden?: boolean }) {
   const [minutes, setMinutes] = useState(240);
   /** Set when the visitor is working to a deadline rather than a duration. */
   const [endTime, setEndTime] = useState("");
@@ -79,6 +86,12 @@ export function RouteScreen({ nav }: { nav: Nav }) {
   const [transport, setTransport] = useState("徒歩");
   const [weather, setWeather] = useState("晴れ");
   const [moods, setMoods] = useState<string[]>(["ゆったり"]);
+  /**
+   * True once guidance is under way. The screen stays mounted behind the map
+   * now, so it has to say which of the two things the button does: start a
+   * walk, or replace the one already in progress.
+   */
+  const guiding = nav.routeIds.length > 0;
   const [request, setRequest] = useState("");
   const [draft, setDraft] = useState("");
   const geo = useGeolocation();
@@ -217,7 +230,7 @@ export function RouteScreen({ nav }: { nav: Nav }) {
   };
 
   return (
-    <section className="flex min-h-0 flex-1 flex-col overflow-y-auto pb-[var(--tabbar-clearance)]">
+    <section hidden={hidden} className="flex min-h-0 flex-1 flex-col overflow-y-auto pb-[var(--tabbar-clearance)]">
       <header className="border-b border-[var(--color-border)] px-5 pb-5 pt-8">
         <p className="font-mono text-xs tracking-[0.22em] text-[var(--color-terracotta)]">よりみっけルート</p>
         <h1 className="mt-2 text-2xl font-bold text-balance">あなたに合う、今日の歩き方</h1>
@@ -351,9 +364,9 @@ export function RouteScreen({ nav }: { nav: Nav }) {
                 {routeSpots.map((spot) => spot.name).join(" → ")}
               </p>
             </div>
-            <button type="button" onClick={() => nav.startRoute(routeSpotIds, transport)} className="mt-3 w-full rounded-xl bg-[var(--color-green)] px-4 py-3 text-sm font-bold text-white">このルートで案内をはじめる</button></div>}
+            <button type="button" onClick={() => nav.startRoute(routeSpotIds, transport)} className="mt-3 w-full rounded-xl bg-[var(--color-green)] px-4 py-3 text-sm font-bold text-white">{guiding ? "この内容に案内を切り替える" : "このルートで案内をはじめる"}</button></div>}
 
-        {messages.length > 0 && <div className="rounded-2xl border border-[var(--color-border)] p-4"><p className="mb-2 text-sm font-bold">途中で変更する</p><div className="flex gap-2"><input value={draft} onChange={(e) => setDraft(e.target.value)} onKeyDown={(e) => { if (e.key === "Enter" && !e.nativeEvent.isComposing && e.keyCode !== 229) { e.preventDefault(); if (draft.trim()) { send(draft); setDraft(""); } } }} aria-label="ルートの変更内容" placeholder="例：短くして、別の場所に変えて" className="min-w-0 flex-1 rounded-xl border border-[var(--color-border)] bg-transparent px-3 py-2 text-sm outline-none" /><button type="button" aria-label="変更を送信" onClick={() => { if (draft.trim()) { send(draft); setDraft(""); } }} className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-[var(--color-green)] text-white"><SendIcon size={17} /></button></div></div>}
+        {messages.length > 0 && <div className="rounded-2xl border border-[var(--color-border)] p-4"><p className="text-sm font-bold">途中で変更する</p><p className="mb-2 mt-0.5 text-[12px] leading-relaxed text-[var(--color-ink-soft)]">{guiding ? "案内中でも変えられます。書き直したあと、上の「この内容に案内を切り替える」を押すと反映されます。" : "「短くして」「逆から回って」のように話しかけてください。"}</p><div className="flex gap-2"><input value={draft} onChange={(e) => setDraft(e.target.value)} onKeyDown={(e) => { if (e.key === "Enter" && !e.nativeEvent.isComposing && e.keyCode !== 229) { e.preventDefault(); if (draft.trim()) { send(draft); setDraft(""); } } }} aria-label="ルートの変更内容" placeholder="例：逆から回って、短くして、雨なので屋内中心に" className="min-w-0 flex-1 rounded-xl border border-[var(--color-border)] bg-transparent px-3 py-2 text-sm outline-none" /><button type="button" aria-label="変更を送信" onClick={() => { if (draft.trim()) { send(draft); setDraft(""); } }} className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-[var(--color-green)] text-white"><SendIcon size={17} /></button></div></div>}
       </div>
     </section>
   );
