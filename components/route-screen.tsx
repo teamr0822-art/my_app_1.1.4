@@ -148,16 +148,18 @@ export function RouteScreen({ nav }: { nav: Nav }) {
   // Map the proposed route back to real spot ids by finding candidate names in
   // the answer, in the order the model listed them. Previously this button
   // always started the first five spots in the dataset, ignoring the proposal.
-  const routeSpotIds = useMemo(() => {
+  const routeSpots = useMemo(() => {
     const pool = candidates.map(({ spot }) => spot);
-    if (!answer) return pool.slice(0, 5).map((spot) => spot.id);
+    if (!answer) return pool.slice(0, 5);
     const found = pool
       .map((spot) => ({ spot, at: answer.indexOf(spot.name) }))
       .filter((hit) => hit.at >= 0)
       .sort((a, b) => a.at - b.at)
-      .map((hit) => hit.spot.id);
-    return found.length ? found : pool.slice(0, 5).map((spot) => spot.id);
+      .map((hit) => hit.spot);
+    return found.length ? found : pool.slice(0, 5);
   }, [answer, candidates]);
+
+  const routeSpotIds = useMemo(() => routeSpots.map((spot) => spot.id), [routeSpots]);
 
   /**
    * The proposal lands below the form, past the fold: on a phone, tapping
@@ -307,7 +309,22 @@ export function RouteScreen({ nav }: { nav: Nav }) {
 
         {error && <div role="alert" className="rounded-2xl border border-red-300/40 bg-red-950/20 p-4 text-sm"><p>{error}</p><button type="button" onClick={generate} className="mt-3 rounded-xl border border-[var(--color-border)] px-3 py-2 font-bold">もう一度試す</button></div>}
 
-        {answer && <div ref={resultRef} className="scroll-mt-4 rounded-2xl border border-[var(--color-border)] bg-[var(--color-panel)] p-4"><p className="mb-2 text-xs font-bold tracking-wider text-[var(--color-terracotta)]">今日の寄り道プラン</p><p className="whitespace-pre-wrap break-words [overflow-wrap:anywhere] text-sm leading-7">{answer}</p><button type="button" onClick={() => nav.startRoute(routeSpotIds, transport)} className="mt-4 w-full rounded-xl bg-[var(--color-green)] px-4 py-3 text-sm font-bold text-white">このルートで案内をはじめる</button></div>}
+        {answer && <div ref={resultRef} className="scroll-mt-4 rounded-2xl border border-[var(--color-border)] bg-[var(--color-panel)] p-4"><p className="mb-2 text-xs font-bold tracking-wider text-[var(--color-terracotta)]">今日の寄り道プラン</p><p className="whitespace-pre-wrap break-words [overflow-wrap:anywhere] text-sm leading-7">{answer}</p>{/*
+              What the guide will actually walk you to, said out loud. The plan
+              above is the model's prose and can name a viewpoint or a gate that
+              is not one of the 151 registered sites; navigation only ever visits
+              the registered ones. Printing the real list here means the text and
+              the map can never quietly disagree.
+            */}
+            <div className="mt-4 rounded-xl bg-[var(--color-terracotta-soft)] p-3">
+              <p className="text-[12px] font-bold text-[var(--color-terracotta)]">
+                案内する立ち寄り先（{routeSpots.length}か所）
+              </p>
+              <p className="mt-1 text-[12px] leading-relaxed text-[var(--color-ink)]">
+                {routeSpots.map((spot) => spot.name).join(" → ")}
+              </p>
+            </div>
+            <button type="button" onClick={() => nav.startRoute(routeSpotIds, transport)} className="mt-3 w-full rounded-xl bg-[var(--color-green)] px-4 py-3 text-sm font-bold text-white">このルートで案内をはじめる</button></div>}
 
         {messages.length > 0 && <div className="rounded-2xl border border-[var(--color-border)] p-4"><p className="mb-2 text-sm font-bold">途中で変更する</p><div className="flex gap-2"><input value={draft} onChange={(e) => setDraft(e.target.value)} onKeyDown={(e) => { if (e.key === "Enter" && !e.nativeEvent.isComposing && e.keyCode !== 229) { e.preventDefault(); if (draft.trim()) { send(draft); setDraft(""); } } }} aria-label="ルートの変更内容" placeholder="例：短くして、別の場所に変えて" className="min-w-0 flex-1 rounded-xl border border-[var(--color-border)] bg-transparent px-3 py-2 text-sm outline-none" /><button type="button" aria-label="変更を送信" onClick={() => { if (draft.trim()) { send(draft); setDraft(""); } }} className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-[var(--color-green)] text-white"><SendIcon size={17} /></button></div></div>}
       </div>
