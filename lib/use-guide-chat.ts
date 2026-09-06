@@ -11,7 +11,7 @@ export type ChatMsg = {
 type ExtraPayload = {
   spotId?: string;
   mode?: "spot" | "companion" | "route";
-  nearby?: { name: string; grounding: string }[];
+  nearby?: { name: string; grounding: string; city?: string; hours?: string }[];
   /**
    * Shown verbatim when the AI cannot answer at all. Callers pass the spot's
    * own source material, so an outage degrades to "read the material" instead

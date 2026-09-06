@@ -22,7 +22,13 @@ function areaFromNearby(nearby?: NearbySpot[]): string {
 }
 
 /** A candidate spot as the client sends it: name, source text, and its city. */
-type NearbySpot = { name: string; grounding: string; city?: string };
+type NearbySpot = {
+  name: string;
+  grounding: string;
+  city?: string;
+  /** 見学時間の扱い（「屋外・時間の制限なし」など）。lib/visit-hours.ts が作る。 */
+  hours?: string;
+};
 
 export const maxDuration = 30;
 
@@ -197,7 +203,14 @@ export async function POST(req: Request) {
   let system: string;
 
   if (mode === "route") {
-    const context = nearby?.length ? nearby.map((s, i) => `${i + 1}. ${s.name}: ${s.grounding}`).join("\n") : "候補スポットなし";
+    const context = nearby?.length
+      ? nearby
+          .map(
+            (s, i) =>
+              `${i + 1}. ${s.name}: ${s.grounding}${s.hours ? `／見学できる時間: ${s.hours}` : ""}`,
+          )
+          .join("\n")
+      : "候補スポットなし";
     system = [
       "あなたは日本の文化財をめぐる観光ルート作成AIです。日本語で答えてください。",
       "利用者の条件と候補スポットだけを根拠に、無理のない1つのルートを提案します。",
@@ -213,6 +226,9 @@ export async function POST(req: Request) {
       "・『歩きたくない』『ゆったり』などの要望: 立ち寄りを3か所以内、総距離1km程度までに抑える。",
       "・『たくさん歩きたい』: 立ち寄りを増やして構わない。",
       "・『食べ歩き』: 候補にない店名は挙げず、通り沿いや商店街など食事処が集まるエリアを経路に含め、その旨を書く。",
+      // 見学時間そのものはデータに無い。持っていない時刻を書かせないための行。
+      "各候補には『見学できる時間』の扱いを添えてあります。『施設の開館/営業時間内のみ・要確認』『寺社の境内・日中のみ』の場所は、夕方以降にかかる行程では前半に置き、閉まっていた場合に外から見られるかどうかを一言添えてください。",
+      "開館時刻・閉館時刻の具体的な数字は資料にありません。「9時〜17時」のような時刻を推測して書いてはいけません。時間が決まっている場所には「訪問前に公式の案内で確認してください」と書いてください。",
       "条件どうしが噛み合わないとき（例: 雨で食べ歩き）は、無視せずどう折り合いをつけたかを一文で説明してください。",
       "冒頭に『今日の条件』として、天気・気分・要望をどう反映したかを2〜3文でまとめてから、ルートを示してください。",
       // The form already collects distance, transport, weather and mood, so the

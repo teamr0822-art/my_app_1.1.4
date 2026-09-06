@@ -4,6 +4,7 @@ import dynamic from "next/dynamic";
 import { useEffect, useMemo, useRef, useState } from "react";
 import type { Nav } from "@/app/page";
 import { SPOTS, STATS, KOCHI_CENTER, distanceMeters, fallbackAreaLabel, formatDistance } from "@/lib/spots";
+import { hoursOf } from "@/lib/visit-hours";
 import { useGeolocation } from "@/lib/use-geolocation";
 import {
   useRouteDirections,
@@ -259,6 +260,16 @@ export function MapScreen({
                                 {spot.icon}
                               </span>
                             </div>
+
+                            {/* 歩いている途中でも「ここは時間が決まっている」
+                                ことだけは分かるように。屋外の史跡には出さない
+                                （全部に出すと読まれなくなる）。 */}
+                            {hoursOf(spot).timeSensitive && (
+                              <p className="mt-1 text-[11px] leading-relaxed text-[var(--color-sun-ink)]">
+                                {hoursOf(spot).label}
+                                {hoursOf(spot).guessed ? "（目安）" : ""}・訪問前に時間の確認を
+                              </p>
+                            )}
 
                             {leg && leg.steps.length > 0 && (
                               <>

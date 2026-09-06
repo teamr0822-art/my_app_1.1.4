@@ -5,6 +5,7 @@ import type { Nav } from "@/app/page";
 import { SPOTS, areaOf, distanceMeters, formatDistance } from "@/lib/spots";
 import { useGeolocation } from "@/lib/use-geolocation";
 import { useGuideChat } from "@/lib/use-guide-chat";
+import { hoursForPrompt, hoursOf, lateWarning } from "@/lib/visit-hours";
 import { stripMarkdown } from "@/lib/format";
 import { SendIcon, SparkIcon } from "@/components/icons";
 
@@ -148,6 +149,9 @@ export function RouteScreen({ nav, hidden = false }: { nav: Nav; hidden?: boolea
         name: spot.name,
         grounding: `${spot.address}（現在地から約${formatDistance(d)}）`,
         city: areaOf(spot),
+        // 見学できる時間の扱い。これを渡さないと、AIは閉まっている資料館を
+        // 夕方の最後の立ち寄り先に置いてしまう。
+        hours: hoursForPrompt(spot),
       })),
     [candidates],
   );
@@ -200,6 +204,25 @@ export function RouteScreen({ nav, hidden = false }: { nav: Nav; hidden?: boolea
   }, [answer, candidates]);
 
   const routeSpotIds = useMemo(() => routeSpots.map((spot) => spot.id), [routeSpots]);
+
+  /**
+   * 行程が終わるおおよその時刻（0時からの分）。「17時まで」と指定していれば
+   * その時刻、そうでなければ「いま＋使える時間」。時間の決まった場所が
+   * 夕方以降に入ったときだけ注意を出すために使う。
+   */
+  const endsAtMinutes = useMemo(() => {
+    if (useEndTime && !endTimeInvalid && endTime) {
+      const [h, m] = endTime.split(":").map(Number);
+      if (!Number.isNaN(h) && !Number.isNaN(m)) return h * 60 + m;
+    }
+    const end = new Date(Date.now() + tripMinutes * 60 * 1000);
+    return end.getHours() * 60 + end.getMinutes();
+  }, [useEndTime, endTimeInvalid, endTime, tripMinutes]);
+
+  const hoursNote = useMemo(
+    () => lateWarning(routeSpots, endsAtMinutes),
+    [routeSpots, endsAtMinutes],
+  );
 
   /**
    * The proposal lands below the form, past the fold: on a phone, tapping
@@ -360,8 +383,46 @@ export function RouteScreen({ nav, hidden = false }: { nav: Nav; hidden?: boolea
               <p className="text-[12px] font-bold text-[var(--color-terracotta)]">
                 案内する立ち寄り先（{routeSpots.length}か所）
               </p>
-              <p className="mt-1 text-[12px] leading-relaxed text-[var(--color-ink)]">
-                {routeSpots.map((spot) => spot.name).join(" → ")}
+              {/*
+                立ち寄り先と一緒に「見学できる時間」を最初から出す。
+                データセットに開館時刻の項目はないので、時刻は書かず、
+                屋外か／施設の時間に従うか／要確認か だけを断言する。
+                推測した場合は「目安」と添えて、断定と区別する。
+              */}
+              <ol className="mt-1.5 flex flex-col gap-1.5">
+                {routeSpots.map((spot, index) => {
+                  const w = hoursOf(spot);
+                  return (
+                    <li key={spot.id} className="flex flex-wrap items-center gap-x-2 gap-y-1 text-[12px] leading-relaxed text-[var(--color-ink)]">
+                      <span className="font-bold">
+                        {index + 1}. {spot.name}
+                      </span>
+                      <span
+                        className={`rounded-full px-2 py-0.5 text-[11px] font-bold ${
+                          w.kind === "always"
+                            ? "bg-[var(--color-green)] text-white"
+                            : w.kind === "unknown"
+                              ? "bg-[var(--color-panel)] text-[var(--color-ink-soft)] ring-1 ring-[var(--color-border)]"
+                              : "bg-[var(--color-sun-soft)] text-[var(--color-sun-ink)]"
+                        }`}
+                      >
+                        {w.label}
+                        {w.guessed ? "（目安）" : ""}
+                      </span>
+                      <span className="w-full text-[11px] leading-relaxed text-[var(--color-ink-soft)]">
+                        {w.detail}
+                      </span>
+                    </li>
+                  );
+                })}
+              </ol>
+              {hoursNote && (
+                <p className="mt-2 rounded-lg bg-[var(--color-sun-soft)] p-2 text-[11px] leading-relaxed text-[var(--color-ink)]">
+                  {hoursNote}
+                </p>
+              )}
+              <p className="mt-2 text-[11px] leading-relaxed text-[var(--color-ink-soft)]">
+                見学できる時間は公式の営業時間ではありません。時間の決まった場所は、公式の案内で確認してから向かってください。
               </p>
             </div>
             <button type="button" onClick={() => nav.startRoute(routeSpotIds, transport)} className="mt-3 w-full rounded-xl bg-[var(--color-green)] px-4 py-3 text-sm font-bold text-white">{guiding ? "この内容に案内を切り替える" : "このルートで案内をはじめる"}</button></div>}
