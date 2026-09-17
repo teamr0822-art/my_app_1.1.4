@@ -7,6 +7,7 @@ import { useLocation } from "@/lib/location-context";
 import { LocationBanner } from "@/components/location-banner";
 import { useGuideChat } from "@/lib/use-guide-chat";
 import { hoursForPrompt, hoursOf, lateWarning } from "@/lib/visit-hours";
+import { estimateItinerary, suggestStopCount, describeMinutes as describeSpan } from "@/lib/route-estimate";
 import { stripMarkdown } from "@/lib/format";
 import { SendIcon, SparkIcon } from "@/components/icons";
 
@@ -211,6 +212,15 @@ export function RouteScreen({ nav, hidden = false }: { nav: Nav; hidden?: boolea
   const routeSpotIds = useMemo(() => routeSpots.map((spot) => spot.id), [routeSpots]);
 
   /**
+   * 距離と時間はここで計算する。AIに書かせていたときは、実測1.5kmの区間を
+   * 「150m」と書くような答えが出ていた。座標は最初から手元にある。
+   */
+  const estimate = useMemo(
+    () => estimateItinerary(routeSpots, transport, geo.canMeasure ? geo.pos : null),
+    [routeSpots, transport, geo.canMeasure, geo.pos],
+  );
+
+  /**
    * 行程が終わるおおよその時刻（0時からの分）。「17時まで」と指定していれば
    * その時刻、そうでなければ「いま＋使える時間」。時間の決まった場所が
    * 夕方以降に入ったときだけ注意を出すために使う。
@@ -248,7 +258,10 @@ export function RouteScreen({ nav, hidden = false }: { nav: Nav; hidden?: boolea
 
   const generate = async () => {
     const moodText = moods.length ? moods.join("・") : "おまかせ";
-    const prompt = `観光ルートを作成してください。条件: 出発エリア=${area || "現在地周辺"}、使える時間=${tripLabel}、移動手段=${transport}、天気=${weather}、気分=${moodText}、追加要望=${request || "なし"}。候補スポットはすべて現在地の近くにあります。距離が離れすぎるスポットは無理に入れず、${tripLabel}で無理なく回りきれる範囲にまとめてください。移動時間だけでなく、各スポットでの見学時間も見込んでください。`;
+    // 立ち寄り数は、使える時間から計算して指示する。モデルに任せると
+    // 「半日・ゆったり」で3か所（2時間半）のような、時間の余る提案になる。
+    const stops = suggestStopCount(tripMinutes, transport, moods);
+    const prompt = `観光ルートを作成してください。条件: 出発エリア=${area || "現在地周辺"}、使える時間=${tripLabel}、移動手段=${transport}、天気=${weather}、気分=${moodText}、追加要望=${request || "なし"}。立ち寄り先は${stops.min}〜${stops.max}か所にしてください（${tripLabel}を使い切る想定です）。候補スポットはすべて出発エリアの近くにあります。距離・所要時間・合計時間の数字は書かないでください。アプリが座標から計算して表示します。`;
     setError(null);
     try {
       await send(prompt);
@@ -390,6 +403,31 @@ export function RouteScreen({ nav, hidden = false }: { nav: Nav; hidden?: boolea
               <p className="text-[12px] font-bold text-[var(--color-terracotta)]">
                 案内する立ち寄り先（{routeSpots.length}か所）
               </p>
+              {/*
+                距離と時間は、AIの文章ではなくここに出す。座標から計算した
+                ものなので、本文と食い違うことがない。実際の道のりは案内を
+                はじめた時点で OSRM が計算し直す。
+              */}
+              {estimate && (
+                <div className="mt-2 rounded-xl bg-[var(--color-panel)] p-2.5">
+                  <p className="text-[12px] font-bold text-[var(--color-ink)]">
+                    移動 約{formatDistance(estimate.meters)}・{describeSpan(estimate.travelMinutes)}
+                    {" ／ "}見学 約{describeSpan(estimate.dwellMinutes)}
+                  </p>
+                  <p className="mt-0.5 text-[12px] text-[var(--color-ink-soft)]">
+                    合計 約{describeSpan(estimate.totalMinutes)}（使える時間 {describeMinutes(tripMinutes)}）
+                    {estimate.totalMinutes > tripMinutes * 1.1
+                      ? "・少し詰まっています"
+                      : estimate.totalMinutes < tripMinutes * 0.6
+                        ? "・かなり余ります。「もっと回りたい」と伝えると増やせます"
+                        : ""}
+                  </p>
+                  <p className="mt-1 text-[11px] leading-relaxed text-[var(--color-ink-soft)]">
+                    直線距離から出した見込みです。案内をはじめると、実際の道のりで計算し直します。
+                  </p>
+                </div>
+              )}
+
               {/*
                 立ち寄り先と一緒に「見学できる時間」を最初から出す。
                 データセットに開館時刻の項目はないので、時刻は書かず、
