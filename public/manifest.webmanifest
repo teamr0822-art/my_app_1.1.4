@@ -1,0 +1,17 @@
+{
+  "name": "よりみっけ｜知らなかった街の魅力を、旅の途中で見つけよう。",
+  "short_name": "よりみっけ",
+  "description": "気になった場所に話しかけると、その土地の物語が返ってきます。歩く時間や気分に合わせて、寄り道の道順もご案内。",
+  "start_url": "/",
+  "scope": "/",
+  "display": "standalone",
+  "orientation": "portrait",
+  "background_color": "#f5f3e4",
+  "theme_color": "#3d6f8e",
+  "lang": "ja",
+  "icons": [
+    { "src": "/icon-192.png", "sizes": "192x192", "type": "image/png", "purpose": "any" },
+    { "src": "/icon-512.png", "sizes": "512x512", "type": "image/png", "purpose": "any" },
+    { "src": "/icon-maskable-512.png", "sizes": "512x512", "type": "image/png", "purpose": "maskable" }
+  ]
+}

@@ -2,6 +2,7 @@
 
 import { useSettings } from "@/lib/settings-context";
 import { AREAS, STATS, DATA_SOURCE, SPOTS } from "@/lib/spots";
+import { useVisited } from "@/lib/visited";
 import { replayOnboarding } from "@/components/onboarding";
 import { MicOffIcon, VolumeIcon, SparkIcon, InfoIcon } from "@/components/icons";
 
@@ -56,6 +57,7 @@ function Toggle({
 
 export function SettingsScreen() {
   const s = useSettings();
+  const visited = useVisited();
 
   return (
     <div
@@ -109,6 +111,53 @@ export function SettingsScreen() {
             danger
             label="ミュートモード"
             onClick={() => s.toggle("muted")}
+          />
+        </div>
+      </section>
+
+      {/* 訪れた記録。端末にしか残らないので、消す手段も同じ場所に置く。 */}
+      <SectionTitle>訪れた記録</SectionTitle>
+      <section className="px-4">
+        <div className="flex items-center justify-between gap-3 rounded-2xl border border-[var(--color-border)] bg-[var(--color-panel)] p-4">
+          <div className="min-w-0">
+            <p className="text-[15px] font-bold">
+              これまでに{visited.count}か所
+            </p>
+            <p className="mt-0.5 text-[12px] leading-relaxed text-[var(--color-ink-soft)]">
+              案内中にスポットへ40m以内まで近づくと、自動で記録されます。この端末にだけ保存され、どこにも送られません。
+            </p>
+          </div>
+          {visited.count > 0 && (
+            <button
+              type="button"
+              onClick={() => visited.clearVisited()}
+              className="min-h-11 shrink-0 rounded-xl border border-[var(--color-border)] px-3 text-[13px] font-bold text-[var(--color-ink-soft)]"
+            >
+              消す
+            </button>
+          )}
+        </div>
+      </section>
+
+      {/* 屋外モード: 晴天下で読めるかどうかは実用機能なので、設定の上のほうに置く */}
+      <SectionTitle>画面</SectionTitle>
+      <section className="px-4">
+        <div className="flex items-center justify-between gap-3 rounded-2xl border border-[var(--color-border)] bg-[var(--color-panel)] p-4">
+          <div className="min-w-0">
+            <p className="text-[15px] font-bold">
+              屋外モード{" "}
+              <span className="text-[12px] font-bold text-[var(--color-ink-soft)]">
+                {s.outdoor ? "ON" : "OFF"}
+              </span>
+            </p>
+            <p className="mt-0.5 text-[12px] leading-relaxed text-[var(--color-ink-soft)]">
+              直射日光の下でも読めるように、文字と背景のコントラストを最大にします。
+            </p>
+          </div>
+          <Toggle
+            on={s.outdoor}
+            label="屋外モード"
+            onClick={() => s.toggle("outdoor")}
           />
         </div>
       </section>

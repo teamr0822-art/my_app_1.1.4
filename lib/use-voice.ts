@@ -37,6 +37,19 @@ export function useVoice() {
     setSpeaking(false);
   }, []);
 
+  /*
+   * 画面を切り替えた・電話が来た・ポケットに入れた——屋外では必ず起きる。
+   * そのまま喋り続けると、鞄の中から音が鳴り続けることになるので止める。
+   */
+  useEffect(() => {
+    if (typeof document === "undefined") return;
+    const onHide = () => {
+      if (document.visibilityState === "hidden") stopSpeaking();
+    };
+    document.addEventListener("visibilitychange", onHide);
+    return () => document.removeEventListener("visibilitychange", onHide);
+  }, [stopSpeaking]);
+
   const speakBrowser = useCallback(
     (text: string, opts?: SpeakOpts) => {
       if (!("speechSynthesis" in window)) {

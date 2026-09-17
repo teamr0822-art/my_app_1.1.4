@@ -5,15 +5,17 @@ import {
   SPOTS,
   STATS,
   DATA_SOURCE,
-  fallbackAreaLabel,
   formatDistance,
   distanceMeters,
 } from "@/lib/spots";
-import { useGeolocation } from "@/lib/use-geolocation";
+import { useLocation } from "@/lib/location-context";
+import { LocationBanner } from "@/components/location-banner";
+import { useVisited } from "@/lib/visited";
 import { ChevronLeftIcon, MicIcon, SparkIcon } from "@/components/icons";
 
 export function HomeScreen({ nav }: { nav: Nav }) {
-  const { pos, located } = useGeolocation();
+  const { pos, canMeasure, areaLabel } = useLocation();
+  const visited = useVisited();
 
   const spots = [...SPOTS]
     .map((s) => ({ ...s, meters: distanceMeters(pos, [s.lat, s.lng]) }))
@@ -55,6 +57,8 @@ export function HomeScreen({ nav }: { nav: Nav }) {
           <Stat value={SPOTS.length} unit="か所" label="話しかけられる" />
         </div>
       </header>
+
+      <LocationBanner />
 
       {/* The two things you can do, stated plainly and placed first. */}
       <section className="px-5 pt-4">
@@ -101,11 +105,13 @@ export function HomeScreen({ nav }: { nav: Nav }) {
           <div>
             <h2 className="text-[15px] font-extrabold">近くの寄り道さき</h2>
             <p className="mt-0.5 text-[12px] text-[var(--color-ink-soft)]">
-              タップすると、その場所の話を聞けます
+              {visited.count > 0
+                ? `タップすると、その場所の話を聞けます（これまでに${visited.count}か所を訪問）`
+                : "タップすると、その場所の話を聞けます"}
             </p>
           </div>
           <span className="text-[12px] font-medium text-[var(--color-ink-soft)]">
-            {located ? "現在地から近い順" : fallbackAreaLabel()}
+            {canMeasure ? "現在地から近い順" : `${areaLabel || "登録エリア"}の順`}
           </span>
         </div>
 
@@ -131,8 +137,17 @@ export function HomeScreen({ nav }: { nav: Nav }) {
                     <span className="rounded-md bg-[var(--color-terracotta-soft)] px-1.5 py-0.5 text-[12px] font-bold text-[var(--color-terracotta)]">
                       {s.designation}
                     </span>
+                    {/* 訪問済みの印。歩いて40m以内まで行くと自動で付く。 */}
+                    {visited.has(s.id) && (
+                      <span className="rounded-md bg-[var(--color-green)] px-1.5 py-0.5 text-[12px] font-bold text-white">
+                        訪問済み
+                      </span>
+                    )}
                     <span className="text-[12px] text-[var(--color-ink-soft)]">
-                      {s.category}・{formatDistance(s.meters)}
+                      {/* 測位できていないときに距離を出すと、まったく違う街の
+                          数字を信じて歩き出すことになる。出さない。 */}
+                      {s.category}
+                      {canMeasure ? `・${formatDistance(s.meters)}` : `・${s.city ?? s.prefecture ?? ""}`}
                     </span>
                   </span>
                 </span>

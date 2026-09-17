@@ -26,7 +26,8 @@
   --color-panel: #fdfcf5;
   --color-panel-soft: #eceedd;
   --color-ink: #26302c;
-  --color-ink-soft: #5a6459;
+  /* 直射日光下での可読性のため、背景に対して 7.7:1 まで濃くしている。 */
+  --color-ink-soft: #454e49;
   --color-border: #e0dcc4;
 
   /* Primary: the sky. Buttons, the active tab, anything you can act on. */
@@ -234,4 +235,30 @@ body {
 .no-scrollbar {
   -ms-overflow-style: none;
   scrollbar-width: none;
+}
+
+/*
+ * 屋外モード（設定でオン）。
+ *
+ * 晴天の屋外では、紙のようなベージュ地に薄いグレーの補足文はほぼ読めない。
+ * 装飾より可読性を優先し、地を白、文字を黒に寄せ、境界線を濃くする。
+ * 色そのものを差し替えるだけなので、レイアウトは一切変わらない。
+ */
+:root[data-outdoor="on"] {
+  --color-bg: #ffffff;
+  --color-panel: #ffffff;
+  --color-panel-soft: #f0efe6;
+  --color-ink: #101512;
+  --color-ink-soft: #2c3531;
+  --color-border: #7d7a68;
+  --color-terracotta: #1f4f6b;
+  --color-terracotta-soft: #dbe8f0;
+  --color-green: #33471c;
+  --color-sun-soft: #fbecc9;
+  --color-sun-ink: #6b4510;
+}
+
+:root[data-outdoor="on"] html,
+:root[data-outdoor="on"] body {
+  background: #ffffff;
 }

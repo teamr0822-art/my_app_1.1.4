@@ -23,6 +23,8 @@ export type AppSettings = {
   companionOn: boolean;
   /** Companion hands-free continuous listening. */
   companionAutoListen: boolean;
+  /** 屋外モード: 直射日光下でも読めるように配色を最大コントラストにする。 */
+  outdoor: boolean;
 };
 
 const DEFAULTS: AppSettings = {
@@ -34,13 +36,14 @@ const DEFAULTS: AppSettings = {
   rate: 1,
   companionOn: true,
   companionAutoListen: true,
+  outdoor: false,
 };
 
 const STORAGE_KEY = "hh-settings-v1";
 
 type Ctx = AppSettings & {
   set: <K extends keyof AppSettings>(key: K, value: AppSettings[K]) => void;
-  toggle: (key: "muted" | "companionOn" | "companionAutoListen") => void;
+  toggle: (key: "muted" | "companionOn" | "companionAutoListen" | "outdoor") => void;
 };
 
 const SettingsContext = createContext<Ctx | null>(null);
@@ -68,6 +71,14 @@ export function SettingsProvider({ children }: { children: React.ReactNode }) {
       /* ignore */
     }
   }, [settings]);
+
+  // 屋外モードは配色そのものを差し替えるので、CSS 側から見えるように
+  // <html> の属性にする。
+  useEffect(() => {
+    if (typeof document === "undefined") return;
+    if (settings.outdoor) document.documentElement.dataset.outdoor = "on";
+    else delete document.documentElement.dataset.outdoor;
+  }, [settings.outdoor]);
 
   const set: Ctx["set"] = (key, value) =>
     setSettings((s) => ({ ...s, [key]: value }));

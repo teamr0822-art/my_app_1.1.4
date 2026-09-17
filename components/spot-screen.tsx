@@ -4,6 +4,7 @@ import dynamic from "next/dynamic";
 import { useEffect, useRef, useState } from "react";
 import type { Nav } from "@/app/page";
 import { getSpot } from "@/lib/spots";
+import { hoursOf } from "@/lib/visit-hours";
 import { useVoice } from "@/lib/use-voice";
 import { useGuideChat } from "@/lib/use-guide-chat";
 import { useSettings } from "@/lib/settings-context";
@@ -118,6 +119,7 @@ export function SpotScreen({ spotId, nav }: { spotId: string; nav: Nav }) {
   };
 
   const busy = chat.streaming || voice.transcribing;
+  const hours = hoursOf(spot);
 
   return (
     <div className="flex flex-1 flex-col bg-[var(--color-bg)]">
@@ -125,8 +127,8 @@ export function SpotScreen({ spotId, nav }: { spotId: string; nav: Nav }) {
       <header className="z-10 flex items-center gap-2 border-b border-[var(--color-border)] bg-[var(--color-panel)] px-3 pb-3 pt-[calc(14px+env(safe-area-inset-top))]">
         <button
           type="button"
-          onClick={() => nav.go("home")}
-          aria-label="スポット一覧に戻る"
+          onClick={() => nav.go(nav.spotFrom)}
+          aria-label={nav.spotFrom === "map" ? "地図に戻る" : "スポット一覧に戻る"}
           className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full text-[var(--color-ink-soft)] active:bg-[var(--color-panel-soft)]"
         >
           <ChevronLeftIcon size={22} />
@@ -184,6 +186,26 @@ export function SpotScreen({ spotId, nav }: { spotId: string; nav: Nav }) {
           </div>
         </div>
       )}
+
+      {/* 見学時間と設備。データがある分だけ出す（無いものは黙っている）。 */}
+      <div className="flex shrink-0 flex-wrap items-center gap-1.5 border-b border-[var(--color-border)] px-4 py-2">
+        <span
+          className={`rounded-full px-2 py-0.5 text-[12px] font-bold ${
+            hours.kind === "always"
+              ? "bg-[var(--color-green)] text-white"
+              : hours.kind === "unknown"
+                ? "bg-[var(--color-panel-soft)] text-[var(--color-ink-soft)]"
+                : "bg-[var(--color-sun-soft)] text-[var(--color-sun-ink)]"
+          }`}
+        >
+          {hours.label}
+          {hours.guessed ? "（目安）" : ""}
+        </span>
+        {spot.facilities?.toilet && <Facility>トイレあり</Facility>}
+        {spot.facilities?.parking && <Facility>駐車場あり</Facility>}
+        {spot.facilities?.shelter && <Facility>雨宿りできる</Facility>}
+        {spot.facilities?.indoor && <Facility>雨の日も見学可</Facility>}
+      </div>
 
       {!started ? (
         /*
@@ -343,5 +365,14 @@ export function SpotScreen({ spotId, nav }: { spotId: string; nav: Nav }) {
         </>
       )}
     </div>
+  );
+}
+
+/** 設備の印。データが入っているものだけ描かれる。 */
+function Facility({ children }: { children: React.ReactNode }) {
+  return (
+    <span className="rounded-full bg-[var(--color-panel-soft)] px-2 py-0.5 text-[12px] font-bold text-[var(--color-ink-soft)]">
+      {children}
+    </span>
   );
 }

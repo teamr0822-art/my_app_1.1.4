@@ -3,7 +3,8 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import type { Nav } from "@/app/page";
 import { SPOTS, areaOf, distanceMeters, formatDistance } from "@/lib/spots";
-import { useGeolocation } from "@/lib/use-geolocation";
+import { useLocation } from "@/lib/location-context";
+import { LocationBanner } from "@/components/location-banner";
 import { useGuideChat } from "@/lib/use-guide-chat";
 import { hoursForPrompt, hoursOf, lateWarning } from "@/lib/visit-hours";
 import { stripMarkdown } from "@/lib/format";
@@ -95,7 +96,7 @@ export function RouteScreen({ nav, hidden = false }: { nav: Nav; hidden?: boolea
   const guiding = nav.routeIds.length > 0;
   const [request, setRequest] = useState("");
   const [draft, setDraft] = useState("");
-  const geo = useGeolocation();
+  const geo = useLocation();
 
   /**
    * Minutes left until the chosen clock time. Recomputed on every render rather
@@ -147,13 +148,17 @@ export function RouteScreen({ nav, hidden = false }: { nav: Nav; hidden?: boolea
     () =>
       candidates.map(({ spot, d }) => ({
         name: spot.name,
-        grounding: `${spot.address}（現在地から約${formatDistance(d)}）`,
+        // 測位できていないときは距離を名乗らない。街を手で選んだ場合も同じで、
+        // 「その街の中心から」の距離を「現在地から」と偽ることはしない。
+        grounding: geo.canMeasure
+          ? `${spot.address}（現在地から約${formatDistance(d)}）`
+          : spot.address,
         city: areaOf(spot),
         // 見学できる時間の扱い。これを渡さないと、AIは閉まっている資料館を
         // 夕方の最後の立ち寄り先に置いてしまう。
         hours: hoursForPrompt(spot),
       })),
-    [candidates],
+    [candidates, geo.canMeasure],
   );
 
   const { messages, streaming, send } = useGuideChat({ mode: "route", nearby });
@@ -259,6 +264,8 @@ export function RouteScreen({ nav, hidden = false }: { nav: Nav; hidden?: boolea
         <h1 className="mt-2 text-2xl font-bold text-balance">あなたに合う、今日の歩き方</h1>
         <p className="mt-2 text-sm leading-6 text-[var(--color-ink-soft)]">気分が変わっても大丈夫。途中で条件を変えて、何度でも組み直せます。</p>
       </header>
+
+      <LocationBanner />
 
       <div className="flex flex-col gap-5 p-5">
         <fieldset className="flex flex-col gap-2">

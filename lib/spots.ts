@@ -16,6 +16,24 @@ export type Spot = {
   sources: string[];
   /** How ordinary visitors can access the site (public-access spots only). */
   access?: string;
+  /**
+   * 現地で実際に要る情報の枠。
+   *
+   * 「何時に開くか」の次に聞かれるのがトイレ・駐車場・雨宿りで、いまのデータに
+   * は無い。項目だけ先に決めておき、埋まったスポットから表示する（未入力の
+   * スポットは何も出ない＝嘘をつかない）。true だけを入れること。「無い」こと
+   * を false で断言するには現地確認が要るため、不明は未入力のままにする。
+   */
+  facilities?: {
+    /** 敷地内または隣接に公衆トイレがある */
+    toilet?: boolean;
+    /** 見学者が使える駐車場がある */
+    parking?: boolean;
+    /** 屋根のある休憩場所があり、雨宿りできる */
+    shelter?: boolean;
+    /** 屋内展示が主で、雨の日でも見学できる */
+    indoor?: boolean;
+  };
 };
 
 export type SpotDataset = {
@@ -44,6 +62,33 @@ export const FALLBACK_CENTER: [number, number] = KOCHI_CENTER;
  */
 export function areaOf(spot: Pick<Spot, "city" | "prefecture">): string {
   return spot.city ?? spot.prefecture ?? "";
+}
+
+/**
+ * 各エリアのおおよその中心（収録スポットの重心）。
+ *
+ * 位置情報が使えないとき、利用者が「いま広島にいます」と手で選べるようにする
+ * ための座標。端末の測位に失敗しただけで、高知の距離を見せられる状態を避ける。
+ */
+export const AREA_CENTERS: Record<string, [number, number]> = (() => {
+  const sums = new Map<string, { lat: number; lng: number; n: number }>();
+  for (const spot of data.spots) {
+    const area = areaOf(spot);
+    if (!area) continue;
+    const cur = sums.get(area) ?? { lat: 0, lng: 0, n: 0 };
+    cur.lat += spot.lat;
+    cur.lng += spot.lng;
+    cur.n += 1;
+    sums.set(area, cur);
+  }
+  const out: Record<string, [number, number]> = {};
+  for (const [area, v] of sums) out[area] = [v.lat / v.n, v.lng / v.n];
+  return out;
+})();
+
+export function centerOfArea(area: string | null | undefined): [number, number] | null {
+  if (!area) return null;
+  return AREA_CENTERS[area] ?? null;
 }
 
 /** e.g. 「高知市周辺」 — the area label used when there is no live position. */

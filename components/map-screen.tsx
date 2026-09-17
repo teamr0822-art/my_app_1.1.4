@@ -5,7 +5,10 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import type { Nav } from "@/app/page";
 import { SPOTS, STATS, KOCHI_CENTER, distanceMeters, fallbackAreaLabel, formatDistance } from "@/lib/spots";
 import { hoursOf } from "@/lib/visit-hours";
-import { useGeolocation } from "@/lib/use-geolocation";
+import { useLocation } from "@/lib/location-context";
+import { LocationBanner } from "@/components/location-banner";
+import { useWakeLock } from "@/lib/use-wake-lock";
+import { markVisited } from "@/lib/visited";
 import {
   useRouteDirections,
   formatDuration,
@@ -37,11 +40,16 @@ export function MapScreen({
   routeIds?: string[];
   routeTransport?: string;
 }) {
-  const { pos, located } = useGeolocation();
+  const geo = useLocation();
+  const { pos, located } = geo;
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [showInfo, setShowInfo] = useState(false);
-  /** Which leg the visitor is walking. Leg 0 = current position → stop 1. */
-  const [activeLeg, setActiveLeg] = useState(0);
+  /**
+   * Which leg the visitor is walking. Leg 0 = current position → stop 1.
+   * 初期値は保存してある進み具合。歩いている途中で画面が消えたり、アプリを
+   * 切り替えたりしても、開き直せば続きから案内できる。
+   */
+  const [activeLeg, setActiveLeg] = useState(nav.routeLeg ?? 0);
   /**
    * The sheet starts collapsed. Now that the banner carries the distance left,
    * the stop name, the progress count and the next instruction, the full list
@@ -78,13 +86,30 @@ export function MapScreen({
   // A new itinerary starts from the beginning, with the street-by-street list
   // closed so the map stays visible.
   useEffect(() => {
-    setActiveLeg(0);
+    // 新しい行程は最初から。ただし保存から復元した直後は、保存されていた
+    // 区間から続ける（nav.routeLeg は ids と一緒に復元される）。
+    setActiveLeg(nav.routeLeg ?? 0);
     setOpenSteps(null);
     arrivedRef.current = new Set();
     setFinished(false);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [routeIds.join(",")]);
 
+  // 進み具合を上位に返して保存してもらう。
+  useEffect(() => {
+    nav.setRouteLeg(activeLeg);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [activeLeg]);
+
+  // 案内中だけ高精度測位にする。常時オンだと半日で電池が尽きる。
+  useEffect(() => {
+    geo.setHighAccuracy(routeIds.length > 0);
+    return () => geo.setHighAccuracy(false);
+  }, [routeIds.length, geo]);
+
   const hasRoute = routeSpots.length > 0;
+  // 歩いている間に画面が消えると、戻すたびに測位からやり直しになる。
+  useWakeLock(hasRoute);
   const legs = directions?.legs ?? [];
   // Without a fix we cannot route from the visitor, so leg i leads to stop i+1.
   const stopForLeg = (index: number) => routeSpots[start ? index : index + 1];
@@ -121,6 +146,8 @@ export function MapScreen({
     if (meters > ARRIVAL_METERS) return;
     if (arrivedRef.current.has(target.id)) return;
     arrivedRef.current.add(target.id);
+    // 実際に40m以内まで来たときだけ訪問済みにする。一覧を眺めただけでは付かない。
+    markVisited(target.id);
     if (activeLeg >= lastLeg) setFinished(true);
     else {
       setActiveLeg((n) => Math.min(n + 1, lastLeg));
@@ -150,6 +177,8 @@ export function MapScreen({
           <InfoIcon size={18} />
         </button>
       </header>
+
+      <LocationBanner />
 
       <div className="relative min-h-0 flex-1">
         <LeafletMap
@@ -318,7 +347,10 @@ export function MapScreen({
                                   type="button"
                                   onClick={() => {
                                     const here = stopForLeg(activeLeg);
-                                    if (here) arrivedRef.current.add(here.id);
+                                    if (here) {
+                                      arrivedRef.current.add(here.id);
+                                      markVisited(here.id);
+                                    }
                                     if (activeLeg >= lastLeg) {
                                       setFinished(true);
                                       return;
@@ -337,6 +369,21 @@ export function MapScreen({
                       );
                     })}
                   </ol>
+
+                  {/* ルートは端末に保存されるようになったので、終える手段が要る。
+                      これがないと、昨日の行程が翌朝も案内され続ける。 */}
+                  <div className="border-t border-[var(--color-border)] p-2">
+                    <button
+                      type="button"
+                      onClick={() => {
+                        nav.endRoute();
+                        setExpanded(false);
+                      }}
+                      className="min-h-11 w-full rounded-xl border border-[var(--color-border)] text-[13px] font-bold text-[var(--color-ink-soft)]"
+                    >
+                      案内を終わる（保存したルートも消えます）
+                    </button>
+                  </div>
                 </div>
               )}
             </div>
