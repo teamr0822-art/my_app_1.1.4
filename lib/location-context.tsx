@@ -24,6 +24,7 @@ const ACCURACY_LIMIT_M = 200;
 
 export type GeoStatus =
   | "locating" // 測位中
+  | "slow" // 一定時間たっても成功も失敗もしない（許可ダイアログが放置された等）
   | "ok" // 実測位あり
   | "coarse" // 測位はしたが精度が悪い
   | "denied" // 権限がない
@@ -131,6 +132,20 @@ export function LocationProvider({ children }: { children: React.ReactNode }) {
       watchId.current = null;
     };
   }, [highAccuracy, attempt]);
+
+  /*
+   * 許可ダイアログを開いたまま放置されると、成功も失敗もどちらのコールバック
+   * も呼ばれない（watchPosition の timeout はダイアログ表示中は進まない）。
+   * 実機で20秒以上「現在地を確認しています…」のまま止まるのを確認したので、
+   * アプリ側でも時間を測り、黙って待ち続けないようにする。
+   */
+  useEffect(() => {
+    if (status !== "locating") return;
+    const timer = setTimeout(() => {
+      setStatus((s) => (s === "locating" ? "slow" : s));
+    }, 12000);
+    return () => clearTimeout(timer);
+  }, [status, attempt]);
 
   const retry = useCallback(() => {
     setStatus("locating");

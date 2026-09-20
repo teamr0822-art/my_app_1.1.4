@@ -28,7 +28,9 @@ export function LocationBanner() {
             ? `現在地の精度が粗いため（誤差およそ${Math.round((geo.accuracy ?? 0) / 10) * 10}m）、距離は表示していません`
             : geo.status === "locating"
               ? "現在地を確認しています…"
-              : "現在地を取得できませんでした";
+              : geo.status === "slow"
+                ? "現在地をまだ確認できていません。許可を求める表示が出ていれば「許可」を押してください"
+                : "現在地を取得できませんでした";
 
   return (
     <div
@@ -58,7 +60,8 @@ export function LocationBanner() {
             現在地に戻す
           </button>
         )}
-        {!geo.manualArea && (geo.status === "denied" || geo.status === "error") && (
+        {!geo.manualArea &&
+          (geo.status === "denied" || geo.status === "error" || geo.status === "slow") && (
           <button
             type="button"
             onClick={geo.retry}
