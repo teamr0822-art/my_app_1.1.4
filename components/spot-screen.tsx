@@ -39,7 +39,7 @@ const QUESTION_CHIPS = [
 
 export function SpotScreen({ spotId, nav }: { spotId: string; nav: Nav }) {
   const spot = getSpot(spotId);
-  const { muted, toggle } = useSettings();
+  const { muted, handsFree, toggle } = useSettings();
   const voice = useVoice();
   // If the AI cannot answer, the guide still has the spot's own material.
   const chat = useGuideChat({
@@ -53,6 +53,19 @@ export function SpotScreen({ spotId, nav }: { spotId: string; nav: Nav }) {
   const [input, setInput] = useState("");
   const composingRef = useRef(false);
   const logRef = useRef<HTMLDivElement | null>(null);
+  /** ハンズフリーの聞き取りループが動いているか。 */
+  const loopRef = useRef(false);
+  /** 無音が続いた回数。マイクが使えないときに無限ループしないための歯止め。 */
+  const silenceRef = useRef(0);
+
+  // 画面を離れるときは必ず止める。鞄の中で聞き続けることがないように。
+  useEffect(() => {
+    return () => {
+      loopRef.current = false;
+      voice.abortListening();
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   useEffect(() => {
     if (logRef.current) logRef.current.scrollTop = logRef.current.scrollHeight;
@@ -94,10 +107,58 @@ export function SpotScreen({ spotId, nav }: { spotId: string; nav: Nav }) {
     await ask(question);
   };
 
+  /**
+   * ハンズフリーの聞き取り。
+   * 話す → 答える → 読み上げ終わりにまた聞く、を繰り返す。歩きながらなので
+   * 無音1回で諦めず、少し待ってもう一度聞く。ただしマイクが使えない端末で
+   * 延々と回り続けないよう、無音が3回続いたら自分で止まる。
+   */
+  const listenLoop = async () => {
+    if (!loopRef.current) return;
+    const text = await voice.listenOnce();
+    if (!loopRef.current) return;
+    if (text) {
+      silenceRef.current = 0;
+      await ask(text);
+      return;
+    }
+    silenceRef.current += 1;
+    if (silenceRef.current >= 3) {
+      loopRef.current = false;
+      silenceRef.current = 0;
+      if (handsFree) toggle("handsFree");
+      return;
+    }
+    setTimeout(() => {
+      if (loopRef.current) void listenLoop();
+    }, 400);
+  };
+
   const ask = async (text: string) => {
     if (!started) setStarted(true);
     if (voice.speaking) voice.stopSpeaking();
-    await chat.send(text, (full) => voice.speak(full));
+    await chat.send(text, (full) =>
+      // 読み上げが終わったところで、また耳を開く（ミュート中も onEnd は呼ばれる）。
+      voice.speak(full, {
+        onEnd: () => {
+          if (loopRef.current) void listenLoop();
+        },
+      }),
+    );
+  };
+
+  const toggleHandsFree = () => {
+    const next = !handsFree;
+    toggle("handsFree");
+    silenceRef.current = 0;
+    if (next) {
+      loopRef.current = true;
+      if (!started) begin();
+      if (!voice.speaking) void listenLoop();
+    } else {
+      loopRef.current = false;
+      voice.abortListening();
+    }
   };
 
   const onMic = async () => {
@@ -122,7 +183,13 @@ export function SpotScreen({ spotId, nav }: { spotId: string; nav: Nav }) {
   const hours = hoursOf(spot);
 
   return (
-    <div className="flex flex-1 flex-col bg-[var(--color-bg)]">
+    /*
+     * min-h-0 が要る。
+     * flex の子は既定で min-height:auto なので、これが無いと下の会話ログが
+     * 中身の高さまで伸びてしまい、ログ自身のスクロールが効かなくなる。
+     * 質問を続けるほど下へ伸びて、入力欄ごと画面外へ出ていた。
+     */
+    <div className="flex min-h-0 flex-1 flex-col bg-[var(--color-bg)]">
       {/* Header */}
       <header className="z-10 flex items-center gap-2 border-b border-[var(--color-border)] bg-[var(--color-panel)] px-3 pb-3 pt-[calc(14px+env(safe-area-inset-top))]">
         <button
@@ -260,7 +327,7 @@ export function SpotScreen({ spotId, nav }: { spotId: string; nav: Nav }) {
             ref={logRef}
             aria-live="polite"
             aria-relevant="additions text"
-            className="flex flex-1 flex-col gap-3 overflow-y-auto px-4 py-4"
+            className="flex min-h-0 flex-1 flex-col gap-3 overflow-y-auto overscroll-contain px-4 py-4"
           >
             {chat.messages.map((m) =>
               m.role === "assistant" ? (
@@ -296,6 +363,40 @@ export function SpotScreen({ spotId, nav }: { spotId: string; nav: Nav }) {
 
           {/* Controls */}
           <div className="border-t border-[var(--color-border)] bg-[var(--color-panel)] px-3 pb-[calc(12px+env(safe-area-inset-bottom))] pt-3">
+            {/*
+              ハンズフリー。歩きながらだと、質問のたびに画面を見てマイクを
+              探すのが一番の負担になる。一度オンにすれば、読み上げが終わる
+              たびに勝手に耳を開く。設定に保存されるので、次に開いたときも
+              オンのまま。
+            */}
+            <div className="mb-2.5 flex items-center gap-2">
+              <button
+                type="button"
+                onClick={toggleHandsFree}
+                aria-pressed={handsFree}
+                disabled={!voice.browserSRAvailable}
+                className={`flex min-h-11 items-center gap-1.5 rounded-full border px-3.5 text-[12px] font-bold disabled:opacity-40 ${
+                  handsFree
+                    ? "border-[var(--color-green)] bg-[var(--color-green)] text-white"
+                    : "border-[var(--color-border)] bg-[var(--color-panel-soft)] text-[var(--color-ink-soft)]"
+                }`}
+              >
+                {handsFree ? <MicIcon size={15} /> : <MicOffIcon size={15} />}
+                ハンズフリー{handsFree ? "ON" : "OFF"}
+              </button>
+              <p aria-live="polite" className="min-w-0 flex-1 text-[12px] leading-snug text-[var(--color-ink-soft)]">
+                {!voice.browserSRAvailable
+                  ? "この端末では音声認識が使えません"
+                  : handsFree
+                    ? voice.recording
+                      ? "聞いています。そのまま話しかけてください"
+                      : voice.speaking
+                        ? "話し終わると、また聞きはじめます"
+                        : "次の質問を待っています"
+                    : "オンにすると、マイクを押さずに続けて話せます"}
+              </p>
+            </div>
+
             <div className="no-scrollbar mb-2.5 flex gap-2 overflow-x-auto">
               {QUESTION_CHIPS.map((q) => (
                 <button

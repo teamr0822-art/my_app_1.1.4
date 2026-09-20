@@ -25,6 +25,11 @@ export type AppSettings = {
   companionAutoListen: boolean;
   /** 屋外モード: 直射日光下でも読めるように配色を最大コントラストにする。 */
   outdoor: boolean;
+  /**
+   * ハンズフリー: スポットの案内中、マイクを押さなくても続けて話しかけられる。
+   * 歩きながら使うので、質問のたびに画面を見てボタンを探すのは現実的でない。
+   */
+  handsFree: boolean;
 };
 
 const DEFAULTS: AppSettings = {
@@ -37,13 +42,16 @@ const DEFAULTS: AppSettings = {
   companionOn: true,
   companionAutoListen: true,
   outdoor: false,
+  handsFree: false,
 };
 
 const STORAGE_KEY = "hh-settings-v1";
 
 type Ctx = AppSettings & {
   set: <K extends keyof AppSettings>(key: K, value: AppSettings[K]) => void;
-  toggle: (key: "muted" | "companionOn" | "companionAutoListen" | "outdoor") => void;
+  toggle: (
+    key: "muted" | "companionOn" | "companionAutoListen" | "outdoor" | "handsFree",
+  ) => void;
 };
 
 const SettingsContext = createContext<Ctx | null>(null);
