@@ -14,17 +14,14 @@ const SEEN_KEY = "yorimikke-onboarded-v1";
  * に人を集め直すのでは、これまでと変わらない。街じゅうに散らばった小さな
  * 場所へ人を分散させることが目的だと、最初に言い切る。
  *
- * 同時に、期待値も正直に合わせる。有名観光地の案内は出てこない。それを先に
- * 言っておかないと、使ってみた人が「こんなものか」と離れてしまう。
- * 文言を変えるときは、この4つの定数だけ直せば済む。
+ * （以前はここに「有名な観光地は出てきません」という一文があったが、松江城の
+ * ような名所も収録しているため外した。）
+ * 文言を変えるときは、下の3つの定数だけ直せば済む。
  */
 const CREED_TITLE = ["行列のできる一か所より、", "誰も止まらない百か所へ。"];
 const CREED_BODY =
   "新しい人気スポットを作っても、人がそこに集まり直すだけです。よりみっけが目指すのは、街じゅうに散らばった小さな史跡へ、人が少しずつ流れていくこと。その積み重ねが地域を元気にすると考えています。";
-/** 期待値を先に合わせる一文。 */
-const CREED_NOTE =
-  "だから、有名な観光地は出てきません。出てくるのは、地図に載っていても誰も足を止めない場所です。";
-/** 中身の規模を一目で。data/spots.json から数えるので、松江市のデータを足せば自動で増える。 */
+/** 中身の規模を一目で。data/areas/ の実数から数えるので、データを足せば自動で増える。 */
 const CREED_FACTS = [
   AREAS.map((a) => a.replace(/市$/, "")).join("・"),
   `${SPOTS.length}か所`,
@@ -108,9 +105,6 @@ export function Onboarding() {
         </h1>
         <p className="relative mt-3 max-w-[22em] text-[12px] leading-6 text-white/85 [@media(min-height:740px)]:mt-4 [@media(min-height:740px)]:text-[13px] [@media(min-height:740px)]:leading-7">
           {CREED_BODY}
-        </p>
-        <p className="relative mt-3 hidden max-w-[22em] border-l-2 border-[var(--color-sun)] pl-3 text-[11px] leading-5 text-white/75 [@media(min-height:640px)]:block [@media(min-height:740px)]:text-[12px] [@media(min-height:740px)]:leading-6">
-          {CREED_NOTE}
         </p>
         {/* 画面が低いときは省く。切れて見えるより、無いほうがいい。 */}
         <div className="relative mt-4 hidden flex-wrap gap-1.5 [@media(min-height:700px)]:flex">

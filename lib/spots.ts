@@ -1,4 +1,8 @@
-import dataset from "@/data/spots.json";
+import common from "@/data/areas/common.json";
+import kochi from "@/data/areas/kochi.json";
+import hiroshima from "@/data/areas/hiroshima.json";
+import ibusuki from "@/data/areas/ibusuki.json";
+import matsue from "@/data/areas/matsue.json";
 
 export type Spot = {
   id: string;
@@ -45,7 +49,66 @@ export type SpotDataset = {
   spots: Spot[];
 };
 
-const data = dataset as SpotDataset;
+/** data/areas/<街>.json の形。1ファイル＝1つの市。 */
+export type AreaFile = {
+  /** 「松江市」のように「市」まで。スポットの city と一致させる。 */
+  area: string;
+  prefecture: string;
+  /** その街のデータを入れた日（YYYY-MM-DD）。 */
+  addedAt: string;
+  /** その街だけの出典の説明。共通の説明は common.json にある。空でもよい。 */
+  source: string;
+  statsByPrefecture?: SpotDataset["statsByPrefecture"];
+  spots: Spot[];
+};
+
+/**
+ * 収録している街の一覧。街を足すときは data/areas/ にファイルを置き、
+ * 上の import とここに1行ずつ足す。外せばその街だけ消える（他の街は無傷）。
+ *
+ * ■ なぜ市ごとに分けたか
+ * 以前は全件が data/spots.json 1つに入っていて、高知・指宿・広島が入り混じって
+ * 並んでいた。1文字の間違いで全体が起動しなくなるうえ、どの街に何件あるかも
+ * 見えにくい。市ごとのファイルなら、直すときに開くのはその街の分だけで済む。
+ */
+const AREA_FILES: AreaFile[] = [kochi, hiroshima, ibusuki, matsue] as AreaFile[];
+
+/**
+ * 街ごとのファイルを1つのデータセットにまとめる。
+ * - id が既に出てきたスポットは捨てる（先に読んだ街を優先。既存のルートを壊さない）
+ * - city がファイルの area と違うスポットは警告する（街の判定がずれるため）
+ * - count と statsByPrefecture は合算する（画面の数字が嘘にならないように）
+ */
+function mergeAreas(files: AreaFile[]): SpotDataset {
+  const seen = new Set<string>();
+  const spots: Spot[] = [];
+  const statsByPrefecture: NonNullable<SpotDataset["statsByPrefecture"]> = {};
+  const sources = [common.source];
+  for (const file of files) {
+    for (const spot of file.spots) {
+      if (seen.has(spot.id)) {
+        console.warn(`[spots] ${file.area}: id が重複したため無視しました: ${spot.id}`);
+        continue;
+      }
+      if (spot.city !== file.area) {
+        console.warn(`[spots] ${file.area}: city が「${spot.city}」になっています: ${spot.id}`);
+      }
+      seen.add(spot.id);
+      spots.push(spot);
+    }
+    Object.assign(statsByPrefecture, file.statsByPrefecture ?? {});
+    if (file.source) sources.push(file.source);
+  }
+  return {
+    generatedAt: common.generatedAt,
+    source: sources.join(" "),
+    count: spots.length,
+    statsByPrefecture,
+    spots,
+  };
+}
+
+const data = mergeAreas(AREA_FILES);
 
 export const KOCHI_CENTER: [number, number] = [33.5626, 133.5493];
 
