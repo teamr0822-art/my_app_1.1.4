@@ -2,7 +2,7 @@
 
 import { useEffect, useMemo, useRef, useState } from "react";
 import type { Nav } from "@/app/page";
-import { SPOTS, areaOf, distanceMeters, formatDistance } from "@/lib/spots";
+import { SPOTS, areaOf, distanceMeters, formatDistance, spotsInArea } from "@/lib/spots";
 import { useLocation } from "@/lib/location-context";
 import { LocationBanner } from "@/components/location-banner";
 import { useGuideChat } from "@/lib/use-guide-chat";
@@ -71,6 +71,8 @@ function describeMinutes(total: number): string {
 const MAX_CANDIDATES = 25;
 /** Never send fewer than this, even if nothing falls inside the radius. */
 const MIN_CANDIDATES = 8;
+/** 半径内が足りないときに補充してよい距離の上限（同じ街のうちに収める）。 */
+const FALLBACK_LIMIT_M = 40000;
 
 const chip = "flex min-h-11 items-center rounded-full border border-[var(--color-border)] px-4 text-sm transition hover:border-[var(--color-terracotta)]";
 
@@ -130,16 +132,23 @@ export function RouteScreen({ nav, hidden = false }: { nav: Nav; hidden?: boolea
   // "half-day walk" spanning Kochi, Hiroshima and Kagoshima.
   const candidates = useMemo(() => {
     const radius = radiusFor(tripMinutes, transport);
-    const ranked = SPOTS.map((spot) => ({
+    // 測位できていないときは、基準の街（手で選んだ街／既定の松江市）の中だけ
+    // から選ぶ。距離順だけだと、スポットの少ない街でよその県が混ざる。
+    const pool = geo.canMeasure ? SPOTS : spotsInArea(geo.areaLabel);
+    const ranked = pool.map((spot) => ({
       spot,
       d: distanceMeters(geo.pos, [spot.lat, spot.lng]),
     })).sort((a, b) => a.d - b.d);
     const within = ranked.filter((r) => r.d <= radius);
     // Fall back to the nearest few so the screen still works when the user is
     // far from every registered site (or geolocation is unavailable).
-    const picked = within.length >= MIN_CANDIDATES ? within : ranked.slice(0, MIN_CANDIDATES);
+    // ただし補充は同じ街の範囲（FALLBACK_LIMIT_M）まで。県をまたぐ「半日散歩」は作らない。
+    const picked =
+      within.length >= MIN_CANDIDATES
+        ? within
+        : ranked.filter((r) => r.d <= FALLBACK_LIMIT_M).slice(0, MIN_CANDIDATES);
     return picked.slice(0, MAX_CANDIDATES);
-  }, [geo.pos, tripMinutes, transport]);
+  }, [geo.pos, geo.canMeasure, geo.areaLabel, tripMinutes, transport]);
 
   const area = candidates[0]?.spot
     ? [candidates[0].spot.prefecture, candidates[0].spot.city].filter(Boolean).join("")
@@ -386,7 +395,13 @@ export function RouteScreen({ nav, hidden = false }: { nav: Nav; hidden?: boolea
           <textarea value={request} onChange={(e) => setRequest(e.target.value)} placeholder="例：混雑を避けたい、眺めの良い場所に行きたい" className="min-h-24 resize-none rounded-2xl border border-[var(--color-border)] bg-[var(--color-panel)] p-3 font-normal outline-none placeholder:text-[var(--color-ink-soft)] focus:border-[var(--color-terracotta)]" />
         </label>
 
-        <button type="button" onClick={() => { if (!streaming && !endTimeInvalid) generate(); }} aria-disabled={streaming || endTimeInvalid} className="flex items-center justify-center gap-2 rounded-2xl bg-[var(--color-terracotta)] px-4 py-3 font-bold text-white aria-disabled:opacity-50">
+        {candidates.length === 0 && (
+          <p role="status" className="rounded-2xl border border-dashed border-[var(--color-border)] bg-[var(--color-panel)] p-4 text-[13px] leading-relaxed text-[var(--color-ink-soft)]">
+            {geo.canMeasure ? "現在地" : geo.areaLabel || "この街"}の周辺には、まだ登録されたスポットがありません。画面上の「いる街を選ぶ」から、ほかの街を選べます。
+          </p>
+        )}
+
+        <button type="button" onClick={() => { if (!streaming && !endTimeInvalid && candidates.length > 0) generate(); }} aria-disabled={streaming || endTimeInvalid || candidates.length === 0} className="flex items-center justify-center gap-2 rounded-2xl bg-[var(--color-terracotta)] px-4 py-3 font-bold text-white aria-disabled:opacity-50">
           <SparkIcon size={18} /> {streaming ? "ルートを考えています…" : "ルートを作成する"}
         </button>
 

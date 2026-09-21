@@ -61,6 +61,27 @@ export function LeafletMap({
   /** Set by the declutter effect; called by the map's zoom/move handlers. */
   const declutterRef = useRef<(() => void) | null>(null);
 
+  /*
+   * 基準の街が大きく変わったときだけ地図を動かす。
+   *
+   * 地図は初回の center でしか位置を決めていなかったので、「いる街を選ぶ」で
+   * 広島に切り替えても、あとから GPS が取れても、既定の街のまま動かなかった。
+   * 歩いている最中の小さな移動で勝手に動かれると困るので、20km 以上の飛び
+   * （街の切り替え・初めての測位）に限る。ルート表示中は枠合わせに任せる。
+   */
+  const lastCenterRef = useRef<[number, number]>(center);
+  useEffect(() => {
+    const map = mapRef.current;
+    if (!map) return;
+    const [a, b] = [lastCenterRef.current, center];
+    const dLat = (a[0] - b[0]) * 111;
+    const dLng = (a[1] - b[1]) * 111 * Math.cos((a[0] * Math.PI) / 180);
+    if (Math.hypot(dLat, dLng) < 20) return;
+    lastCenterRef.current = center;
+    if (routeSpotsRef.current.length) return;
+    map.setView(center, zoom);
+  }, [center, zoom, mapReady]);
+
   // Init map once.
   useEffect(() => {
     let cancelled = false;

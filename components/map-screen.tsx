@@ -3,7 +3,7 @@
 import dynamic from "next/dynamic";
 import { useEffect, useMemo, useRef, useState } from "react";
 import type { Nav } from "@/app/page";
-import { SPOTS, STATS, KOCHI_CENTER, distanceMeters, fallbackAreaLabel, formatDistance } from "@/lib/spots";
+import { SPOTS, STATS, distanceMeters, formatDistance } from "@/lib/spots";
 import { hoursOf } from "@/lib/visit-hours";
 import { useLocation } from "@/lib/location-context";
 import { LocationBanner } from "@/components/location-banner";
@@ -41,7 +41,7 @@ export function MapScreen({
   routeTransport?: string;
 }) {
   const geo = useLocation();
-  const { pos, located } = geo;
+  const { pos, located, areaLabel } = geo;
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [showInfo, setShowInfo] = useState(false);
   /**
@@ -183,7 +183,9 @@ export function MapScreen({
       <div className="relative min-h-0 flex-1">
         <LeafletMap
           className="hh-map-full absolute inset-0 h-full w-full"
-          center={located ? pos : KOCHI_CENTER}
+          /* pos は「実測位 → 手で選んだ街 → 既定の街（松江市）」の順で決まる。
+             以前は測位できないと常に高知を開いていた。 */
+          center={pos}
           zoom={14}
           spots={SPOTS}
           userPos={located ? pos : null}
@@ -212,7 +214,7 @@ export function MapScreen({
               <li>青い点が現在地、緑の丸がいま向かっているスポットです。</li>
               <li>白い矢印が進む向きを示しています。</li>
               <li>薄い線は通過済み、濃い線がこれから歩く道です。</li>
-              {!located && <li>現在地が取得できないため{fallbackAreaLabel()}を表示しています。</li>}
+              {!located && <li>現在地が取得できないため{areaLabel}周辺を表示しています。</li>}
             </ul>
           </div>
         )}

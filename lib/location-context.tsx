@@ -1,7 +1,7 @@
 "use client";
 
 import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState } from "react";
-import { AREA_CENTERS, FALLBACK_CENTER, areaOf, centerOfArea, nearestSpot } from "@/lib/spots";
+import { AREA_CENTERS, FALLBACK_AREA, FALLBACK_CENTER, areaNear, centerOfArea } from "@/lib/spots";
 
 /**
  * 現在地を、アプリ全体で1つだけ管理する。
@@ -157,7 +157,8 @@ export function LocationProvider({ children }: { children: React.ReactNode }) {
     const canMeasure = status === "ok" && fix !== null;
     const manualCenter = centerOfArea(manualArea);
     const pos: [number, number] = fix ?? manualCenter ?? FALLBACK_CENTER;
-    const areaLabel = manualArea ?? areaOf(nearestSpot(pos).spot) ?? "";
+    // 実測位があればいちばん近い街、なければ手で選んだ街、それもなければ既定の街。
+    const areaLabel = manualArea ?? (fix ? areaNear(fix) : FALLBACK_AREA);
     return {
       pos,
       fix,

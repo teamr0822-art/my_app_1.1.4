@@ -40,6 +40,10 @@ export function LocationBanner() {
     >
       <div className="flex flex-wrap items-center gap-x-3 gap-y-1">
         <span className="font-bold">{message}</span>
+        {/* 測位できていない間に何を表示しているのかも言う（既定は松江市）。 */}
+        {!geo.manualArea && !geo.fix && geo.status !== "locating" && (
+          <span className="text-[var(--color-ink-soft)]">いまは{geo.areaLabel}を表示しています</span>
+        )}
         <button
           type="button"
           onClick={() => setPicking((v) => !v)}

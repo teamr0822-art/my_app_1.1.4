@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { MapIcon, MicIcon, SparkIcon } from "@/components/icons";
+import { AREAS, SPOTS, STATS } from "@/lib/spots";
 
 const SEEN_KEY = "yorimikke-onboarded-v1";
 
@@ -23,8 +24,12 @@ const CREED_BODY =
 /** 期待値を先に合わせる一文。 */
 const CREED_NOTE =
   "だから、有名な観光地は出てきません。出てくるのは、地図に載っていても誰も足を止めない場所です。";
-/** 中身の規模を一目で。数は data/spots.json の実数。 */
-const CREED_FACTS = ["高知・広島・指宿", "151か所", "うち指定文化財60件"];
+/** 中身の規模を一目で。data/spots.json から数えるので、松江市のデータを足せば自動で増える。 */
+const CREED_FACTS = [
+  AREAS.map((a) => a.replace(/市$/, "")).join("・"),
+  `${SPOTS.length}か所`,
+  `うち指定文化財${STATS.kunishitei + STATS.kenshitei}件`,
+];
 
 const STEPS = [
   {

@@ -49,26 +49,46 @@ const data = dataset as SpotDataset;
 
 export const KOCHI_CENTER: [number, number] = [33.5626, 133.5493];
 
+/** 松江城のあたり。発表用に、測位できないときの既定の街にしている。 */
+export const MATSUE_CENTER: [number, number] = [35.4704, 133.0536];
+
 /**
- * Where the map and the "near you" list start when the device has no fix.
- * Named separately from KOCHI_CENTER so the fallback can move to another city
- * without every call site reading as "Kochi".
+ * 位置情報が使えないときに最初に見せる街。
+ *
+ * 発表の都合で松江市にしている。ここ（名前と座標の2つ）を変えれば、既定の街
+ * はどこにでも移せる。スポットがまだ1件もない街でも指定できるように、
+ * データから計算するのではなく固定値で持つ。
  */
-export const FALLBACK_CENTER: [number, number] = KOCHI_CENTER;
+export const FALLBACK_AREA = "松江市";
+export const FALLBACK_CENTER: [number, number] = MATSUE_CENTER;
+
+/**
+ * 収録予定の街と、その目印の座標。
+ *
+ * AREA_CENTERS はスポットの重心から計算するため、データが入る前の街（松江市）
+ * は選択肢にも出てこなかった。ここに書いた街は、スポットが0件でも「いる街を
+ * 選ぶ」に並び、既定の街にもできる。スポットが入れば重心の値で上書きされる。
+ */
+const KNOWN_AREAS: Record<string, [number, number]> = {
+  高知市: KOCHI_CENTER,
+  広島市: [34.3955, 132.4596],
+  指宿市: [31.2528, 130.6331],
+  松江市: MATSUE_CENTER,
+};
 
 /**
  * The city a spot belongs to, for anything shown to a visitor or sent to the
- * model. The dataset already spans three cities, so nothing may assume Kochi.
+ * model. The dataset spans several cities, so nothing may assume Kochi.
  */
 export function areaOf(spot: Pick<Spot, "city" | "prefecture">): string {
   return spot.city ?? spot.prefecture ?? "";
 }
 
 /**
- * 各エリアのおおよその中心（収録スポットの重心）。
+ * 各エリアのおおよその中心（収録スポットの重心。スポットがない街は KNOWN_AREAS）。
  *
  * 位置情報が使えないとき、利用者が「いま広島にいます」と手で選べるようにする
- * ための座標。端末の測位に失敗しただけで、高知の距離を見せられる状態を避ける。
+ * ための座標。端末の測位に失敗しただけで、よその街の距離を見せる状態を避ける。
  */
 export const AREA_CENTERS: Record<string, [number, number]> = (() => {
   const sums = new Map<string, { lat: number; lng: number; n: number }>();
@@ -81,7 +101,7 @@ export const AREA_CENTERS: Record<string, [number, number]> = (() => {
     cur.n += 1;
     sums.set(area, cur);
   }
-  const out: Record<string, [number, number]> = {};
+  const out: Record<string, [number, number]> = { ...KNOWN_AREAS };
   for (const [area, v] of sums) out[area] = [v.lat / v.n, v.lng / v.n];
   return out;
 })();
@@ -91,23 +111,50 @@ export function centerOfArea(area: string | null | undefined): [number, number] 
   return AREA_CENTERS[area] ?? null;
 }
 
-/** e.g. 「高知市周辺」 — the area label used when there is no live position. */
-export function fallbackAreaLabel(): string {
-  const near = nearestSpot(FALLBACK_CENTER);
-  const area = near ? areaOf(near.spot) : "";
-  return area ? `${area}周辺` : "登録エリア";
+/**
+ * ある地点がどの街か。いちばん近い街の中心で決める。
+ *
+ * 以前は「最寄りのスポットの街」で決めていたので、スポットがまだない松江に
+ * いると、150km離れた広島市が「いまの街」になっていた。
+ */
+export function areaNear(pos: [number, number]): string {
+  let best = "";
+  let bestD = Infinity;
+  for (const [area, center] of Object.entries(AREA_CENTERS)) {
+    const d = distanceMeters(pos, center);
+    if (d < bestD) {
+      bestD = d;
+      best = area;
+    }
+  }
+  return best;
 }
 
-/** Every city present in the dataset, in descending order of spot count. */
-export const AREAS: string[] = Array.from(
-  data.spots.reduce((counts, spot) => {
+/** e.g. 「松江市周辺」 — the area label used when there is no live position. */
+export function fallbackAreaLabel(): string {
+  return `${FALLBACK_AREA}周辺`;
+}
+
+/**
+ * Every city the app knows, in descending order of spot count. Cities listed in
+ * KNOWN_AREAS appear even before their spots are added (they sort last).
+ */
+export const AREAS: string[] = (() => {
+  const counts = new Map<string, number>(Object.keys(KNOWN_AREAS).map((a) => [a, 0]));
+  for (const spot of data.spots) {
     const area = areaOf(spot);
     if (area) counts.set(area, (counts.get(area) ?? 0) + 1);
-    return counts;
-  }, new Map<string, number>()),
-)
-  .sort((a, b) => b[1] - a[1])
-  .map(([area]) => area);
+  }
+  return Array.from(counts)
+    .sort((a, b) => b[1] - a[1])
+    .map(([area]) => area);
+})();
+
+/** その街に登録されているスポット。 */
+export function spotsInArea(area: string | null | undefined): Spot[] {
+  if (!area) return [];
+  return data.spots.filter((spot) => areaOf(spot) === area);
+}
 
 export const SPOTS: Spot[] = data.spots;
 

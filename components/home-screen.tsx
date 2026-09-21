@@ -7,6 +7,7 @@ import {
   DATA_SOURCE,
   formatDistance,
   distanceMeters,
+  spotsInArea,
 } from "@/lib/spots";
 import { useLocation } from "@/lib/location-context";
 import { LocationBanner } from "@/components/location-banner";
@@ -17,7 +18,10 @@ export function HomeScreen({ nav }: { nav: Nav }) {
   const { pos, canMeasure, areaLabel } = useLocation();
   const visited = useVisited();
 
-  const spots = [...SPOTS]
+  // 測位できていないときは、基準の街のスポットだけを並べる。距離順だけだと、
+  // スポットがまだ少ない街（松江市など）で、よその県の場所が「近く」に出てしまう。
+  const pool = canMeasure ? SPOTS : spotsInArea(areaLabel);
+  const spots = [...pool]
     .map((s) => ({ ...s, meters: distanceMeters(pos, [s.lat, s.lng]) }))
     .sort((a, b) => a.meters - b.meters)
     .slice(0, 5);
@@ -114,6 +118,12 @@ export function HomeScreen({ nav }: { nav: Nav }) {
             {canMeasure ? "現在地から近い順" : `${areaLabel || "登録エリア"}の順`}
           </span>
         </div>
+
+        {spots.length === 0 && (
+          <p className="rounded-2xl border border-dashed border-[var(--color-border)] bg-[var(--color-panel)] p-4 text-[13px] leading-relaxed text-[var(--color-ink-soft)]">
+            {areaLabel || "この街"}のスポットは準備中です。上の帯の「いる街を選ぶ」から、ほかの街を選べます。
+          </p>
+        )}
 
         <ul className="flex flex-col gap-3">
           {spots.map((s) => (
