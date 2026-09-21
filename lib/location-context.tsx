@@ -1,7 +1,7 @@
 "use client";
 
 import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState } from "react";
-import { AREA_CENTERS, FALLBACK_AREA, FALLBACK_CENTER, areaNear, centerOfArea } from "@/lib/spots";
+import { AREA_CENTERS, FALLBACK_AREA, FALLBACK_CENTER, areaNear, centerOfArea, distanceMeters } from "@/lib/spots";
 
 /**
  * 現在地を、アプリ全体で1つだけ管理する。
@@ -37,6 +37,11 @@ export type LocationState = {
   /** 実測位（十分な精度）。距離を名乗ってよいのはこれがあるときだけ。 */
   fix: [number, number] | null;
   accuracy: number | null;
+  /**
+   * 進んでいる向き（北=0、時計回りの度）。端末が向きを出してくれればそれを、
+   * 出さなければ直近の移動（8m以上）から求める。止まっている間は最後の値のまま。
+   */
+  heading: number | null;
   status: GeoStatus;
   /** 距離を表示してよいか。これが false の画面は「約○m」を出さない。 */
   canMeasure: boolean;
@@ -61,6 +66,9 @@ const LocationContext = createContext<LocationState | null>(null);
 export function LocationProvider({ children }: { children: React.ReactNode }) {
   const [fix, setFix] = useState<[number, number] | null>(null);
   const [accuracy, setAccuracy] = useState<number | null>(null);
+  const [heading, setHeading] = useState<number | null>(null);
+  /** 向きを求めるための、前回向きを決めた地点。 */
+  const headingFrom = useRef<[number, number] | null>(null);
   const [status, setStatus] = useState<GeoStatus>("locating");
   const [error, setError] = useState<string | null>(null);
   const [manualArea, setManualAreaState] = useState<string | null>(null);
@@ -99,8 +107,22 @@ export function LocationProvider({ children }: { children: React.ReactNode }) {
       (p) => {
         const acc = p.coords.accuracy ?? null;
         setAccuracy(acc);
-        setFix([p.coords.latitude, p.coords.longitude]);
+        const here: [number, number] = [p.coords.latitude, p.coords.longitude];
+        setFix(here);
         setError(null);
+        // 向き: 動いているときの端末の値を優先し、なければ移動した方向から出す。
+        // 立ち止まって GPS がふらつくだけで向きが変わらないよう、8m 動くまで待つ。
+        const h = p.coords.heading;
+        const moving = (p.coords.speed ?? 0) > 0.5;
+        if (h !== null && Number.isFinite(h) && moving) {
+          setHeading(h);
+          headingFrom.current = here;
+        } else if (!headingFrom.current) {
+          headingFrom.current = here;
+        } else if (distanceMeters(headingFrom.current, here) >= 8) {
+          setHeading(bearingDeg(headingFrom.current, here));
+          headingFrom.current = here;
+        }
         // 精度が悪いときは「街は分かるが距離は名乗れない」。ビルの谷間や
         // 屋内では数百mずれるので、そのまま距離にすると嘘になる。
         setStatus(acc !== null && acc > ACCURACY_LIMIT_M ? "coarse" : "ok");
@@ -163,6 +185,7 @@ export function LocationProvider({ children }: { children: React.ReactNode }) {
       pos,
       fix,
       accuracy,
+      heading,
       status,
       canMeasure,
       located: canMeasure,
@@ -173,7 +196,7 @@ export function LocationProvider({ children }: { children: React.ReactNode }) {
       setHighAccuracy,
       retry,
     };
-  }, [fix, accuracy, status, error, manualArea, setManualArea, retry]);
+  }, [fix, accuracy, heading, status, error, manualArea, setManualArea, retry]);
 
   return <LocationContext.Provider value={value}>{children}</LocationContext.Provider>;
 }
@@ -184,4 +207,14 @@ export function useLocation(): LocationState {
     throw new Error("useLocation は LocationProvider の内側で使ってください");
   }
   return ctx;
+}
+
+/** a から b への方位（北=0、時計回りの度）。 */
+export function bearingDeg(a: [number, number], b: [number, number]): number {
+  const toRad = (d: number) => (d * Math.PI) / 180;
+  const y = Math.sin(toRad(b[1] - a[1])) * Math.cos(toRad(b[0]));
+  const x =
+    Math.cos(toRad(a[0])) * Math.sin(toRad(b[0])) -
+    Math.sin(toRad(a[0])) * Math.cos(toRad(b[0])) * Math.cos(toRad(b[1] - a[1]));
+  return ((Math.atan2(y, x) * 180) / Math.PI + 360) % 360;
 }

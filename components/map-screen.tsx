@@ -5,7 +5,8 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import type { Nav } from "@/app/page";
 import { SPOTS, STATS, distanceMeters, formatDistance } from "@/lib/spots";
 import { hoursOf } from "@/lib/visit-hours";
-import { useLocation } from "@/lib/location-context";
+import { useLocation, bearingDeg } from "@/lib/location-context";
+import type { CameraMode } from "@/components/leaflet-map";
 import { LocationBanner } from "@/components/location-banner";
 import { useWakeLock } from "@/lib/use-wake-lock";
 import { markVisited } from "@/lib/visited";
@@ -102,10 +103,13 @@ export function MapScreen({
   }, [activeLeg]);
 
   // 案内中だけ高精度測位にする。常時オンだと半日で電池が尽きる。
+  // geo は位置が変わるたびに作り直されるので、依存に入れると更新のたびに
+  // 測位を止めて張り直してしまう（電池の無駄＋測位が一瞬途切れる）。関数だけを見る。
+  const { setHighAccuracy } = geo;
   useEffect(() => {
-    geo.setHighAccuracy(routeIds.length > 0);
-    return () => geo.setHighAccuracy(false);
-  }, [routeIds.length, geo]);
+    setHighAccuracy(routeIds.length > 0);
+    return () => setHighAccuracy(false);
+  }, [routeIds.length, setHighAccuracy]);
 
   const hasRoute = routeSpots.length > 0;
   // 歩いている間に画面が消えると、戻すたびに測位からやり直しになる。
@@ -133,6 +137,70 @@ export function MapScreen({
    */
   const remainingMeters =
     located && target ? distanceMeters(pos, [target.lat, target.lng]) : null;
+
+  /*
+   * 案内中のカメラ（Google マップのナビを参考にした3状態）。
+   *   案内が始まったら、現在地が取れていれば「追いかける（follow）」で寄る。
+   *   取れていなければ、ルート全体を見せる（overview）。あとで取れたら寄る。
+   *   地図を指で動かしたら「自由（free）」になり、「現在地に戻る」が出る。
+   */
+  const [camera, setCamera] = useState<CameraMode>("follow");
+  const [headingUp, setHeadingUp] = useState(true);
+  /** 利用者がカメラを選んだあとは、測位が取れても勝手に切り替えない。 */
+  const userChoseCamera = useRef(false);
+  useEffect(() => {
+    userChoseCamera.current = false;
+    setCamera(located ? "follow" : "overview");
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [routeIds.join(",")]);
+  useEffect(() => {
+    if (located) {
+      if (!userChoseCamera.current) setCamera("follow");
+      return;
+    }
+    // 測位は一瞬途切れることがよくある。そのたびに全体表示へ引くと画面が
+    // 暴れるので、8秒続けて取れないときだけ全体表示にする。
+    const timer = setTimeout(() => {
+      setCamera((c) => (c === "follow" ? "overview" : c));
+    }, 8000);
+    return () => clearTimeout(timer);
+  }, [located]);
+  const changeCamera = (mode: CameraMode) => {
+    if (mode === "follow" && !located) return;
+    userChoseCamera.current = true;
+    setCamera(mode);
+  };
+
+  /** 徒歩は細い道まで見える近さ、乗り物は先まで見える引き。 */
+  const followZoom = routeTransport === "徒歩" ? 18 : routeTransport === "自転車" ? 17 : 16;
+
+  /**
+   * 画面の上に向ける方位。ルートの上にいるときは「道の先」の向き
+   * （GPS の向きより安定していて、曲がり角の手前で先に回り始める）。
+   * ルートから外れているときは歩いている向き、それもなければ目的地の方向。
+   */
+  const navHeading = useMemo(() => {
+    if (!hasRoute || !located) return null;
+    const coords = legs[activeLeg]?.coords;
+    if (coords && coords.length > 1) {
+      let nearest = 0;
+      let best = Infinity;
+      coords.forEach((c, i) => {
+        const d = distanceMeters(pos, c);
+        if (d < best) {
+          best = d;
+          nearest = i;
+        }
+      });
+      if (best < 50) {
+        for (let i = nearest; i < coords.length; i++) {
+          if (distanceMeters(pos, coords[i]) >= 25) return bearingDeg(pos, coords[i]);
+        }
+      }
+    }
+    if (geo.heading !== null) return geo.heading;
+    return target ? bearingDeg(pos, [target.lat, target.lng]) : null;
+  }, [hasRoute, located, legs, activeLeg, pos, geo.heading, target]);
 
   /**
    * Arrival was a button buried inside the itinerary list: on the move, nobody
@@ -195,6 +263,12 @@ export function MapScreen({
           routeLegs={legs.length ? legs : undefined}
           activeLeg={activeLeg}
           snappedWaypoints={directions?.snapped}
+          camera={hasRoute ? camera : undefined}
+          heading={navHeading}
+          headingUp={headingUp}
+          followZoom={followZoom}
+          onCameraChange={changeCamera}
+          onHeadingUpChange={setHeadingUp}
         />
 
         {showInfo && (
@@ -224,9 +298,51 @@ export function MapScreen({
           <div
             /* Clears the tab bar AND the scale bar / OpenStreetMap credit that
                sit just above it, so the sheet never covers the licence text. */
-            className="absolute inset-x-2 bottom-[calc(var(--tabbar-clearance)+8px)] z-[500]"
+            className="pointer-events-none absolute inset-x-2 bottom-[calc(var(--tabbar-clearance)+8px)] z-[500]"
           >
-            <div className="overflow-hidden rounded-3xl border border-[var(--color-border)] bg-[var(--color-panel)] shadow-2xl">
+            {/*
+              地図の上に浮かせるカメラのボタン（Google マップのナビと同じ位置関係）。
+              左: 追いかけていないときだけ「現在地に戻る」。
+              右: 追いかけているときは「全体を見る」、全体表示中は「北が上／進む向き」。
+            */}
+            <div className="mb-2 flex items-end justify-between gap-2 px-1">
+              {camera !== "follow" && located ? (
+                <button
+                  type="button"
+                  onClick={() => changeCamera("follow")}
+                  className="pointer-events-auto flex min-h-12 items-center gap-2 rounded-full bg-[var(--color-panel)] px-4 text-[14px] font-extrabold text-[var(--color-location)] shadow-lg ring-1 ring-black/10"
+                >
+                  <NavArrowIcon />
+                  現在地に戻る
+                </button>
+              ) : (
+                <span />
+              )}
+              <div className="flex gap-2">
+                {camera === "follow" && (
+                  <button
+                    type="button"
+                    onClick={() => setHeadingUp((v) => !v)}
+                    aria-label={headingUp ? "北を上にする" : "進む向きを上にする"}
+                    aria-pressed={!headingUp}
+                    className="pointer-events-auto flex min-h-12 items-center rounded-full bg-[var(--color-panel)] px-3.5 text-[12px] font-bold shadow-lg ring-1 ring-black/10"
+                  >
+                    {headingUp ? "進む向きが上" : "北が上"}
+                  </button>
+                )}
+                {camera !== "overview" && (
+                  <button
+                    type="button"
+                    onClick={() => changeCamera("overview")}
+                    className="pointer-events-auto flex min-h-12 items-center gap-1.5 rounded-full bg-[var(--color-panel)] px-4 text-[14px] font-extrabold shadow-lg ring-1 ring-black/10"
+                  >
+                    <OverviewIcon />
+                    全体を見る
+                  </button>
+                )}
+              </div>
+            </div>
+            <div className="pointer-events-auto overflow-hidden rounded-3xl border border-[var(--color-border)] bg-[var(--color-panel)] shadow-2xl">
               <NextUp
                 loading={loading}
                 error={error}
@@ -581,5 +697,25 @@ function TurnGlyph({ step, large = false, bare = false }: { step: RouteStep; lar
         {glyph}
       </span>
     </span>
+  );
+}
+
+/** 「現在地に戻る」の矢印（案内中の現在地マークと同じ形）。 */
+function NavArrowIcon() {
+  return (
+    <svg width="18" height="18" viewBox="0 0 16 16" aria-hidden="true">
+      <path d="M8 1 L14 14 L8 10.6 L2 14 Z" fill="currentColor" />
+    </svg>
+  );
+}
+
+/** 「全体を見る」: 2地点を結ぶ道すじ。 */
+function OverviewIcon() {
+  return (
+    <svg width="18" height="18" viewBox="0 0 20 20" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" aria-hidden="true">
+      <circle cx="5" cy="15" r="2.2" />
+      <circle cx="15" cy="5" r="2.2" />
+      <path d="M6.8 13.6 C10 12 9 8 13.2 6.3" strokeDasharray="2.2 2.4" />
+    </svg>
   );
 }

@@ -19,7 +19,36 @@ type Props = {
   activeLeg?: number;
   /** Router-snapped waypoints, used to join the road to the real site. */
   snappedWaypoints?: [number, number][];
+  /**
+   * 案内中のカメラ。Google マップのナビと同じ3つの状態を持つ。
+   *   follow   … 現在地に寄って追いかける（現在地は画面の下寄り、進む向きが上）
+   *   overview … ルート全体が入るように引いて、北を上にする
+   *   free     … 利用者が地図を触った。勝手に動かさない（「現在地に戻る」で follow へ）
+   * 未指定なら従来どおり（案内の自動追従なし）。
+   */
+  camera?: CameraMode;
+  /** follow のとき画面の上に向ける方位（北=0）。null なら北が上。 */
+  heading?: number | null;
+  /** follow のとき、進む向きを上にするか（false なら北が上）。 */
+  headingUp?: boolean;
+  /** 利用者の操作でカメラの状態を変えるとき（地図を触った・ボタンを押した）。 */
+  onCameraChange?: (mode: CameraMode) => void;
+  /** follow 中にコンパスを押したとき（進む向きが上 ⇔ 北が上）。 */
+  onHeadingUpChange?: (headingUp: boolean) => void;
+  /** follow のときの基本の拡大率（徒歩 18 など）。 */
+  followZoom?: number;
 };
+
+export type CameraMode = "follow" | "overview" | "free";
+
+/**
+ * follow のとき、現在地を地図の上から何割の位置に置くか。Google マップと同じく
+ * 下寄りにして前方を広く見せるが、下には案内カードとボタンが重なるので、
+ * それに隠れない 0.6 にしている（実測: 高さ844pxの画面でカードの約80px上）。
+ */
+const FOLLOW_ANCHOR_Y = 0.6;
+/** 地図の下に重なる案内カード＋ボタンの高さ。全体表示はこの分を避けて収める。 */
+const OVERLAY_BOTTOM_PX = 190;
 
 /**
  * Leaflet map with OpenStreetMap tiles. Renders cultural-property markers with
@@ -37,6 +66,12 @@ export function LeafletMap({
   routeLegs,
   activeLeg = 0,
   snappedWaypoints,
+  camera,
+  heading = null,
+  headingUp = true,
+  onCameraChange,
+  onHeadingUpChange,
+  followZoom = 18,
 }: Props) {
   const hostRef = useRef<HTMLDivElement>(null);
   const mapRef = useRef<LMap | null>(null);
@@ -60,6 +95,25 @@ export function LeafletMap({
   routeSpotsRef.current = routeSpots;
   /** Set by the declutter effect; called by the map's zoom/move handlers. */
   const declutterRef = useRef<(() => void) | null>(null);
+  // Leaflet のボタンやイベントは地図を作ったときに一度だけ登録するので、
+  // 最新の props は ref 経由で読む。
+  const cameraRef = useRef<CameraMode | undefined>(camera);
+  cameraRef.current = camera;
+  const onCameraChangeRef = useRef(onCameraChange);
+  onCameraChangeRef.current = onCameraChange;
+  const headingUpRef = useRef(headingUp);
+  headingUpRef.current = headingUp;
+  const onHeadingUpChangeRef = useRef(onHeadingUpChange);
+  onHeadingUpChangeRef.current = onHeadingUpChange;
+  /**
+   * follow 中の拡大率。＋／−ボタンで変えられ、そのまま追いかけ続ける
+   * （Google マップのナビも、ボタンでの拡大縮小では追従が切れない）。
+   */
+  const [zoomOffset, setZoomOffset] = useState(0);
+  const zoomOffsetRef = useRef(0);
+  zoomOffsetRef.current = zoomOffset;
+  /** カメラを自分で動かしている最中は、それを利用者の操作と取り違えない。 */
+  const programmaticRef = useRef(false);
 
   /*
    * 基準の街が大きく変わったときだけ地図を動かす。
@@ -166,29 +220,57 @@ export function LeafletMap({
           };
 
           const zoomGroup = group();
-          button(zoomGroup, "拡大", "＋", () => map.zoomIn());
-          button(zoomGroup, "縮小", "−", () => map.zoomOut());
+          // 追いかけている間は、拡大率を変えても追従を続ける。
+          const zoomBy = (delta: number) => {
+            if (cameraRef.current === "follow") {
+              setZoomOffset((z) => Math.max(-4, Math.min(3, z + delta)));
+            } else if (delta > 0) map.zoomIn();
+            else map.zoomOut();
+          };
+          button(zoomGroup, "拡大", "＋", () => zoomBy(1));
+          button(zoomGroup, "縮小", "−", () => zoomBy(-1));
 
           const rotateGroup = group();
           const spin = (delta: number) => {
             const next = (((map.getBearing?.() ?? 0) + delta) % 360 + 360) % 360;
             map.setBearing?.(next);
           };
-          button(rotateGroup, "左に回転", "↺", () => spin(-30));
+          // 手で回したら、追いかけるのはやめる（Google マップと同じ）。
+          const spinByHand = (delta: number) => {
+            if (cameraRef.current === "follow") onCameraChangeRef.current?.("free");
+            spin(delta);
+          };
+          button(rotateGroup, "左に回転", "↺", () => spinByHand(-30));
           const compass = button(
             rotateGroup,
             "北を上に戻す",
             compassSvg(),
-            () => map.setBearing?.(0),
+            () => {
+              // 追いかけている間のコンパスは「進む向きが上 ⇔ 北が上」の切り替え。
+              if (cameraRef.current === "follow" && onHeadingUpChangeRef.current) {
+                onHeadingUpChangeRef.current(!headingUpRef.current);
+                return;
+              }
+              map.setBearing?.(0);
+            },
           );
-          button(rotateGroup, "右に回転", "↻", () => spin(30));
+          button(rotateGroup, "右に回転", "↻", () => spinByHand(30));
 
           const viewGroup = group();
           button(viewGroup, "現在地へ", "◎", () => {
+            // 案内中は「追いかける」に戻す。案内していなければ、その場に寄るだけ。
+            if (cameraRef.current !== undefined && onCameraChangeRef.current) {
+              onCameraChangeRef.current("follow");
+              return;
+            }
             const pos = userPosRef.current;
             if (pos) map.setView(pos, Math.max(map.getZoom(), 18));
           });
           button(viewGroup, "ルート全体を表示", "<span style=\"font-size:12px;font-weight:700\">全体</span>", () => {
+            if (cameraRef.current !== undefined && onCameraChangeRef.current) {
+              onCameraChangeRef.current("overview");
+              return;
+            }
             const points = routeSpotsRef.current.map(
               (s) => [s.lat, s.lng] as [number, number],
             );
@@ -217,6 +299,24 @@ export function LeafletMap({
 
       mapRef.current = map;
       setMapReady(true);
+
+      /*
+       * 利用者が地図を触ったら、追いかけるのをやめる。
+       * ドラッグ・2本指（拡大縮小・回転）・マウスホイールが対象。プログラムで
+       * 動かしたときは Leaflet の dragstart は出ないので、取り違えは起きない。
+       */
+      const released = () => {
+        if (cameraRef.current === "follow" || cameraRef.current === "overview") {
+          onCameraChangeRef.current?.("free");
+        }
+      };
+      map.on("dragstart", released);
+      const host = map.getContainer();
+      const onTouch = (e: TouchEvent) => {
+        if (e.touches.length >= 2) released();
+      };
+      host.addEventListener("touchstart", onTouch, { passive: true });
+      host.addEventListener("wheel", released, { passive: true });
       // The direction arrows are spaced in screen pixels and drawn at a screen
       // angle, so both zooming and turning the map invalidate them.
       map.on("zoomend rotate", () => setZoomTick((n) => n + 1));
@@ -394,7 +494,8 @@ export function LeafletMap({
       });
 
       const key = routeSpots.map((s) => s.id).join(",");
-      if (fittedRouteRef.current !== key) {
+      // カメラの指定があるとき（案内中）は、引き・寄りは下のカメラの処理に任せる。
+      if (fittedRouteRef.current !== key && cameraRef.current === undefined) {
         fittedRouteRef.current = key;
         const bounds = L.latLngBounds(all.length > 1 ? all : stopPoints);
         const here = userPosRef.current;
@@ -486,6 +587,83 @@ export function LeafletMap({
     };
   }, [mapReady, spots, activeId, routeSpots, zoomTick]);
 
+  /*
+   * 案内中のカメラ。
+   *
+   * follow: 現在地を画面の下寄り（上から68%）に置き、進む向きを上にして寄る。
+   *   前方が広く見えるのが Google マップのナビと同じ理由。地図は画面の中心を
+   *   軸に回るので、「現在地を下にずらした中心」は回転を考えて計算する。
+   * overview: ルート全体と現在地が入るように引き、北を上に戻す。
+   */
+  const overviewKeyRef = useRef<string | null>(null);
+  useEffect(() => {
+    if (!mapReady || !camera) return;
+    const map = mapRef.current;
+    if (!map) return;
+    let cancelled = false;
+    (async () => {
+      const L = (await import("leaflet")).default;
+      if (cancelled) return;
+      // 前の動き（全体表示への引きなど）が残っていると、後から上書きされる。
+      map.stop();
+
+      if (camera === "follow" && userPos) {
+        overviewKeyRef.current = null;
+        const z = Math.max(12, Math.min(20, followZoom + zoomOffset));
+        const bearing = headingUp && heading !== null ? (360 - heading) % 360 : 0;
+        const current = map.getBearing?.() ?? 0;
+        // 数度の揺れで地図がぷるぷる回らないよう、変化が小さいときは回さない。
+        const diff = Math.abs(((bearing - current + 540) % 360) - 180);
+        if (diff > 6) map.setBearing?.(bearing);
+        const b = ((map.getBearing?.() ?? 0) * Math.PI) / 180;
+        const dy = map.getSize().y * (FOLLOW_ANCHOR_Y - 0.5);
+        // 画面上で (0, dy) 下にずらす → 回転前の地図の座標ではその逆回転。
+        const shift = L.point(dy * Math.sin(b), dy * Math.cos(b));
+        const centre = map.unproject(map.project(userPos, z).subtract(shift), z);
+        programmaticRef.current = true;
+        map.setView(centre, z, { animate: true, duration: 0.6 } as L.ZoomPanOptions);
+        programmaticRef.current = false;
+        return;
+      }
+
+      if (camera === "overview") {
+        const key = `${routeSpotsRef.current.map((s) => s.id).join(",")}|${activeLeg}`;
+        if (overviewKeyRef.current === key) return;
+        overviewKeyRef.current = key;
+        map.setBearing?.(0);
+        const points: [number, number][] = routeSpotsRef.current
+          .slice(Math.max(0, activeLeg - 1))
+          .map((s) => [s.lat, s.lng]);
+        if (userPos) points.push(userPos);
+        if (points.length > 1) {
+          // 右は地図のボタン、下は案内カードが重なるので、その分を空けて収める。
+          // （leaflet-rotate を入れていると fitBounds の片側だけの余白が効かない
+          //   ため、中心と拡大率をここで計算する。）
+          const bounds = L.latLngBounds(points);
+          const tl = L.point(40, 40);
+          const br = L.point(72, OVERLAY_BOTTOM_PX);
+          const z = Math.min(18, map.getBoundsZoom(bounds, false, tl.add(br)));
+          const mid = map.project(bounds.getCenter(), z).add(br.subtract(tl).divideBy(2));
+          map.setView(map.unproject(mid, z), z, { animate: true });
+        }
+        else if (points.length === 1) map.setView(points[0], 16);
+        return;
+      }
+
+      if (camera === "free") overviewKeyRef.current = null;
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [mapReady, camera, userPos, heading, headingUp, followZoom, zoomOffset, activeLeg]);
+
+  // 案内が終わったら（カメラ指定がなくなったら）北を上に戻す。
+  useEffect(() => {
+    if (camera || !mapReady) return;
+    mapRef.current?.setBearing?.(0);
+    setZoomOffset(0);
+  }, [camera, mapReady]);
+
   // Update user marker.
   useEffect(() => {
     let cancelled = false;
@@ -493,6 +671,31 @@ export function LeafletMap({
       const L = (await import("leaflet")).default;
       const map = mapRef.current;
       if (cancelled || !map || !userPos) return;
+      // 案内中は「進む向きの矢印」、それ以外は「現在地」のラベル付きの点。
+      const nav = Boolean(camera) && heading !== null;
+      const kind = nav ? "nav" : "dot";
+      if (userMarkerRef.current && userMarkerRef.current.options.alt !== kind) {
+        map.removeLayer(userMarkerRef.current);
+        userMarkerRef.current = null;
+      }
+      if (nav) {
+        // マーカーは地図が回っても立ったまま描かれるので、画面上の角度は
+        // 「方位＋地図の回転」になる（ルートの矢印と同じ扱い）。
+        const angle = (heading ?? 0) + (map.getBearing?.() ?? 0);
+        const icon = L.divIcon({
+          className: "",
+          html: navPuckHtml(angle),
+          iconSize: [44, 44],
+          iconAnchor: [22, 22],
+        });
+        if (userMarkerRef.current) {
+          userMarkerRef.current.setLatLng(userPos);
+          userMarkerRef.current.setIcon(icon);
+        } else {
+          userMarkerRef.current = L.marker(userPos, { icon, zIndexOffset: 1100, alt: "nav", interactive: false }).addTo(map);
+        }
+        return;
+      }
       if (userMarkerRef.current) {
         userMarkerRef.current.setLatLng(userPos);
       } else {
@@ -505,15 +708,26 @@ export function LeafletMap({
           iconSize: [52, 42],
           iconAnchor: [26, 33],
         });
-        userMarkerRef.current = L.marker(userPos, { icon, zIndexOffset: 1100 }).addTo(map);
+        userMarkerRef.current = L.marker(userPos, { icon, zIndexOffset: 1100, alt: "dot", interactive: false }).addTo(map);
       }
     })();
     return () => {
       cancelled = true;
     };
-  }, [mapReady, userPos]);
+  }, [mapReady, userPos, camera, heading, zoomTick]);
 
   return <div ref={hostRef} className={className} />;
+}
+
+/**
+ * 案内中の現在地。Google マップのナビと同じく、白い縁の青い丸に進む向きの
+ * 矢印を載せる。回りに薄い輪を付けて、地図の上でも見失わないようにする。
+ */
+function navPuckHtml(angle: number): string {
+  return `<div style="width:44px;height:44px;display:flex;align-items:center;justify-content:center">
+    <div style="width:34px;height:34px;border-radius:999px;background:var(--color-location);border:3px solid #fff;box-shadow:0 0 0 6px rgba(31,79,143,.22),0 2px 6px rgba(0,0,0,.35);display:flex;align-items:center;justify-content:center;transform:rotate(${angle}deg)">
+      <svg width="16" height="16" viewBox="0 0 16 16" aria-hidden="true"><path d="M8 1 L14 14 L8 10.6 L2 14 Z" fill="#fff"/></svg>
+    </div></div>`;
 }
 
 /** North-pointing needle drawn inside the compass button. */
