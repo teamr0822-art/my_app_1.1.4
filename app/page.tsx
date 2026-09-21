@@ -4,6 +4,8 @@ import { useEffect, useRef, useState } from "react";
 import { SettingsProvider } from "@/lib/settings-context";
 import { LocationProvider } from "@/lib/location-context";
 import { ToastProvider } from "@/lib/toast-context";
+import { AuthProvider } from "@/lib/auth-context";
+import { AuthSheet } from "@/components/auth-sheet";
 import { HomeScreen } from "@/components/home-screen";
 import { MapScreen } from "@/components/map-screen";
 import { SettingsScreen } from "@/components/settings-screen";
@@ -142,6 +144,7 @@ export default function Page() {
     <SettingsProvider>
       <LocationProvider>
       <ToastProvider>
+      <AuthProvider>
         <main className="app-frame">
           {/* One boundary per screen visit: if the map throws, the tab bar
               still works and moving to another tab clears the error, instead
@@ -167,11 +170,14 @@ export default function Page() {
 
           {showBottomNav && <BottomNav nav={nav} />}
           <Onboarding />
+          {/* ログイン／新規登録。はじめての案内と設定画面の両方から開く。 */}
+          <AuthSheet />
 
           <ErrorBoundary label="コンパニオン">
             <CompanionLayer nav={nav} bottomNavVisible={showBottomNav} />
           </ErrorBoundary>
         </main>
+      </AuthProvider>
       </ToastProvider>
       </LocationProvider>
     </SettingsProvider>

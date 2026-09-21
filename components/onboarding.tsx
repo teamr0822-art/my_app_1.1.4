@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react";
 import { MapIcon, MicIcon, SparkIcon } from "@/components/icons";
 import { AREAS, SPOTS, STATS } from "@/lib/spots";
+import { useAuth } from "@/lib/auth-context";
 
 const SEEN_KEY = "yorimikke-onboarded-v1";
 
@@ -57,6 +58,12 @@ const STEPS = [
 export function Onboarding() {
   const [step, setStep] = useState(0);
   const [open, setOpen] = useState(false);
+  /**
+   * 最初にだけ出す「どうやって使うか」の選択。ログインは任意なので、
+   * 「ログインせずに使う」も同じ大きさで並べる。選んだあとは3ステップの説明へ。
+   */
+  const [choosing, setChoosing] = useState(true);
+  const auth = useAuth();
 
   useEffect(() => {
     try {
@@ -76,6 +83,8 @@ export function Onboarding() {
   };
 
   if (!open) return null;
+  // ログイン／新規登録の画面を開いている間は、この案内を後ろに隠す（重ならないように）。
+  if (auth.authMode) return null;
   const current = STEPS[step];
   const last = step === STEPS.length - 1;
 
@@ -119,6 +128,21 @@ export function Onboarding() {
         </div>
       </div>
 
+      {choosing ? (
+        <StartChoice
+          loggedIn={auth.status === "signedIn"}
+          userName={auth.user?.name}
+          onSignUp={() => {
+            setChoosing(false);
+            auth.openAuth("signUp");
+          }}
+          onSignIn={() => {
+            setChoosing(false);
+            auth.openAuth("signIn");
+          }}
+          onGuest={() => setChoosing(false)}
+        />
+      ) : (
       <div className="anim-sheet mx-auto w-full max-w-[432px] shrink-0 rounded-3xl border border-[var(--color-border)] bg-[var(--color-panel)] p-5 shadow-2xl">
         <div className="flex items-start gap-3">
           <span
@@ -169,6 +193,65 @@ export function Onboarding() {
           </button>
         </div>
       </div>
+      )}
+    </div>
+  );
+}
+
+/**
+ * はじめに「新規登録／ログイン／ログインせずに使う」を選ぶカード。
+ * 3つとも指で押しやすい大きさ（高さ56px以上）にし、ログインしない人が
+ * 取り残された気分にならないよう、ゲストも同じ幅のボタンにする。
+ */
+function StartChoice({
+  loggedIn,
+  userName,
+  onSignUp,
+  onSignIn,
+  onGuest,
+}: {
+  loggedIn: boolean;
+  userName?: string;
+  onSignUp: () => void;
+  onSignIn: () => void;
+  onGuest: () => void;
+}) {
+  const big = "flex min-h-14 w-full items-center justify-center rounded-2xl text-[16px] font-extrabold transition active:scale-[0.99]";
+  return (
+    <div className="anim-sheet mx-auto w-full max-w-[432px] shrink-0 rounded-3xl border border-[var(--color-border)] bg-[var(--color-panel)] p-5 shadow-2xl">
+      <h2 id="onboarding-title" className="text-[18px] font-extrabold">
+        {loggedIn ? `おかえりなさい、${userName ?? ""}さん` : "よりみっけをはじめる"}
+      </h2>
+      <p className="mt-1 text-[12.5px] leading-6 text-[var(--color-ink-soft)]">
+        ログインしなくても、すべての機能を使えます。
+      </p>
+      {loggedIn ? (
+        <button type="button" onClick={onGuest} className={`${big} mt-4 bg-[var(--color-terracotta)] text-white`}>
+          つづける
+        </button>
+      ) : (
+        <div className="mt-4 flex flex-col gap-2.5">
+          <div className="grid grid-cols-2 gap-2.5">
+            <button type="button" onClick={onSignUp} className={`${big} bg-[var(--color-terracotta)] text-white`}>
+              新規登録
+            </button>
+            <button
+              type="button"
+              onClick={onSignIn}
+              className={`${big} border-2 border-[var(--color-terracotta)] bg-[var(--color-panel)] text-[var(--color-terracotta)]`}
+            >
+              ログイン
+            </button>
+          </div>
+          <button
+            type="button"
+            onClick={onGuest}
+            className={`${big} border border-[var(--color-border)] bg-[var(--color-panel-soft)] text-[var(--color-ink)]`}
+          >
+            ログインせずに使う
+          </button>
+        </div>
+      )}
     </div>
   );
 }

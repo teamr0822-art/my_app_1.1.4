@@ -3,6 +3,8 @@
 import { useSettings } from "@/lib/settings-context";
 import { AREAS, STATS, DATA_SOURCE, SPOTS } from "@/lib/spots";
 import { useVisited } from "@/lib/visited";
+import { useAuth } from "@/lib/auth-context";
+import { useToast } from "@/lib/toast-context";
 import { replayOnboarding } from "@/components/onboarding";
 import { MicOffIcon, VolumeIcon, SparkIcon, InfoIcon } from "@/components/icons";
 
@@ -71,6 +73,9 @@ export function SettingsScreen() {
           音声ガイドの動作をカスタマイズできます
         </p>
       </header>
+
+      {/* アカウント。設定のいちばん上に置き、途中からでもログイン・新規登録できるようにする。 */}
+      <AccountCard />
 
       {/* Mute mode — distinct restricted palette */}
       <section className="px-4">
@@ -324,4 +329,76 @@ function Row({
 
 function Divider() {
   return <div className="mx-4 h-px bg-[var(--color-border)]" />;
+}
+
+/**
+ * 設定画面の最上部のアカウント欄。
+ * ログインは任意なので、していない状態でも「困っている」見え方にはしない。
+ */
+function AccountCard() {
+  const auth = useAuth();
+  const { toast } = useToast();
+  const big = "flex min-h-12 items-center justify-center rounded-xl text-[15px] font-extrabold transition active:scale-[0.99]";
+
+  return (
+    <section className="px-4 pb-3" aria-labelledby="account-title">
+      <div className="rounded-2xl border border-[var(--color-border)] bg-[var(--color-panel)] p-4">
+        {auth.status === "signedIn" && auth.user ? (
+          <div className="flex items-center gap-3">
+            <span
+              aria-hidden="true"
+              className="flex h-12 w-12 shrink-0 items-center justify-center rounded-full bg-[var(--color-terracotta-soft)] text-[18px] font-extrabold text-[var(--color-terracotta)]"
+            >
+              {auth.user.name.slice(0, 1)}
+            </span>
+            <div className="min-w-0 flex-1">
+              <p id="account-title" className="truncate text-[15px] font-extrabold">
+                {auth.user.name}
+              </p>
+              <p className="truncate text-[12px] text-[var(--color-ink-soft)]">{auth.user.email}</p>
+            </div>
+            <button
+              type="button"
+              onClick={async () => {
+                await auth.signOut();
+                toast("ログアウトしました");
+              }}
+              className="flex min-h-11 shrink-0 items-center rounded-xl border border-[var(--color-border)] px-3 text-[13px] font-bold"
+            >
+              ログアウト
+            </button>
+          </div>
+        ) : auth.status === "loading" ? (
+          <p id="account-title" className="text-[13px] text-[var(--color-ink-soft)]">
+            ログイン状態を確認しています…
+          </p>
+        ) : (
+          <>
+            <p id="account-title" className="text-[15px] font-extrabold">
+              ログインしていません
+            </p>
+            <p className="mt-0.5 text-[12px] leading-5 text-[var(--color-ink-soft)]">
+              ログインしなくても、すべての機能を使えます。
+            </p>
+            <div className="mt-3 grid grid-cols-2 gap-2">
+              <button
+                type="button"
+                onClick={() => auth.openAuth("signUp")}
+                className={`${big} bg-[var(--color-terracotta)] text-white`}
+              >
+                新規登録
+              </button>
+              <button
+                type="button"
+                onClick={() => auth.openAuth("signIn")}
+                className={`${big} border-2 border-[var(--color-terracotta)] text-[var(--color-terracotta)]`}
+              >
+                ログイン
+              </button>
+            </div>
+          </>
+        )}
+      </div>
+    </section>
+  );
 }
