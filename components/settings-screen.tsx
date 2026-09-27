@@ -1,9 +1,13 @@
 "use client";
+import { useState } from "react";
 
 import { useSettings } from "@/lib/settings-context";
 import { AREAS, STATS, DATA_SOURCE, SPOTS } from "@/lib/spots";
 import { useVisited } from "@/lib/visited";
 import { useAuth } from "@/lib/auth-context";
+import { useProfile } from "@/lib/profile";
+import { useJourney } from "@/lib/journey";
+import { JourneyCard } from "@/components/journey-card";
 import { useToast } from "@/lib/toast-context";
 import { replayOnboarding } from "@/components/onboarding";
 import { MicOffIcon, VolumeIcon, SparkIcon, InfoIcon } from "@/components/icons";
@@ -118,6 +122,12 @@ export function SettingsScreen() {
             onClick={() => s.toggle("muted")}
           />
         </div>
+      </section>
+
+      {/* 歩いた距離。ログインした人だけの機能なので、していない人には案内だけ出す。 */}
+      <SectionTitle>歩いた距離</SectionTitle>
+      <section className="px-4">
+        <JourneySection />
       </section>
 
       {/* 訪れた記録。端末にしか残らないので、消す手段も同じ場所に置く。 */}
@@ -337,26 +347,46 @@ function Divider() {
  */
 function AccountCard() {
   const auth = useAuth();
+  const profile = useProfile();
   const { toast } = useToast();
+  const [editing, setEditing] = useState(false);
+  const [draft, setDraft] = useState("");
   const big = "flex min-h-12 items-center justify-center rounded-xl text-[15px] font-extrabold transition active:scale-[0.99]";
+
+  // ニックネームはログインした人だけの機能。付けていればそれを、
+  // まだなら登録した表示名を出す。ログインしていない人は「ゲスト」のまま。
+  const signedIn = auth.status === "signedIn" && auth.user;
+  const shown = (signedIn ? profile.nickname || auth.user!.name : "") || "ゲスト";
+
+  const save = () => {
+    profile.setNickname(draft);
+    setEditing(false);
+    toast(draft.trim() ? `ニックネームを「${draft.trim().slice(0, 30)}」にしました` : "ニックネームを消しました");
+  };
 
   return (
     <section className="px-4 pb-3" aria-labelledby="account-title">
       <div className="rounded-2xl border border-[var(--color-border)] bg-[var(--color-panel)] p-4">
-        {auth.status === "signedIn" && auth.user ? (
-          <div className="flex items-center gap-3">
-            <span
-              aria-hidden="true"
-              className="flex h-12 w-12 shrink-0 items-center justify-center rounded-full bg-[var(--color-terracotta-soft)] text-[18px] font-extrabold text-[var(--color-terracotta)]"
-            >
-              {auth.user.name.slice(0, 1)}
-            </span>
-            <div className="min-w-0 flex-1">
-              <p id="account-title" className="truncate text-[15px] font-extrabold">
-                {auth.user.name}
-              </p>
-              <p className="truncate text-[12px] text-[var(--color-ink-soft)]">{auth.user.email}</p>
-            </div>
+        <div className="flex items-center gap-3">
+          <span
+            aria-hidden="true"
+            className="flex h-12 w-12 shrink-0 items-center justify-center rounded-full bg-[var(--color-terracotta-soft)] text-[18px] font-extrabold text-[var(--color-terracotta)]"
+          >
+            {shown.slice(0, 1)}
+          </span>
+          <div className="min-w-0 flex-1">
+            <p id="account-title" className="truncate text-[15px] font-extrabold">
+              {shown}
+            </p>
+            <p className="truncate text-[12px] text-[var(--color-ink-soft)]">
+              {signedIn
+                ? auth.user!.email
+                : auth.status === "loading"
+                  ? "ログイン状態を確認しています…"
+                  : "ログインしていません（この端末にだけ保存）"}
+            </p>
+          </div>
+          {signedIn && (
             <button
               type="button"
               onClick={async () => {
@@ -367,19 +397,51 @@ function AccountCard() {
             >
               ログアウト
             </button>
+          )}
+        </div>
+
+        {/* ニックネーム。ログインした人だけ。いまは端末に保存し、
+            ログイン機能をサーバーにつないだ時点でアカウントへ移す。 */}
+        {signedIn && !editing && (
+          <button
+            type="button"
+            onClick={() => {
+              setDraft(profile.nickname);
+              setEditing(true);
+            }}
+            className="mt-3 min-h-11 w-full rounded-xl border border-[var(--color-border)] text-[13px] font-bold"
+          >
+            {profile.nickname ? "ニックネームを変える" : "ニックネームを付ける"}
+          </button>
+        )}
+        {editing && signedIn && (
+          <div className="mt-3 flex gap-2">
+            <input
+              type="text"
+              value={draft}
+              onChange={(e) => setDraft(e.target.value)}
+              onKeyDown={(e) => {
+                if (e.key === "Enter") save();
+                if (e.key === "Escape") setEditing(false);
+              }}
+              maxLength={30}
+              autoFocus
+              placeholder="例：たびびと"
+              aria-label="ニックネーム"
+              className="min-h-12 min-w-0 flex-1 rounded-xl border border-[var(--color-border)] bg-[var(--color-panel)] px-3.5 text-[16px] outline-none focus:border-[var(--color-terracotta)]"
+            />
+            <button
+              type="button"
+              onClick={save}
+              className="min-h-12 shrink-0 rounded-xl bg-[var(--color-terracotta)] px-4 text-[14px] font-bold text-white"
+            >
+              保存
+            </button>
           </div>
-        ) : auth.status === "loading" ? (
-          <p id="account-title" className="text-[13px] text-[var(--color-ink-soft)]">
-            ログイン状態を確認しています…
-          </p>
-        ) : (
+        )}
+
+        {!signedIn && auth.status !== "loading" && (
           <>
-            <p id="account-title" className="text-[15px] font-extrabold">
-              ログインしていません
-            </p>
-            <p className="mt-0.5 text-[12px] leading-5 text-[var(--color-ink-soft)]">
-              ログインしなくても、すべての機能を使えます。
-            </p>
             <div className="mt-3 grid grid-cols-2 gap-2">
               <button
                 type="button"
@@ -396,9 +458,73 @@ function AccountCard() {
                 ログイン
               </button>
             </div>
+            <p className="mt-2 text-[11px] leading-5 text-[var(--color-ink-soft)]">
+              ログインしなくても、すべての機能を使えます。
+            </p>
           </>
         )}
       </div>
     </section>
+  );
+}
+
+/**
+ * 歩いた距離。ログインしている人にはグラフを、していない人には
+ * 「ログインするとこれが使える」という案内を出す。
+ *
+ * 鍵をかけた機能をただ隠すと、そこに何があるのか分からないまま終わる。
+ * 何が記録されるのかを先に見せて、そのうえで選んでもらう。
+ */
+function JourneySection() {
+  const auth = useAuth();
+  if (auth.status === "signedIn") {
+    return (
+      <>
+        <JourneyCard />
+        <JourneyClear />
+      </>
+    );
+  }
+  return (
+    <div className="rounded-2xl border border-dashed border-[var(--color-border)] bg-[var(--color-panel)] p-4">
+      <p className="text-[15px] font-extrabold">ログインすると使えます</p>
+      <p className="mt-1 text-[12.5px] leading-6 text-[var(--color-ink-soft)]">
+        歩いた距離を、きょう・7日間・今月のカレンダーで見られます。ニックネームも
+        ログインした人だけの機能です。ログインしないまま使う分には、何も記録しません。
+      </p>
+      {auth.status !== "loading" && (
+        <div className="mt-3 grid grid-cols-2 gap-2">
+          <button
+            type="button"
+            onClick={() => auth.openAuth("signUp")}
+            className="flex min-h-12 items-center justify-center rounded-xl bg-[var(--color-terracotta)] text-[15px] font-extrabold text-white"
+          >
+            新規登録
+          </button>
+          <button
+            type="button"
+            onClick={() => auth.openAuth("signIn")}
+            className="flex min-h-12 items-center justify-center rounded-xl border-2 border-[var(--color-terracotta)] text-[15px] font-extrabold text-[var(--color-terracotta)]"
+          >
+            ログイン
+          </button>
+        </div>
+      )}
+    </div>
+  );
+}
+
+/** 歩いた距離を消すボタン。記録は端末にしかないので、消す手段も同じ場所に置く。 */
+function JourneyClear() {
+  const journey = useJourney();
+  if (journey.totalMeters <= 0) return null;
+  return (
+    <button
+      type="button"
+      onClick={() => journey.clearJourney()}
+      className="mt-2 min-h-11 w-full rounded-xl border border-[var(--color-border)] text-[13px] font-bold text-[var(--color-ink-soft)]"
+    >
+      歩いた距離の記録を消す
+    </button>
   );
 }

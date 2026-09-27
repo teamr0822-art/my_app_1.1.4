@@ -4,7 +4,8 @@ import { useEffect, useRef, useState } from "react";
 import { SettingsProvider } from "@/lib/settings-context";
 import { LocationProvider } from "@/lib/location-context";
 import { ToastProvider } from "@/lib/toast-context";
-import { AuthProvider } from "@/lib/auth-context";
+import { AuthProvider, useAuth } from "@/lib/auth-context";
+import { setJourneyEnabled } from "@/lib/journey";
 import { AuthSheet } from "@/components/auth-sheet";
 import { HomeScreen } from "@/components/home-screen";
 import { MapScreen } from "@/components/map-screen";
@@ -15,6 +16,16 @@ import { RouteScreen } from "@/components/route-screen";
 import { CompanionLayer } from "@/components/companion-layer";
 import { Onboarding } from "@/components/onboarding";
 import { ErrorBoundary } from "@/components/error-boundary";
+
+/** ログイン状態を、歩いた距離の記録のオン／オフにつなぐだけの部品。 */
+function JourneySwitch() {
+  const auth = useAuth();
+  useEffect(() => {
+    setJourneyEnabled(auth.status === "signedIn");
+    return () => setJourneyEnabled(false);
+  }, [auth.status]);
+  return null;
+}
 
 export type Screen = "home" | "map" | "route" | "settings" | "spot";
 
@@ -145,6 +156,8 @@ export default function Page() {
       <LocationProvider>
       <ToastProvider>
       <AuthProvider>
+        {/* 歩いた距離を記録するのはログイン中だけ（設定画面の説明もそれに合わせている）。 */}
+        <JourneySwitch />
         <main className="app-frame">
           {/* One boundary per screen visit: if the map throws, the tab bar
               still works and moving to another tab clears the error, instead

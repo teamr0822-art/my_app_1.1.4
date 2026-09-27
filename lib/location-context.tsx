@@ -1,6 +1,7 @@
 "use client";
 
 import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState } from "react";
+import { recordPosition } from "@/lib/journey";
 import { AREA_CENTERS, FALLBACK_AREA, FALLBACK_CENTER, areaNear, centerOfArea, distanceMeters } from "@/lib/spots";
 
 /**
@@ -109,6 +110,8 @@ export function LocationProvider({ children }: { children: React.ReactNode }) {
         setAccuracy(acc);
         const here: [number, number] = [p.coords.latitude, p.coords.longitude];
         setFix(here);
+        // 歩いた距離の記録。数えてよい移動かどうかは lib/journey.ts が決める。
+        recordPosition(here, acc, p.timestamp || Date.now());
         setError(null);
         // 向き: 動いているときの端末の値を優先し、なければ移動した方向から出す。
         // 立ち止まって GPS がふらつくだけで向きが変わらないよう、8m 動くまで待つ。
