@@ -4,6 +4,7 @@ import { useEffect, useRef, useState } from "react";
 import { useAuth, type AuthMode } from "@/lib/auth-context";
 import { useToast } from "@/lib/toast-context";
 import { CloseIcon } from "@/components/icons";
+import { useT } from "@/lib/i18n";
 
 /**
  * ログイン／新規登録の画面。どの画面からでも useAuth().openAuth("signIn") で開く。
@@ -20,6 +21,7 @@ export function AuthSheet() {
 }
 
 function AuthForm({ mode }: { mode: AuthMode }) {
+  const t = useT();
   const auth = useAuth();
   const { toast } = useToast();
   const [email, setEmail] = useState("");
@@ -33,7 +35,7 @@ function AuthForm({ mode }: { mode: AuthMode }) {
   const firstField = useRef<HTMLInputElement>(null);
 
   const signUp = mode === "signUp";
-  const title = sentTo ? "確認メールを送りました" : signUp ? "新規登録" : "ログイン";
+  const title = sentTo ? t("確認メールを送りました") : signUp ? t("新規登録") : t("ログイン");
 
   useEffect(() => {
     firstField.current?.focus();
@@ -53,11 +55,11 @@ function AuthForm({ mode }: { mode: AuthMode }) {
     if (busy) return;
     setError(null);
     if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email.trim())) {
-      setError("メールアドレスを正しく入力してください。");
+      setError(t("メールアドレスを正しく入力してください。"));
       return;
     }
     if (password.length < 8) {
-      setError("パスワードは8文字以上にしてください。");
+      setError(t("パスワードは8文字以上にしてください。"));
       return;
     }
     setBusy(true);
@@ -96,7 +98,7 @@ function AuthForm({ mode }: { mode: AuthMode }) {
           <button
             type="button"
             onClick={auth.closeAuth}
-            aria-label="閉じる"
+            aria-label={t("閉じる")}
             className="flex h-11 w-11 items-center justify-center rounded-full text-[var(--color-ink-soft)]"
           >
             <CloseIcon size={20} />
@@ -105,39 +107,29 @@ function AuthForm({ mode }: { mode: AuthMode }) {
 
         {!auth.configured ? (
           <div className="mt-3 space-y-3 text-[14px] leading-7">
-            <p>ログイン機能はいま準備中です。</p>
-            <p className="text-[var(--color-ink-soft)]">
-              ログインしなくても、よりみっけの機能はすべて使えます。
-            </p>
+            <p>{t("ログイン機能はいま準備中です。")}</p>
+            <p className="text-[var(--color-ink-soft)]">{t("ログインしなくても、よりみっけの機能はすべて使えます。")}</p>
             <button
               type="button"
               onClick={auth.closeAuth}
               className="flex min-h-12 w-full items-center justify-center rounded-2xl bg-[var(--color-terracotta)] text-[15px] font-bold text-white"
-            >
-              ログインせずに使う
-            </button>
+            >{t("ログインせずに使う")}</button>
           </div>
         ) : sentTo ? (
           <div className="mt-3 space-y-3 text-[14px] leading-7">
             <p>
-              <span className="font-bold">{sentTo}</span> に確認メールを送りました。
-              メールのリンクを押すと登録が完了し、このアプリに戻ってきます。
-            </p>
-            <p className="text-[12px] text-[var(--color-ink-soft)]">
-              届かないときは、迷惑メールのフォルダも確認してください。
-            </p>
+              <span className="font-bold">{sentTo}</span>{t("に確認メールを送りました。 メールのリンクを押すと登録が完了し、このアプリに戻ってきます。")}</p>
+            <p className="text-[12px] text-[var(--color-ink-soft)]">{t("届かないときは、迷惑メールのフォルダも確認してください。")}</p>
             <button
               type="button"
               onClick={auth.closeAuth}
               className="flex min-h-12 w-full items-center justify-center rounded-2xl bg-[var(--color-terracotta)] text-[15px] font-bold text-white"
-            >
-              閉じる
-            </button>
+            >{t("閉じる")}</button>
           </div>
         ) : (
           <form onSubmit={submit} noValidate className="mt-2">
             {/* ログインと新規登録の切り替え。どちらを選んだか迷わないよう、常に両方見せる。 */}
-            <div role="tablist" aria-label="ログインの方法" className="grid grid-cols-2 gap-1 rounded-2xl bg-[var(--color-panel-soft)] p-1">
+            <div role="tablist" aria-label={t("ログインの方法")} className="grid grid-cols-2 gap-1 rounded-2xl bg-[var(--color-panel-soft)] p-1">
               {(["signIn", "signUp"] as const).map((m) => (
                 <button
                   key={m}
@@ -151,14 +143,14 @@ function AuthForm({ mode }: { mode: AuthMode }) {
                       : "text-[var(--color-ink-soft)]"
                   }`}
                 >
-                  {m === "signIn" ? "ログイン" : "新規登録"}
+                  {m === "signIn" ? t("ログイン") : t("新規登録")}
                 </button>
               ))}
             </div>
 
             {signUp && (
               <label className="mt-4 block text-[13px] font-bold">
-                表示名（任意）
+                {t("表示名（任意）")}
                 <input
                   ref={firstField}
                   type="text"
@@ -166,14 +158,14 @@ function AuthForm({ mode }: { mode: AuthMode }) {
                   maxLength={30}
                   value={name}
                   onChange={(e) => setName(e.target.value)}
-                  placeholder="例：たびびと"
+                  placeholder={t("例：たびびと")}
                   className={field}
                 />
               </label>
             )}
 
             <label className="mt-4 block text-[13px] font-bold">
-              メールアドレス
+              {t("メールアドレス")}
               <input
                 ref={signUp ? undefined : firstField}
                 type="email"
@@ -189,7 +181,7 @@ function AuthForm({ mode }: { mode: AuthMode }) {
             </label>
 
             <label className="mt-4 block text-[13px] font-bold">
-              パスワード{signUp && <span className="font-normal text-[var(--color-ink-soft)]">（8文字以上）</span>}
+              {t("パスワード")}{signUp && <span className="font-normal text-[var(--color-ink-soft)]">{t("（8文字以上）")}</span>}
               <span className="relative mt-1.5 block">
                 <input
                   type={showPassword ? "text" : "password"}
@@ -206,7 +198,7 @@ function AuthForm({ mode }: { mode: AuthMode }) {
                   aria-pressed={showPassword}
                   className="absolute inset-y-0 right-1 my-auto flex h-10 items-center rounded-lg px-3 text-[12px] font-bold text-[var(--color-terracotta)]"
                 >
-                  {showPassword ? "隠す" : "表示"}
+                  {showPassword ? t("隠す") : t("表示")}
                 </button>
               </span>
             </label>
@@ -222,21 +214,16 @@ function AuthForm({ mode }: { mode: AuthMode }) {
               aria-disabled={busy}
               className="mt-5 flex min-h-13 w-full items-center justify-center rounded-2xl bg-[var(--color-terracotta)] py-3.5 text-[16px] font-bold text-white aria-disabled:opacity-60"
             >
-              {busy ? "確認しています…" : signUp ? "登録する" : "ログインする"}
+              {busy ? t("確認しています…") : signUp ? t("登録する") : t("ログインする")}
             </button>
 
             <button
               type="button"
               onClick={auth.closeAuth}
               className="mt-2 flex min-h-11 w-full items-center justify-center text-[13px] font-bold text-[var(--color-ink-soft)]"
-            >
-              ログインせずに使う
-            </button>
+            >{t("ログインせずに使う")}</button>
 
-            <p className="mt-2 text-[11px] leading-5 text-[var(--color-ink-soft)]">
-              ログインしなくても、すべての機能を使えます。ログインすると、今後追加する
-              記録の引き継ぎなどが使えるようになります。
-            </p>
+            <p className="mt-2 text-[11px] leading-5 text-[var(--color-ink-soft)]">{t("ログインしなくても、すべての機能を使えます。ログインすると、今後追加する 記録の引き継ぎなどが使えるようになります。")}</p>
           </form>
         )}
       </div>

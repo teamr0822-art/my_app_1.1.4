@@ -12,6 +12,8 @@ type ExtraPayload = {
   spotId?: string;
   mode?: "spot" | "companion" | "route";
   nearby?: { name: string; grounding: string; city?: string; hours?: string }[];
+  /** 答えてほしい言語（画面の表示言語と同じ）。 */
+  lang?: string;
   /**
    * Shown verbatim when the AI cannot answer at all. Callers pass the spot's
    * own source material, so an outage degrades to "read the material" instead
@@ -70,6 +72,8 @@ export function useGuideChat(extra: ExtraPayload) {
             spotId: extraRef.current.spotId,
             mode: extraRef.current.mode,
             nearby: extraRef.current.nearby,
+            // 表示言語。AI にもこの言語で答えてもらう（外国から来た人向け）。
+            lang: extraRef.current.lang,
           }),
         });
         if (!res.ok || !res.body) {

@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { translateStatic } from "@/lib/i18n";
 
 /**
  * Service Worker の登録と、オフライン時の告知。
@@ -36,8 +37,6 @@ export function OfflineStatus() {
       aria-live="polite"
       className="fixed inset-x-0 top-0 z-[900] bg-[var(--color-sunset-ink)] px-4 py-2 text-center text-[13px] font-bold text-white"
       style={{ paddingTop: "calc(8px + env(safe-area-inset-top))" }}
-    >
-      オフラインです。スポットの情報と地図は見られますが、AIの案内と経路の計算はできません。
-    </div>
+    >{translateStatic("オフラインです。スポットの情報と地図は見られますが、AIの案内と経路の計算はできません。")}</div>
   );
 }

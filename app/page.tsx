@@ -4,6 +4,7 @@ import { useEffect, useRef, useState } from "react";
 import { SettingsProvider } from "@/lib/settings-context";
 import { LocationProvider } from "@/lib/location-context";
 import { ToastProvider } from "@/lib/toast-context";
+import { I18nProvider } from "@/lib/i18n";
 import { AuthProvider, useAuth } from "@/lib/auth-context";
 import { setJourneyEnabled } from "@/lib/journey";
 import { AuthSheet } from "@/components/auth-sheet";
@@ -154,6 +155,7 @@ export default function Page() {
   const showBottomNav = screen !== "spot";
 
   return (
+    <I18nProvider>
     <SettingsProvider>
       <LocationProvider>
       <ToastProvider>
@@ -200,5 +202,6 @@ export default function Page() {
       </ToastProvider>
       </LocationProvider>
     </SettingsProvider>
+    </I18nProvider>
   );
 }

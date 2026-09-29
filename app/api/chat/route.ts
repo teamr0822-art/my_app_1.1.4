@@ -166,6 +166,8 @@ type Body = {
   spotId?: string;
   mode?: "spot" | "companion" | "route";
   nearby?: NearbySpot[];
+  /** 答える言語。画面の表示言語をそのまま受け取る（既定は日本語）。 */
+  lang?: string;
 
 };
 
@@ -193,7 +195,24 @@ export async function POST(req: Request) {
   } catch {
     return new Response("Invalid request body", { status: 400 });
   }
-  const { messages, spotId, mode = "spot", nearby } = body;
+  const { messages, spotId, mode = "spot", nearby, lang } = body;
+
+  /**
+   * 答える言語。画面を英語にしている人に日本語で返すと、音声ガイドとして成立しない。
+   * 言語名は画面側から受け取り、ここでは system の先頭に1行足すだけにする。
+   */
+  const LANG_NAMES: Record<string, string> = {
+    ja: "日本語",
+    en: "英語（English）",
+    fr: "フランス語（Français）",
+    ko: "韓国語（한국어）",
+    zh: "中国語（简体中文）",
+  };
+  const answerLanguage = LANG_NAMES[lang ?? "ja"] ?? "日本語";
+  const languageRule =
+    answerLanguage === "日本語"
+      ? ""
+      : `必ず${answerLanguage}だけで答えてください。日本語は使わないでください（固有名詞は、現地表記のあとに読み方を添えてよい）。`;
   if (!Array.isArray(messages)) {
     return new Response("messages must be an array", { status: 400 });
   }
@@ -244,7 +263,8 @@ export async function POST(req: Request) {
       "書式は必ずプレーンテキストにしてください。**や*、#、-、`などの記号による装飾は使わず、見出しは「立ち寄り順:」のように全角コロンで書き、箇条書きは「1. 」または「・」だけを使ってください。音声でも読み上げるため、記号が混ざると不自然になります。",
       "利用者は途中で気分や条件を変えます。変更依頼には、現在の条件を確認して柔軟に組み直してください。",
       "候補スポット一覧:\n" + context,
-    ].join("\n");
+      languageRule,
+    ].filter(Boolean).join("\n");
   } else if (mode === "companion") {
     const context =
       nearby && nearby.length
@@ -266,7 +286,8 @@ export async function POST(req: Request) {
       "- 「調べてみますね」などの検索の途中経過は口に出さず、最終的な答えだけを一度で簡潔に話す。",
       "- 調べて答えたときは、最後に出典を一言添える（例:「〜だそうです。（出典: ウィキペディア）」）。",
       "- 調べても分からないことは正直に「わからない」と伝える。作り話をしない。",
-    ].join("\n");
+      languageRule,
+    ].filter(Boolean).join("\n");
   } else {
     if (!spot) {
       return new Response("Unknown spot", { status: 400 });
@@ -295,7 +316,8 @@ export async function POST(req: Request) {
       "- 調べても分からないことは正直に伝え、作り話はしない。",
       "- URLやリンクは読み上げに向かないので、出典は媒体名だけを述べる。",
       "- 挨拶や雑談にも自然に応じてよい。",
-    ].join("\n");
+      languageRule,
+    ].filter(Boolean).join("\n");
   }
 
   // Without a Gemini API key we cannot reach the model at all. For route mode

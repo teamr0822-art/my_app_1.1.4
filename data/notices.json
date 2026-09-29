@@ -1,0 +1,68 @@
+{
+  "_readme": [
+    "スポットの案内をはじめる前に出す注意書き。ここを直すだけで文面を変えられます。",
+    "common: 言語ごとの共通のマナー。日本語は空にしてあります（日本の人には釈迦に説法なので、",
+    "        spots に書いた特別な注意だけを出す方針）。",
+    "spots:  スポットごとの特別な注意。data/areas の id を鍵にして、言語ごとの文を書きます。",
+    "        書いた言語だけ出ます。ja だけ書けば、日本語の人にだけ出ます。",
+    "note:   1件は2行までを目安に。歩きながら読む画面なので、長いと読まれません。"
+  ],
+  "common": {
+    "ja": [],
+    "en": [
+      "Stay on paths and outside roped-off areas — many structures are centuries old and fragile.",
+      "Keep your voice down, especially at shrines, temples and graves; these are places of worship.",
+      "Do not touch, climb on, or move stones, statues and buildings.",
+      "Check for no-photography signs. Drones need permission almost everywhere in Japan.",
+      "There are few public bins. Please carry your rubbish with you.",
+      "Some sites sit next to private homes and fields. Please do not enter them."
+    ],
+    "fr": [
+      "Restez sur les chemins et en dehors des zones délimitées : beaucoup de structures sont anciennes et fragiles.",
+      "Parlez doucement, surtout dans les sanctuaires, les temples et les cimetières : ce sont des lieux de culte.",
+      "Ne touchez pas, n'escaladez pas et ne déplacez pas les pierres, statues et bâtiments.",
+      "Vérifiez les panneaux interdisant les photos. Les drones nécessitent presque toujours une autorisation.",
+      "Les poubelles publiques sont rares : rapportez vos déchets avec vous.",
+      "Certains sites jouxtent des maisons et des champs privés. N'y entrez pas."
+    ],
+    "ko": [
+      "길을 벗어나거나 줄이 쳐진 곳에 들어가지 마세요. 수백 년 된 약한 구조물이 많습니다.",
+      "신사·절·묘소에서는 목소리를 낮춰 주세요. 지금도 참배하는 곳입니다.",
+      "돌, 석상, 건물을 만지거나 올라가거나 옮기지 마세요.",
+      "촬영 금지 표시를 확인해 주세요. 드론은 대부분의 장소에서 허가가 필요합니다.",
+      "공공 쓰레기통이 거의 없습니다. 쓰레기는 가지고 돌아가 주세요.",
+      "개인 주택이나 밭과 붙어 있는 곳이 있습니다. 사유지에는 들어가지 마세요."
+    ],
+    "zh": [
+      "请沿道路参观，不要越过围绳。许多建筑已有数百年历史，十分脆弱。",
+      "在神社、寺院和墓地请放低音量，这些都是现在仍在使用的祭祀场所。",
+      "请勿触摸、攀爬或移动石头、石像和建筑物。",
+      "请留意禁止拍照的标识。在日本，使用无人机几乎都需要事先许可。",
+      "公共垃圾桶很少，请将垃圾带走。",
+      "部分景点紧邻民宅和农田，请勿进入私人土地。"
+    ]
+  },
+  "spots": {
+    "matsue-castle": {
+      "ja": "天守に上がるときは靴を脱ぎます。階段が急なので、足元に気をつけてください。",
+      "en": "You remove your shoes to climb the keep, and the stairs inside are steep. Watch your footing.",
+      "fr": "On se déchausse pour monter dans le donjon et les escaliers y sont raides. Attention à vos pas.",
+      "ko": "천수각에 오를 때는 신발을 벗습니다. 내부 계단이 가파르니 발밑을 조심하세요.",
+      "zh": "登天守阁需脱鞋，内部楼梯陡峭，请注意脚下。"
+    },
+    "matsue-gesshoji-matsudaira-bosho": {
+      "ja": "藩主家のお墓です。拝観時間内に、静かに見学してください。",
+      "en": "This is a family graveyard of the former lords. Visit quietly, within opening hours.",
+      "fr": "Il s'agit du cimetière familial des anciens seigneurs. Visitez en silence, aux heures d'ouverture.",
+      "ko": "옛 번주 가문의 묘소입니다. 관람 시간 안에 조용히 둘러봐 주세요.",
+      "zh": "这里是旧藩主家族的墓地，请在开放时间内安静参观。"
+    },
+    "matsue-kanden-an": {
+      "ja": "個人所有の茶室です。公開期間が限られているので、事前に確認してください。",
+      "en": "A privately owned tea house, open only in limited seasons. Check before you go.",
+      "fr": "Maison de thé privée, ouverte seulement à certaines périodes. Renseignez-vous avant de venir.",
+      "ko": "개인 소유의 다실로 공개 기간이 한정되어 있습니다. 방문 전 확인해 주세요.",
+      "zh": "此为私人所有的茶室，仅在特定时期开放，请事先确认。"
+    }
+  }
+}

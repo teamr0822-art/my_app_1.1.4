@@ -4,6 +4,7 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import type { Nav } from "@/app/page";
 import { SPOTS, areaOf, distanceMeters, formatDistance, spotsInArea } from "@/lib/spots";
 import { useLocation } from "@/lib/location-context";
+import { useI18n, useT } from "@/lib/i18n";
 import { LocationBanner } from "@/components/location-banner";
 import { useGuideChat } from "@/lib/use-guide-chat";
 import { hoursForPrompt, hoursOf, lateWarning } from "@/lib/visit-hours";
@@ -100,6 +101,7 @@ export function RouteScreen({ nav, hidden = false }: { nav: Nav; hidden?: boolea
   const [request, setRequest] = useState("");
   const [draft, setDraft] = useState("");
   const geo = useLocation();
+  const { t, lang } = useI18n();
 
   /**
    * Minutes left until the chosen clock time. Recomputed on every render rather
@@ -171,7 +173,7 @@ export function RouteScreen({ nav, hidden = false }: { nav: Nav; hidden?: boolea
     [candidates, geo.canMeasure],
   );
 
-  const { messages, streaming, send } = useGuideChat({ mode: "route", nearby });
+  const { messages, streaming, send } = useGuideChat({ mode: "route", nearby, lang });
   const [error, setError] = useState<string | null>(null);
   const rawAnswer = messages.filter((m) => m.role === "assistant").at(-1)?.content;
   // The model still slips in Markdown now and then; the screen shows plain text.
@@ -282,17 +284,17 @@ export function RouteScreen({ nav, hidden = false }: { nav: Nav; hidden?: boolea
   return (
     <section hidden={hidden} className="flex min-h-0 flex-1 flex-col overflow-y-auto pb-[var(--tabbar-clearance)]">
       <header className="border-b border-[var(--color-border)] px-5 pb-5 pt-8">
-        <p className="font-mono text-xs tracking-[0.22em] text-[var(--color-terracotta)]">よりみっけルート</p>
-        <h1 className="mt-2 text-2xl font-bold text-balance">あなたに合う、今日の歩き方</h1>
-        <p className="mt-2 text-sm leading-6 text-[var(--color-ink-soft)]">気分が変わっても大丈夫。途中で条件を変えて、何度でも組み直せます。</p>
+        <p className="font-mono text-xs tracking-[0.22em] text-[var(--color-terracotta)]">{t("よりみっけルート")}</p>
+        <h1 className="mt-2 text-2xl font-bold text-balance">{t("あなたに合う、今日の歩き方")}</h1>
+        <p className="mt-2 text-sm leading-6 text-[var(--color-ink-soft)]">{t("気分が変わっても大丈夫。途中で条件を変えて、何度でも組み直せます。")}</p>
       </header>
 
       <LocationBanner />
 
       <div className="flex flex-col gap-5 p-5">
         <fieldset className="flex flex-col gap-2">
-          <legend className="text-sm font-bold">使える時間</legend>
-          <div role="radiogroup" aria-label="使える時間" className="flex flex-wrap gap-2">
+          <legend className="text-sm font-bold">{t("使える時間")}</legend>
+          <div role="radiogroup" aria-label={t("使える時間")} className="flex flex-wrap gap-2">
             {DURATIONS.map((d) => {
               const on = !useEndTime && minutes === d.minutes;
               return (
@@ -336,20 +338,16 @@ export function RouteScreen({ nav, hidden = false }: { nav: Nav; hidden?: boolea
                 }
               }}
               className={`${chip} ${useEndTime ? "border-[var(--color-terracotta)] bg-[var(--color-terracotta)] text-white" : "text-[var(--color-ink-soft)]"}`}
-            >
-              終わりの時刻で決める
-            </button>
+            >{t("終わりの時刻で決める")}</button>
             {useEndTime && (
               <label className="flex items-center gap-2 text-sm">
                 <input
                   type="time"
                   value={endTime}
                   onChange={(e) => setEndTime(e.target.value)}
-                  aria-label="終わりの時刻"
+                  aria-label={t("終わりの時刻")}
                   className="min-h-11 rounded-xl border border-[var(--color-border)] bg-[var(--color-panel)] px-3 text-sm outline-none focus:border-[var(--color-terracotta)] focus:ring-2 focus:ring-[var(--color-terracotta)]/40"
-                />
-                まで
-              </label>
+                />{t("まで")}</label>
             )}
           </div>
           <p aria-live="polite" className="text-[12px] text-[var(--color-ink-soft)]">
@@ -359,16 +357,16 @@ export function RouteScreen({ nav, hidden = false }: { nav: Nav; hidden?: boolea
           </p>
         </fieldset>
 
-        <Option label="移動手段" values={TRANSPORTS} value={transport} onChange={setTransport} />
-        <Option label="天気" values={["晴れ", "くもり", "雨"]} value={weather} onChange={setWeather} />
+        <Option label={t("移動手段")} values={TRANSPORTS} value={transport} onChange={setTransport} />
+        <Option label={t("天気")} values={["晴れ", "くもり", "雨"]} value={weather} onChange={setWeather} />
 
         {/* Multi-select: "歴史を深掘り" and "食べ歩き" are not rival moods, and
             forcing one of them out made the answer worse than the visitor asked
             for. Nothing selected is a valid answer too — that means おまかせ. */}
         <fieldset className="flex flex-col gap-2">
           <legend className="text-sm font-bold">
-            いまの気分{" "}
-            <span className="font-normal text-[var(--color-ink-soft)]">（いくつでも）</span>
+            {t("いまの気分")}{" "}
+            <span className="font-normal text-[var(--color-ink-soft)]">{t("（いくつでも）")}</span>
           </legend>
           <div className="flex flex-wrap gap-2">
             {MOODS.map((m) => {
@@ -383,7 +381,7 @@ export function RouteScreen({ nav, hidden = false }: { nav: Nav; hidden?: boolea
                   }
                   className={`${chip} ${on ? "border-[var(--color-terracotta)] bg-[var(--color-terracotta)] text-white" : "text-[var(--color-ink-soft)]"}`}
                 >
-                  {m}
+                  {t(m)}
                 </button>
               );
             })}
@@ -392,7 +390,7 @@ export function RouteScreen({ nav, hidden = false }: { nav: Nav; hidden?: boolea
 
         <label className="flex flex-col gap-2 text-sm font-bold">
           追加の希望（任意）
-          <textarea value={request} onChange={(e) => setRequest(e.target.value)} placeholder="例：混雑を避けたい、眺めの良い場所に行きたい" className="min-h-24 resize-none rounded-2xl border border-[var(--color-border)] bg-[var(--color-panel)] p-3 font-normal outline-none placeholder:text-[var(--color-ink-soft)] focus:border-[var(--color-terracotta)]" />
+          <textarea value={request} onChange={(e) => setRequest(e.target.value)} placeholder={t("例：混雑を避けたい、眺めの良い場所に行きたい")} className="min-h-24 resize-none rounded-2xl border border-[var(--color-border)] bg-[var(--color-panel)] p-3 font-normal outline-none placeholder:text-[var(--color-ink-soft)] focus:border-[var(--color-terracotta)]" />
         </label>
 
         {candidates.length === 0 && (
@@ -402,12 +400,12 @@ export function RouteScreen({ nav, hidden = false }: { nav: Nav; hidden?: boolea
         )}
 
         <button type="button" onClick={() => { if (!streaming && !endTimeInvalid && candidates.length > 0) generate(); }} aria-disabled={streaming || endTimeInvalid || candidates.length === 0} className="flex items-center justify-center gap-2 rounded-2xl bg-[var(--color-terracotta)] px-4 py-3 font-bold text-white aria-disabled:opacity-50">
-          <SparkIcon size={18} /> {streaming ? "ルートを考えています…" : "ルートを作成する"}
+          <SparkIcon size={18} /> {streaming ? t("ルートを考えています…") : t("ルートを作成する")}
         </button>
 
-        {error && <div role="alert" className="rounded-2xl border border-red-300/40 bg-red-950/20 p-4 text-sm"><p>{error}</p><button type="button" onClick={generate} className="mt-3 rounded-xl border border-[var(--color-border)] px-3 py-2 font-bold">もう一度試す</button></div>}
+        {error && <div role="alert" className="rounded-2xl border border-red-300/40 bg-red-950/20 p-4 text-sm"><p>{error}</p><button type="button" onClick={generate} className="mt-3 rounded-xl border border-[var(--color-border)] px-3 py-2 font-bold">{t("もう一度試す")}</button></div>}
 
-        {answer && <div ref={resultRef} className="scroll-mt-4 rounded-2xl border border-[var(--color-border)] bg-[var(--color-panel)] p-4"><p className="mb-2 text-xs font-bold tracking-wider text-[var(--color-terracotta)]">今日の寄り道プラン</p><p className="whitespace-pre-wrap break-words [overflow-wrap:anywhere] text-sm leading-7">{answer}</p>{/*
+        {answer && <div ref={resultRef} className="scroll-mt-4 rounded-2xl border border-[var(--color-border)] bg-[var(--color-panel)] p-4"><p className="mb-2 text-xs font-bold tracking-wider text-[var(--color-terracotta)]">{t("今日の寄り道プラン")}</p><p className="whitespace-pre-wrap break-words [overflow-wrap:anywhere] text-sm leading-7">{answer}</p>{/*
               What the guide will actually walk you to, said out loud. The plan
               above is the model's prose and can name a viewpoint or a gate that
               is not one of the 151 registered sites; navigation only ever visits
@@ -437,9 +435,7 @@ export function RouteScreen({ nav, hidden = false }: { nav: Nav; hidden?: boolea
                         ? "・かなり余ります。「もっと回りたい」と伝えると増やせます"
                         : ""}
                   </p>
-                  <p className="mt-1 text-[11px] leading-relaxed text-[var(--color-ink-soft)]">
-                    直線距離から出した見込みです。案内をはじめると、実際の道のりで計算し直します。
-                  </p>
+                  <p className="mt-1 text-[11px] leading-relaxed text-[var(--color-ink-soft)]">{t("直線距離から出した見込みです。案内をはじめると、実際の道のりで計算し直します。")}</p>
                 </div>
               )}
 
@@ -481,13 +477,11 @@ export function RouteScreen({ nav, hidden = false }: { nav: Nav; hidden?: boolea
                   {hoursNote}
                 </p>
               )}
-              <p className="mt-2 text-[11px] leading-relaxed text-[var(--color-ink-soft)]">
-                見学できる時間は公式の営業時間ではありません。時間の決まった場所は、公式の案内で確認してから向かってください。
-              </p>
+              <p className="mt-2 text-[11px] leading-relaxed text-[var(--color-ink-soft)]">{t("見学できる時間は公式の営業時間ではありません。時間の決まった場所は、公式の案内で確認してから向かってください。")}</p>
             </div>
             <button type="button" onClick={() => nav.startRoute(routeSpotIds, transport)} className="mt-3 w-full rounded-xl bg-[var(--color-green)] px-4 py-3 text-sm font-bold text-white">{guiding ? "この内容に案内を切り替える" : "このルートで案内をはじめる"}</button></div>}
 
-        {messages.length > 0 && <div className="rounded-2xl border border-[var(--color-border)] p-4"><p className="text-sm font-bold">途中で変更する</p><p className="mb-2 mt-0.5 text-[12px] leading-relaxed text-[var(--color-ink-soft)]">{guiding ? "案内中でも変えられます。書き直したあと、上の「この内容に案内を切り替える」を押すと反映されます。" : "「短くして」「逆から回って」のように話しかけてください。"}</p><div className="flex gap-2"><input value={draft} onChange={(e) => setDraft(e.target.value)} onKeyDown={(e) => { if (e.key === "Enter" && !e.nativeEvent.isComposing && e.keyCode !== 229) { e.preventDefault(); if (draft.trim()) { send(draft); setDraft(""); } } }} aria-label="ルートの変更内容" placeholder="例：逆から回って、短くして、雨なので屋内中心に" className="min-w-0 flex-1 rounded-xl border border-[var(--color-border)] bg-transparent px-3 py-2 text-sm outline-none" /><button type="button" aria-label="変更を送信" onClick={() => { if (draft.trim()) { send(draft); setDraft(""); } }} className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-[var(--color-green)] text-white"><SendIcon size={17} /></button></div></div>}
+        {messages.length > 0 && <div className="rounded-2xl border border-[var(--color-border)] p-4"><p className="text-sm font-bold">{t("途中で変更する")}</p><p className="mb-2 mt-0.5 text-[12px] leading-relaxed text-[var(--color-ink-soft)]">{guiding ? "案内中でも変えられます。書き直したあと、上の「この内容に案内を切り替える」を押すと反映されます。" : "「短くして」「逆から回って」のように話しかけてください。"}</p><div className="flex gap-2"><input value={draft} onChange={(e) => setDraft(e.target.value)} onKeyDown={(e) => { if (e.key === "Enter" && !e.nativeEvent.isComposing && e.keyCode !== 229) { e.preventDefault(); if (draft.trim()) { send(draft); setDraft(""); } } }} aria-label={t("ルートの変更内容")} placeholder={t("例：逆から回って、短くして、雨なので屋内中心に")} className="min-w-0 flex-1 rounded-xl border border-[var(--color-border)] bg-transparent px-3 py-2 text-sm outline-none" /><button type="button" aria-label={t("変更を送信")} onClick={() => { if (draft.trim()) { send(draft); setDraft(""); } }} className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-[var(--color-green)] text-white"><SendIcon size={17} /></button></div></div>}
       </div>
     </section>
   );
@@ -499,10 +493,11 @@ export function RouteScreen({ nav, hidden = false }: { nav: Nav; hidden?: boolea
  * group, so the current value is announced and the arrow keys move through it.
  */
 function Option({ label, values, value, onChange }: { label: string; values: string[]; value: string; onChange: (value: string) => void }) {
+  const t = useT();
   return (
     <fieldset className="flex flex-col gap-2">
-      <legend className="text-sm font-bold">{label}</legend>
-      <div role="radiogroup" aria-label={label} className="flex flex-wrap gap-2">
+      <legend className="text-sm font-bold">{t(label)}</legend>
+      <div role="radiogroup" aria-label={t(label)} className="flex flex-wrap gap-2">
         {values.map((item) => (
           <button
             key={item}
@@ -513,7 +508,7 @@ function Option({ label, values, value, onChange }: { label: string; values: str
             onClick={() => onChange(item)}
             className={`${chip} ${value === item ? "border-[var(--color-terracotta)] bg-[var(--color-terracotta)] text-white" : "text-[var(--color-ink-soft)]"}`}
           >
-            {item}
+            {t(item)}
           </button>
         ))}
       </div>

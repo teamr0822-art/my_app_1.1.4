@@ -107,13 +107,14 @@ export async function claimRole(code: string): Promise<{ role: Role; label: stri
 /* posts                                                               */
 /* ------------------------------------------------------------------ */
 
-export type PostKind = "new_spot" | "review" | "report" | "photo";
+export type PostKind = "new_spot" | "review" | "report" | "photo" | "feedback";
 
 export const KIND_LABEL: Record<PostKind, string> = {
   new_spot: "新しい場所",
   review: "口コミ",
   report: "通報",
   photo: "写真",
+  feedback: "アプリへの意見",
 };
 
 export type NewPost = {

@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import { useJourney, today } from "@/lib/journey";
+import { useT } from "@/lib/i18n";
 
 /**
  * 歩いた距離の記録（Android の健康アプリのような見え方）。
@@ -43,6 +44,7 @@ function stepOf(meters: number): number {
 }
 
 export function JourneyCard() {
+  const t = useT();
   const journey = useJourney();
   /** タップした日。もう一度押すと閉じる（狭い画面なので常設の吹き出しは置かない）。 */
   const [picked, setPicked] = useState<string | null>(null);
@@ -76,25 +78,25 @@ export function JourneyCard() {
       {/* 1. きょうの距離 */}
       <div className="flex items-end justify-between gap-3">
         <div>
-          <p className="text-[12px] font-bold text-[var(--color-ink-soft)]">きょう歩いた距離</p>
+          <p className="text-[12px] font-bold text-[var(--color-ink-soft)]">{t("きょう歩いた距離")}</p>
           <p className="mt-0.5 text-[30px] font-extrabold leading-none tracking-tight">
             {fmt(journey.todayMeters)}
           </p>
         </div>
         <dl className="text-right text-[12px] leading-5 text-[var(--color-ink-soft)]">
           <div className="flex justify-end gap-1.5">
-            <dt>7日間</dt>
+            <dt>{t("7日間")}</dt>
             <dd className="font-bold text-[var(--color-ink)]">{fmt(journey.weekMeters)}</dd>
           </div>
           <div className="flex justify-end gap-1.5">
-            <dt>通算</dt>
+            <dt>{t("通算")}</dt>
             <dd className="font-bold text-[var(--color-ink)]">{fmt(journey.totalMeters)}</dd>
           </div>
         </dl>
       </div>
 
       {/* 2. 直近7日の棒グラフ。棒をタップするとその日の距離が下に出る。 */}
-      <div className="mt-4 flex h-[84px] items-end gap-1.5" role="group" aria-label="直近7日の歩いた距離">
+      <div className="mt-4 flex h-[84px] items-end gap-1.5" role="group" aria-label={t("直近7日の歩いた距離")}>
         {week.map((d, i) => {
           const meters = values[i];
           const isToday = d.key === todayKey;
@@ -160,11 +162,11 @@ export function JourneyCard() {
 
       {/* 目盛りの説明。色の濃さが何を意味するかを言葉でも置く。 */}
       <div className="mt-2 flex items-center justify-end gap-1.5 text-[11px] text-[var(--color-ink-soft)]">
-        <span>少ない</span>
+        <span>{t("少ない")}</span>
         {STEPS.map((c) => (
           <span key={c} aria-hidden="true" style={{ background: c }} className="h-3 w-3 rounded-sm" />
         ))}
-        <span>多い（3km以上）</span>
+        <span>{t("多い（3km以上）")}</span>
       </div>
 
       <p aria-live="polite" className="mt-2 min-h-5 text-[12px] text-[var(--color-ink-soft)]">
@@ -173,10 +175,7 @@ export function JourneyCard() {
           : "棒や日付をタップすると、その日の距離が出ます。"}
       </p>
 
-      <p className="mt-2 text-[11px] leading-5 text-[var(--color-ink-soft)]">
-        アプリを開いている間の移動だけを、この端末に記録します（どこにも送りません）。
-        10m未満の動きは測位の揺れとして数えません。
-      </p>
+      <p className="mt-2 text-[11px] leading-5 text-[var(--color-ink-soft)]">{t("アプリを開いている間の移動だけを、この端末に記録します（どこにも送りません）。 10m未満の動きは測位の揺れとして数えません。")}</p>
     </div>
   );
 }

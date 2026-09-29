@@ -17,6 +17,7 @@ import {
 } from "@/lib/use-route-directions";
 import { InfoIcon, CloseIcon } from "@/components/icons";
 import { usePost } from "@/lib/post-context";
+import { useT, translateStatic } from "@/lib/i18n";
 
 /** How close counts as "arrived", in metres. Wide enough for street-level GPS. */
 const ARRIVAL_METERS = 40;
@@ -26,9 +27,7 @@ const LeafletMap = dynamic(
   {
     ssr: false,
     loading: () => (
-      <div className="flex h-full items-center justify-center bg-[var(--color-map-skeleton)] text-[13px] text-[var(--color-ink-soft)]">
-        地図を読み込んでいます…
-      </div>
+      <div className="flex h-full items-center justify-center bg-[var(--color-map-skeleton)] text-[13px] text-[var(--color-ink-soft)]">{translateStatic("地図を読み込んでいます…")}</div>
     ),
   },
 );
@@ -44,6 +43,7 @@ export function MapScreen({
 }) {
   const geo = useLocation();
   const post = usePost();
+  const t = useT();
   const { pos, located, areaLabel } = geo;
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [showInfo, setShowInfo] = useState(false);
@@ -230,7 +230,7 @@ export function MapScreen({
       <header className="z-[10] flex items-center justify-between border-b border-[var(--color-border)] bg-[var(--color-panel)] px-5 pb-3 pt-[calc(16px+env(safe-area-inset-top))]">
         <div>
           <h1 className="text-[16px] font-extrabold">
-            {hasRoute ? "ルート案内" : "史跡マップ"}
+            {hasRoute ? t("ルート案内") : t("史跡マップ")}
           </h1>
           <p className="text-[12px] text-[var(--color-ink-soft)]">
             {hasRoute && directions
@@ -245,12 +245,12 @@ export function MapScreen({
           onClick={() => post.openPost({ kind: "new_spot" })}
           className="flex min-h-11 items-center rounded-full border border-[var(--color-border)] bg-[var(--color-panel-soft)] px-3 text-[12px] font-bold"
         >
-          ＋場所を教える
+          {t("＋場所を教える")}
         </button>
         <button
           type="button"
           onClick={() => setShowInfo((v) => !v)}
-          aria-label="凡例を表示"
+          aria-label={t("凡例を表示")}
           className="flex h-11 w-11 items-center justify-center rounded-full border border-[var(--color-border)] bg-[var(--color-panel-soft)] text-[var(--color-ink-soft)]"
         >
           <InfoIcon size={18} />
@@ -286,20 +286,20 @@ export function MapScreen({
         {showInfo && (
           <div className="absolute left-4 right-4 top-4 z-[500] rounded-xl border border-[var(--color-border)] bg-[var(--color-panel)]/95 p-3 text-[12px] leading-relaxed shadow-lg backdrop-blur">
             <div className="mb-1 flex items-center justify-between">
-              <span className="font-bold">凡例</span>
+              <span className="font-bold">{t("凡例")}</span>
               <button
                 type="button"
                 onClick={() => setShowInfo(false)}
-                aria-label="閉じる"
+                aria-label={t("閉じる")}
                 className="text-[var(--color-ink-soft)]"
               >
                 <CloseIcon size={16} />
               </button>
             </div>
             <ul className="space-y-1 text-[var(--color-ink-soft)]">
-              <li>青い点が現在地、緑の丸がいま向かっているスポットです。</li>
-              <li>白い矢印が進む向きを示しています。</li>
-              <li>薄い線は通過済み、濃い線がこれから歩く道です。</li>
+              <li>{t("青い点が現在地、緑の丸がいま向かっているスポットです。")}</li>
+              <li>{t("白い矢印が進む向きを示しています。")}</li>
+              <li>{t("薄い線は通過済み、濃い線がこれから歩く道です。")}</li>
               {!located && <li>現在地が取得できないため{areaLabel}周辺を表示しています。</li>}
             </ul>
           </div>
@@ -325,7 +325,7 @@ export function MapScreen({
                   className="pointer-events-auto flex min-h-12 items-center gap-2 rounded-full bg-[var(--color-panel)] px-4 text-[14px] font-extrabold text-[var(--color-location)] shadow-lg ring-1 ring-black/10"
                 >
                   <NavArrowIcon />
-                  現在地に戻る
+                  {t("現在地に戻る")}
                 </button>
               ) : (
                 <span />
@@ -339,7 +339,7 @@ export function MapScreen({
                     aria-pressed={!headingUp}
                     className="pointer-events-auto flex min-h-12 items-center rounded-full bg-[var(--color-panel)] px-3.5 text-[12px] font-bold shadow-lg ring-1 ring-black/10"
                   >
-                    {headingUp ? "進む向きが上" : "北が上"}
+                    {headingUp ? t("進む向きが上") : t("北が上")}
                   </button>
                 )}
                 {camera !== "overview" && (
@@ -349,7 +349,7 @@ export function MapScreen({
                     className="pointer-events-auto flex min-h-12 items-center gap-1.5 rounded-full bg-[var(--color-panel)] px-4 text-[14px] font-extrabold shadow-lg ring-1 ring-black/10"
                   >
                     <OverviewIcon />
-                    全体を見る
+                    {t("全体を見る")}
                   </button>
                 )}
               </div>
@@ -470,9 +470,7 @@ export function MapScreen({
                                   type="button"
                                   onClick={() => nav.openSpot(spot.id)}
                                   className="flex-1 rounded-xl bg-[var(--color-terracotta)] py-2 text-[12px] font-bold text-white"
-                                >
-                                  音声ガイドを聞く
-                                </button>
+                                >{t("音声ガイドを聞く")}</button>
                                 <button
                                   type="button"
                                   onClick={() => {
@@ -489,9 +487,7 @@ export function MapScreen({
                                     setOpenSteps(null);
                                   }}
                                   className="rounded-xl border border-[var(--color-border)] px-3 py-2 text-[12px] font-bold"
-                                >
-                                  到着した
-                                </button>
+                                >{t("到着した")}</button>
                               </div>
                             )}
                           </div>
@@ -510,9 +506,7 @@ export function MapScreen({
                         setExpanded(false);
                       }}
                       className="min-h-11 w-full rounded-xl border border-[var(--color-border)] text-[13px] font-bold text-[var(--color-ink-soft)]"
-                    >
-                      案内を終わる（保存したルートも消えます）
-                    </button>
+                    >{t("案内を終わる（保存したルートも消えます）")}</button>
                   </div>
                 </div>
               )}
@@ -539,7 +533,7 @@ export function MapScreen({
                 <button
                   type="button"
                   onClick={() => setSelectedId(null)}
-                  aria-label="閉じる"
+                  aria-label={t("閉じる")}
                   className="text-[var(--color-ink-soft)]"
                 >
                   <CloseIcon size={18} />
@@ -549,9 +543,7 @@ export function MapScreen({
                 type="button"
                 onClick={() => nav.openSpot(selected.id)}
                 className="mt-3 w-full rounded-xl bg-[var(--color-terracotta)] py-2.5 text-[13px] font-bold text-white active:scale-[0.99]"
-              >
-                このスポットで案内をはじめる
-              </button>
+              >{t("このスポットで案内をはじめる")}</button>
             </div>
           </div>
         )}
@@ -593,6 +585,7 @@ function NextUp({
   expanded: boolean;
   onToggle: () => void;
 }) {
+  const t = useT();
   const first = leg?.steps?.[0];
   // Prefer the live measurement; fall back to the routed leg length when the
   // device has no fix yet, so the panel is never blank.
@@ -629,7 +622,7 @@ function NextUp({
             without looking at the screen. */}
         <p aria-live="polite" className="flex items-baseline gap-2">
           {finished ? (
-            <span className="text-[17px] font-extrabold">ゴールしました</span>
+            <span className="text-[17px] font-extrabold">{t("ゴールしました")}</span>
           ) : (
             <>
               {meters !== null && (

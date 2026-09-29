@@ -3,6 +3,7 @@
 import { useState } from "react";
 import { AREAS } from "@/lib/spots";
 import { useLocation } from "@/lib/location-context";
+import { useT } from "@/lib/i18n";
 
 /**
  * 「いまどこを基準にしているか」を必ず言う帯。
@@ -12,6 +13,7 @@ import { useLocation } from "@/lib/location-context";
  * 正常に測位できているときは何も出さない（普段は黙っている）。
  */
 export function LocationBanner() {
+  const t = useT();
   const geo = useLocation();
   const [picking, setPicking] = useState(false);
 
@@ -60,9 +62,7 @@ export function LocationBanner() {
               geo.retry();
             }}
             className="min-h-11 font-bold text-[var(--color-terracotta)] underline"
-          >
-            現在地に戻す
-          </button>
+          >{t("現在地に戻す")}</button>
         )}
         {!geo.manualArea &&
           (geo.status === "denied" || geo.status === "error" || geo.status === "slow") && (
@@ -70,14 +70,12 @@ export function LocationBanner() {
             type="button"
             onClick={geo.retry}
             className="min-h-11 font-bold text-[var(--color-terracotta)] underline"
-          >
-            もう一度試す
-          </button>
+          >{t("もう一度試す")}</button>
         )}
       </div>
 
       {picking && (
-        <div role="radiogroup" aria-label="いる街" className="mt-2 flex flex-wrap gap-2">
+        <div role="radiogroup" aria-label={t("いる街")} className="mt-2 flex flex-wrap gap-2">
           {AREAS.map((area) => {
             const on = geo.manualArea === area;
             return (

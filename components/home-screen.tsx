@@ -10,12 +10,14 @@ import {
   spotsInArea,
 } from "@/lib/spots";
 import { useLocation } from "@/lib/location-context";
+import { useT } from "@/lib/i18n";
 import { LocationBanner } from "@/components/location-banner";
 import { useVisited } from "@/lib/visited";
 import { ChevronLeftIcon, MicIcon, SparkIcon } from "@/components/icons";
 
 export function HomeScreen({ nav }: { nav: Nav }) {
   const { pos, canMeasure, areaLabel } = useLocation();
+  const t = useT();
   const visited = useVisited();
 
   // 測位できていないときは、基準の街のスポットだけを並べる。距離順だけだと、
@@ -45,20 +47,20 @@ export function HomeScreen({ nav }: { nav: Nav }) {
         className="relative shrink-0 overflow-hidden bg-[linear-gradient(168deg,#1c2e4d_0%,#2f5478_52%,#3d6f8e_100%)] px-5 pb-6 pt-[calc(20px+env(safe-area-inset-top))] text-white"
       >
         <Firework />
-        <h1 className="relative text-[28px] font-extrabold tracking-tight">よりみっけ</h1>
+        <h1 className="relative text-[28px] font-extrabold tracking-tight">{t("よりみっけ")}</h1>
         <p className="relative mt-1.5 text-[13px] font-medium leading-relaxed text-pretty">
-          知らなかった街の魅力を、旅の途中で見つけよう。
+          {t("知らなかった街の魅力を、旅の途中で見つけよう。")}
         </p>
         <p className="relative mt-2 text-[12px] leading-relaxed text-white/90 text-pretty">
-          気になった場所に話しかけると、その土地の物語が返ってきます。
+          {t("気になった場所に話しかけると、その土地の物語が返ってきます。")}
         </p>
 
         {/* Stat banner: the unit goes with the number, so "48" is never a
             bare figure the reader has to decode. */}
         <div className="relative mt-4 flex gap-2">
-          <Stat value={STATS.kunishitei} unit="件" label="国の指定文化財" />
-          <Stat value={STATS.kenshitei} unit="件" label="県の指定文化財" />
-          <Stat value={SPOTS.length} unit="か所" label="話しかけられる" />
+          <Stat value={STATS.kunishitei} unit={t("件")} label={t("国の指定文化財")} />
+          <Stat value={STATS.kenshitei} unit={t("件")} label={t("県の指定文化財")} />
+          <Stat value={SPOTS.length} unit={t("か所")} label={t("話しかけられる")} />
         </div>
       </header>
 
@@ -78,9 +80,9 @@ export function HomeScreen({ nav }: { nav: Nav }) {
             >
               <MicIcon size={20} />
             </span>
-            <span className="block text-[14px] font-extrabold">話しかけてみる</span>
+            <span className="block text-[14px] font-extrabold">{t("話しかけてみる")}</span>
             <span className="block line-clamp-2 text-[12px] leading-4 text-[var(--color-ink-soft)]">
-              {nearest ? `いちばん近い${nearest.name}から` : "近くの場所から"}
+              {nearest ? t("いちばん近い{name}から", { name: nearest.name }) : t("近くの場所から")}
             </span>
           </button>
 
@@ -95,9 +97,9 @@ export function HomeScreen({ nav }: { nav: Nav }) {
             >
               <SparkIcon size={20} />
             </span>
-            <span className="block text-[14px] font-extrabold">寄り道をつくる</span>
+            <span className="block text-[14px] font-extrabold">{t("寄り道をつくる")}</span>
             <span className="block line-clamp-2 text-[12px] leading-4 text-[var(--color-ink-soft)]">
-              時間と気分から道すじを提案
+              {t("時間と気分から道すじを提案")}
             </span>
           </button>
         </div>
@@ -107,21 +109,21 @@ export function HomeScreen({ nav }: { nav: Nav }) {
       <section className="px-5 pt-5">
         <div className="mb-3 flex items-baseline justify-between">
           <div>
-            <h2 className="text-[15px] font-extrabold">近くの寄り道さき</h2>
+            <h2 className="text-[15px] font-extrabold">{t("近くの寄り道さき")}</h2>
             <p className="mt-0.5 text-[12px] text-[var(--color-ink-soft)]">
               {visited.count > 0
-                ? `タップすると、その場所の話を聞けます（これまでに${visited.count}か所を訪問）`
-                : "タップすると、その場所の話を聞けます"}
+                ? t("タップすると、その場所の話を聞けます（これまでに{n}か所を訪問）", { n: visited.count })
+                : t("タップすると、その場所の話を聞けます")}
             </p>
           </div>
           <span className="text-[12px] font-medium text-[var(--color-ink-soft)]">
-            {canMeasure ? "現在地から近い順" : `${areaLabel || "登録エリア"}の順`}
+            {canMeasure ? t("現在地から近い順") : t("{area}の順", { area: areaLabel || t("登録エリア") })}
           </span>
         </div>
 
         {spots.length === 0 && (
           <p className="rounded-2xl border border-dashed border-[var(--color-border)] bg-[var(--color-panel)] p-4 text-[13px] leading-relaxed text-[var(--color-ink-soft)]">
-            {areaLabel || "この街"}のスポットは準備中です。上の帯の「いる街を選ぶ」から、ほかの街を選べます。
+            {t("{area}のスポットは準備中です。上の帯の「いる街を選ぶ」から、ほかの街を選べます。", { area: areaLabel || t("この街") })}
           </p>
         )}
 
@@ -149,9 +151,7 @@ export function HomeScreen({ nav }: { nav: Nav }) {
                     </span>
                     {/* 訪問済みの印。歩いて40m以内まで行くと自動で付く。 */}
                     {visited.has(s.id) && (
-                      <span className="rounded-md bg-[var(--color-green)] px-1.5 py-0.5 text-[12px] font-bold text-white">
-                        訪問済み
-                      </span>
+                      <span className="rounded-md bg-[var(--color-green)] px-1.5 py-0.5 text-[12px] font-bold text-white">{t("訪問済み")}</span>
                     )}
                     <span className="text-[12px] text-[var(--color-ink-soft)]">
                       {/* 測位できていないときに距離を出すと、まったく違う街の

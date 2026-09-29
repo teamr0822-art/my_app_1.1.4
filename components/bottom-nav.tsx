@@ -2,6 +2,7 @@
 
 import type { Nav, Screen } from "@/app/page";
 import { HomeIcon, MapIcon, SettingsIcon, SparkIcon } from "@/components/icons";
+import { useT } from "@/lib/i18n";
 
 /**
  * The tab bar, described as data.
@@ -20,16 +21,17 @@ const TABS: { screen: Screen; label: string; icon: React.ReactNode; raised?: boo
 ];
 
 export function BottomNav({ nav }: { nav: Nav }) {
+  const t = useT();
   return (
     <nav
-      aria-label="メインナビゲーション"
+      aria-label={t("メインナビゲーション")}
       className="app-tabbar z-[600] flex items-end justify-around border-t border-[var(--color-border)] bg-[var(--color-panel)]/95 px-4 pb-[calc(8px+env(safe-area-inset-bottom))] pt-2 backdrop-blur"
     >
       {TABS.map((tab) => (
         <NavButton
           key={tab.screen}
           active={nav.screen === tab.screen}
-          label={tab.label}
+          label={t(tab.label)}
           icon={tab.icon}
           raised={tab.raised}
           onClick={() => nav.go(tab.screen)}

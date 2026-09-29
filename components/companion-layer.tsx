@@ -5,6 +5,7 @@ import type { Nav } from "@/app/page";
 import { SPOTS, areaOf, nearestSpot, distanceMeters, formatDistance } from "@/lib/spots";
 import { useGeolocation } from "@/lib/use-geolocation";
 import { useVoice } from "@/lib/use-voice";
+import { useI18n, useT } from "@/lib/i18n";
 import { useGuideChat } from "@/lib/use-guide-chat";
 import { useSettings } from "@/lib/settings-context";
 import {
@@ -23,6 +24,7 @@ export function CompanionLayer({
   nav: Nav;
   bottomNavVisible: boolean;
 }) {
+  const t = useT();
   const { companionOn, companionAutoListen, muted, toggle } = useSettings();
   const geo = useGeolocation();
   const voice = useVoice();
@@ -34,6 +36,7 @@ export function CompanionLayer({
   const near = useMemo(() => nearestSpot(geo.pos), [geo.pos]);
 
   // Three nearest spots as grounding context for the companion.
+  const { lang } = useI18n();
   const nearby = useMemo(() => {
     return [...SPOTS]
       .map((s) => ({ s, d: distanceMeters(geo.pos, [s.lat, s.lng]) }))
@@ -45,6 +48,7 @@ export function CompanionLayer({
   const chat = useGuideChat({
     mode: "companion",
     nearby,
+    lang,
     fallbackText: nearby[0]?.grounding?.trim()
       ? `いまAIとつながらないので、手元の資料からお話ししますね。\n\n${nearby[0].name}\n${nearby[0].grounding.trim()}`
       : undefined,
@@ -145,7 +149,7 @@ export function CompanionLayer({
         <button
           type="button"
           onClick={openOverlay}
-          aria-label="お散歩コンパニオンを開く"
+          aria-label={t("お散歩コンパニオンを開く")}
           className="anim-breathe fixed right-4 z-40 flex h-14 w-14 items-center justify-center rounded-full bg-[var(--color-amber)] text-white shadow-xl"
           style={{
             bottom: `calc(${bottomNavVisible ? 86 : 20}px + env(safe-area-inset-bottom))`,
@@ -162,12 +166,12 @@ export function CompanionLayer({
              top of this full-screen sheet on the home, route and map screens. */
           role="dialog"
           aria-modal="true"
-          aria-label="おさんぽコンパニオン"
+          aria-label={t("おさんぽコンパニオン")}
           className="fixed inset-0 z-[700] flex flex-col bg-black/40"
         >
           <button
             type="button"
-            aria-label="閉じる"
+            aria-label={t("閉じる")}
             className="flex-1"
             onClick={closeOverlay}
           />
@@ -181,9 +185,7 @@ export function CompanionLayer({
                 <SparkIcon size={18} />
               </span>
               <div className="min-w-0 flex-1">
-                <p className="text-[14px] font-extrabold leading-tight">
-                  歩きながら雑談
-                </p>
+                <p className="text-[14px] font-extrabold leading-tight">{t("歩きながら雑談")}</p>
                 <p className="truncate text-[12px] text-[var(--color-ink-soft)]">
                   近くの{near.spot.name}・{formatDistance(near.meters)}
                 </p>
@@ -205,7 +207,7 @@ export function CompanionLayer({
               <button
                 type="button"
                 onClick={closeOverlay}
-                aria-label="閉じる"
+                aria-label={t("閉じる")}
                 className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full text-[var(--color-ink-soft)] active:bg-[var(--color-panel-soft)]"
               >
                 <CloseIcon size={18} />
@@ -230,7 +232,7 @@ export function CompanionLayer({
                     </span>
                     <div className="max-w-[82%] rounded-2xl rounded-tl-md border border-[var(--color-border)] bg-[var(--color-panel-soft)] px-3.5 py-2.5 text-[14px] leading-relaxed break-words [overflow-wrap:anywhere]">
                       {m.content || (
-                        <span role="status" aria-label="考えています" className="anim-spin inline-block h-3.5 w-3.5 rounded-full border-2 border-[var(--color-border)] border-t-[var(--color-green)] align-middle" />
+                        <span role="status" aria-label={t("考えています")} className="anim-spin inline-block h-3.5 w-3.5 rounded-full border-2 border-[var(--color-border)] border-t-[var(--color-green)] align-middle" />
                       )}
                     </div>
                   </div>
@@ -243,9 +245,7 @@ export function CompanionLayer({
                 ),
               )}
               {voice.recording && (
-                <p className="text-center text-[12px] font-medium text-[var(--color-green)]">
-                  聞いています…話しかけてください
-                </p>
+                <p className="text-center text-[12px] font-medium text-[var(--color-green)]">{t("聞いています…話しかけてください")}</p>
               )}
             </div>
 
@@ -257,9 +257,7 @@ export function CompanionLayer({
                   checked={companionAutoListen}
                   onChange={() => toggle("companionAutoListen")}
                   className="h-3.5 w-3.5 accent-[var(--color-green)]"
-                />
-                ハンズフリー
-              </label>
+                />{t("ハンズフリー")}</label>
               <form className="flex flex-1 items-center gap-2" onSubmit={onSubmit}>
                 <input
                   value={input}
@@ -276,8 +274,8 @@ export function CompanionLayer({
                       e.preventDefault();
                     }
                   }}
-                  placeholder="話しかける / 入力…"
-                  aria-label="コンパニオンに話しかける"
+                  placeholder={t("話しかける / 入力…")}
+                  aria-label={t("コンパニオンに話しかける")}
                   disabled={busy}
                   className="min-w-0 flex-1 rounded-full border border-[var(--color-border)] bg-[var(--color-bg)] px-4 py-2.5 text-[14px] outline-none focus:border-[var(--color-green)] disabled:opacity-60"
                 />
@@ -285,7 +283,7 @@ export function CompanionLayer({
                   <button
                     type="submit"
                     disabled={busy}
-                    aria-label="送信"
+                    aria-label={t("送信")}
                     className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full bg-[var(--color-green)] text-white disabled:opacity-50"
                   >
                     <SendIcon size={18} />

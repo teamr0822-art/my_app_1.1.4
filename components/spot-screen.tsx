@@ -11,6 +11,8 @@ import { useSettings } from "@/lib/settings-context";
 import { useLocation } from "@/lib/location-context";
 import { usePost } from "@/lib/post-context";
 import type { PostKind } from "@/lib/supabase";
+import { useI18n, translateStatic, type Lang } from "@/lib/i18n";
+import { noticeFor } from "@/lib/notices";
 import {
   ChevronLeftIcon,
   MicIcon,
@@ -26,9 +28,7 @@ const LeafletMap = dynamic(
   {
     ssr: false,
     loading: () => (
-      <div className="flex h-full items-center justify-center bg-[var(--color-map-skeleton)] text-[12px] text-[var(--color-ink-soft)]">
-        地図を読み込んでいます…
-      </div>
+      <div className="flex h-full items-center justify-center bg-[var(--color-map-skeleton)] text-[12px] text-[var(--color-ink-soft)]">{translateStatic("地図を読み込んでいます…")}</div>
     ),
   },
 );
@@ -43,6 +43,7 @@ const QUESTION_CHIPS = [
 export function SpotScreen({ spotId, nav }: { spotId: string; nav: Nav }) {
   const spot = getSpot(spotId);
   const { muted, handsFree, toggle } = useSettings();
+  const { t, lang } = useI18n();
   const geo = useLocation();
   /**
    * 現在地からの徒歩の目安。速さは分速80m（不動産の表示と同じ目安）。
@@ -60,6 +61,7 @@ export function SpotScreen({ spotId, nav }: { spotId: string; nav: Nav }) {
   const chat = useGuideChat({
     spotId,
     mode: "spot",
+    lang,
     fallbackText: spot?.grounding?.trim()
       ? `いまAIとつながらないので、手元の資料からお伝えします。\n\n${spot.grounding.trim()}`
       : undefined,
@@ -91,16 +93,12 @@ export function SpotScreen({ spotId, nav }: { spotId: string; nav: Nav }) {
   if (!spot) {
     return (
       <div className="flex h-full flex-col items-center justify-center gap-3 px-8 text-center">
-        <p className="text-base font-semibold text-[var(--color-ink)]">
-          このスポットの情報が見つかりませんでした
-        </p>
+        <p className="text-base font-semibold text-[var(--color-ink)]">{t("このスポットの情報が見つかりませんでした")}</p>
         <button
           type="button"
           onClick={() => nav.go("home")}
           className="rounded-full bg-[var(--color-terracotta)] px-5 py-2 text-sm font-semibold text-white"
-        >
-          ホームに戻る
-        </button>
+        >{t("ホームに戻る")}</button>
       </div>
     );
   }
@@ -239,7 +237,7 @@ export function SpotScreen({ spotId, nav }: { spotId: string; nav: Nav }) {
           {muted ? <MicOffIcon size={16} /> : <VolumeIcon size={16} />}
           {/* Whether the guide is talking right now was audible only. Someone
               who cannot hear it had no way to tell speaking from broken. */}
-          {muted ? "ミュート中" : voice.speaking ? "再生中" : "音声ON"}
+          {muted ? t("ミュート中") : voice.speaking ? t("再生中") : t("音声ON")}
         </button>
       </header>
 
@@ -260,7 +258,7 @@ export function SpotScreen({ spotId, nav }: { spotId: string; nav: Nav }) {
           <MapIcon size={15} className="mt-0.5 shrink-0 text-[var(--color-green)]" />
           <div className="min-w-0">
             <p className="text-[12px] font-bold text-[var(--color-green)]">
-              一般見学について
+              {t("一般見学について")}
             </p>
             <p className="text-[12px] leading-relaxed text-[var(--color-ink)]">
               {spot.access}
@@ -280,27 +278,27 @@ export function SpotScreen({ spotId, nav }: { spotId: string; nav: Nav }) {
                 : "bg-[var(--color-sun-soft)] text-[var(--color-sun-ink)]"
           }`}
         >
-          {hours.label}
-          {hours.guessed ? "（目安）" : ""}
+          {t(hours.label)}
+          {hours.guessed ? t("（目安）") : ""}
         </span>
         {/* 現在地からの目安。距離だけより「徒歩◯分」のほうが行くかどうか決めやすい。 */}
         {walk && (
           <span className="rounded-full bg-[var(--color-terracotta-soft)] px-2 py-0.5 text-[12px] font-bold text-[var(--color-terracotta)]">
-            徒歩{walk.minutes}分・{formatDistance(walk.meters)}
+            {t("徒歩{n}分", { n: walk.minutes })}・{formatDistance(walk.meters)}
           </span>
         )}
-        {spot.facilities?.toilet && <Facility>トイレあり</Facility>}
-        {spot.facilities?.parking && <Facility>駐車場あり</Facility>}
-        {spot.facilities?.bicycle && <Facility>駐輪場あり</Facility>}
-        {spot.facilities?.shelter && <Facility>雨宿りできる</Facility>}
-        {spot.facilities?.indoor && <Facility>雨の日も見学可</Facility>}
+        {spot.facilities?.toilet && <Facility>{t("トイレあり")}</Facility>}
+        {spot.facilities?.parking && <Facility>{t("駐車場あり")}</Facility>}
+        {spot.facilities?.bicycle && <Facility>{t("駐輪場あり")}</Facility>}
+        {spot.facilities?.shelter && <Facility>{t("雨宿りできる")}</Facility>}
+        {spot.facilities?.indoor && <Facility>{t("雨の日も見学可")}</Facility>}
       </div>
 
       {/* 投稿。行った人しか知らないことを、その場で送ってもらう入口。 */}
       <div className="flex shrink-0 gap-2 border-b border-[var(--color-border)] px-4 py-2">
-        <PostButton kind="review" spot={spot}>口コミ</PostButton>
-        <PostButton kind="photo" spot={spot}>写真</PostButton>
-        <PostButton kind="report" spot={spot}>まちがい・危険</PostButton>
+        <PostButton kind="review" spot={spot}>{t("口コミ")}</PostButton>
+        <PostButton kind="photo" spot={spot}>{t("写真")}</PostButton>
+        <PostButton kind="report" spot={spot}>{t("まちがい・危険")}</PostButton>
       </div>
 
       {!started ? (
@@ -312,38 +310,40 @@ export function SpotScreen({ spotId, nav }: { spotId: string; nav: Nav }) {
          * first tap — and tapping one starts the guide with that question.
          */
         <div className="flex flex-1 flex-col items-center justify-center gap-6 px-6 py-6 text-center">
+          {/* 案内をはじめる前の注意書き。文面は data/notices.json にある。 */}
+          <SpotNotice spotId={spot.id} lang={lang} t={t} />
           <button
             type="button"
             onClick={begin}
-            aria-label="案内をはじめる"
+            aria-label={t("案内をはじめる")}
             className="anim-breathe relative flex h-32 w-32 items-center justify-center rounded-full bg-[var(--color-sunset-ink)] text-6xl text-white shadow-xl"
           >
             <span aria-hidden="true">{spot.icon}</span>
             <span className="anim-mic absolute inset-0 rounded-full" />
           </button>
           <div>
-            <p className="text-[16px] font-extrabold">タップして案内をはじめる</p>
+            <p className="text-[16px] font-extrabold">{t("タップして案内をはじめる")}</p>
             <p className="mt-1.5 text-[12px] leading-relaxed text-[var(--color-ink-soft)]">
               {muted
-                ? "ミュートモード中：音声は流れず、文字でご案内します"
-                : "タップすると、この場所の話をはじめます"}
+                ? t("ミュートモード中：音声は流れず、文字でご案内します")
+                : t("タップすると、この場所の話をはじめます")}
             </p>
           </div>
 
           <div className="w-full">
             <p className="mb-2 text-[12px] font-bold text-[var(--color-ink-soft)]">
-              こんなことが聞けます
+              {t("こんなことが聞けます")}
             </p>
             <div className="flex flex-wrap justify-center gap-2">
               {QUESTION_CHIPS.map((q) => (
                 <button
                   key={q}
                   type="button"
-                  onClick={() => beginWith(q)}
+                  onClick={() => beginWith(t(q))}
                   className="flex min-h-11 items-center gap-1 rounded-full border border-[var(--color-border)] bg-[var(--color-panel-soft)] px-4 text-[12px] font-medium text-[var(--color-ink)]"
                 >
                   <SparkIcon size={13} className="text-[var(--color-terracotta)]" />
-                  {q}
+                  {t(q)}
                 </button>
               ))}
             </div>
@@ -369,7 +369,7 @@ export function SpotScreen({ spotId, nav }: { spotId: string; nav: Nav }) {
                   </span>
                   <div className="max-w-[80%] rounded-2xl rounded-tl-md border border-[var(--color-border)] bg-[var(--color-panel)] px-3.5 py-2.5 text-[14px] leading-relaxed break-words [overflow-wrap:anywhere]">
                     {m.content || (
-                      <span role="status" aria-label="考えています" className="anim-spin inline-block h-3.5 w-3.5 rounded-full border-2 border-[var(--color-border)] border-t-[var(--color-terracotta)] align-middle" />
+                      <span role="status" aria-label={t("考えています")} className="anim-spin inline-block h-3.5 w-3.5 rounded-full border-2 border-[var(--color-border)] border-t-[var(--color-terracotta)] align-middle" />
                     )}
                   </div>
                 </div>
@@ -383,9 +383,7 @@ export function SpotScreen({ spotId, nav }: { spotId: string; nav: Nav }) {
             )}
             {voice.transcribing && (
               <div className="flex justify-end">
-                <div className="rounded-2xl rounded-tr-md bg-[var(--color-green-soft)] px-3.5 py-2.5 text-[13px] text-[var(--color-green)]">
-                  聞き取り中…
-                </div>
+                <div className="rounded-2xl rounded-tr-md bg-[var(--color-green-soft)] px-3.5 py-2.5 text-[13px] text-[var(--color-green)]">{t("聞き取り中…")}</div>
               </div>
             )}
           </div>
@@ -436,7 +434,7 @@ export function SpotScreen({ spotId, nav }: { spotId: string; nav: Nav }) {
                   className="flex min-h-11 shrink-0 items-center gap-1 rounded-full border border-[var(--color-border)] bg-[var(--color-panel-soft)] px-4 text-[12px] font-medium text-[var(--color-ink)] disabled:opacity-50"
                 >
                   <SparkIcon size={13} className="text-[var(--color-terracotta)]" />
-                  {q}
+                  {t(q)}
                 </button>
               ))}
             </div>
@@ -455,8 +453,8 @@ export function SpotScreen({ spotId, nav }: { spotId: string; nav: Nav }) {
                     e.preventDefault();
                   }
                 }}
-                placeholder="質問を入力…"
-                aria-label="質問を入力"
+                placeholder={t("質問を入力…")}
+                aria-label={t("質問を入力")}
                 disabled={busy}
                 className="min-w-0 flex-1 rounded-full border border-[var(--color-border)] bg-[var(--color-bg)] px-4 py-2.5 text-[14px] outline-none focus:border-[var(--color-terracotta)] focus:ring-2 focus:ring-[var(--color-terracotta)]/40 disabled:opacity-60"
               />
@@ -464,7 +462,7 @@ export function SpotScreen({ spotId, nav }: { spotId: string; nav: Nav }) {
                 <button
                   type="submit"
                   disabled={busy}
-                  aria-label="送信"
+                  aria-label={t("送信")}
                   className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full bg-[var(--color-green)] text-white disabled:opacity-50"
                 >
                   <SendIcon size={18} />
@@ -526,5 +524,32 @@ function PostButton({
     >
       {children}
     </button>
+  );
+}
+
+/**
+ * 案内の前に出す注意書き。
+ *
+ * 日本語のときは、その場所だけの特別な注意があるときにだけ出す。一般的なマナーを
+ * 日本の人に並べても読み飛ばされるうえ、失礼にもなる。
+ * ほかの言語のときは、共通のマナーも短く添える（はじめて日本の史跡を訪ねる人向け）。
+ */
+function SpotNotice({ spotId, lang, t }: { spotId: string; lang: Lang; t: (ja: string) => string }) {
+  const notice = noticeFor(spotId, lang);
+  if (!notice.spot && notice.common.length === 0) return null;
+  return (
+    <div className="w-full rounded-2xl border border-[var(--color-sun)] bg-[var(--color-sun-soft)] p-3.5 text-left">
+      <p className="text-[12px] font-extrabold text-[var(--color-sun-ink)]">{t("訪れる前に")}</p>
+      {notice.spot && (
+        <p className="mt-1 text-[12.5px] font-bold leading-6 text-[var(--color-ink)]">{notice.spot}</p>
+      )}
+      {notice.common.length > 0 && (
+        <ul className="mt-1.5 list-disc space-y-0.5 pl-4 text-[12px] leading-5 text-[var(--color-ink)]">
+          {notice.common.map((line) => (
+            <li key={line}>{line}</li>
+          ))}
+        </ul>
+      )}
+    </div>
   );
 }

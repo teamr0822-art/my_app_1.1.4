@@ -4,6 +4,8 @@ import { useEffect, useState } from "react";
 import { MapIcon, MicIcon, SparkIcon } from "@/components/icons";
 import { AREAS, SPOTS, STATS } from "@/lib/spots";
 import { useAuth } from "@/lib/auth-context";
+import { useT } from "@/lib/i18n";
+import { LanguagePicker } from "@/components/language-picker";
 
 const SEEN_KEY = "yorimikke-onboarded-v1";
 
@@ -23,11 +25,10 @@ const CREED_TITLE = ["行列のできる一か所より、", "誰も止まらな
 const CREED_BODY =
   "新しい人気スポットを作っても、人がそこに集まり直すだけです。よりみっけが目指すのは、街じゅうに散らばった小さな史跡へ、人が少しずつ流れていくこと。その積み重ねが地域を元気にすると考えています。";
 /** 中身の規模を一目で。data/areas/ の実数から数えるので、データを足せば自動で増える。 */
-const CREED_FACTS = [
-  AREAS.map((a) => a.replace(/市$/, "")).join("・"),
-  `${SPOTS.length}か所`,
-  `うち指定文化財${STATS.kunishitei + STATS.kenshitei}件`,
-];
+/** 訳せるように、文の形は t() に渡す（数字と街の名前だけ差し込む）。 */
+const CREED_AREAS = AREAS.map((a) => a.replace(/市$/, "")).join("・");
+const CREED_SPOTS = SPOTS.length;
+const CREED_DESIGNATED = STATS.kunishitei + STATS.kenshitei;
 
 const STEPS = [
   {
@@ -64,6 +65,7 @@ export function Onboarding() {
    */
   const [choosing, setChoosing] = useState(true);
   const auth = useAuth();
+  const t = useT();
 
   useEffect(() => {
     try {
@@ -108,16 +110,20 @@ export function Onboarding() {
         <h1 className="relative mt-3 text-[24px] font-extrabold leading-[1.3] tracking-tight text-white text-balance [@media(min-height:740px)]:text-[30px]">
           {CREED_TITLE.map((line) => (
             <span key={line} className="block">
-              {line}
+              {t(line)}
             </span>
           ))}
         </h1>
         <p className="relative mt-3 max-w-[22em] text-[12px] leading-6 text-white/85 [@media(min-height:740px)]:mt-4 [@media(min-height:740px)]:text-[13px] [@media(min-height:740px)]:leading-7">
-          {CREED_BODY}
+          {t(CREED_BODY)}
         </p>
         {/* 画面が低いときは省く。切れて見えるより、無いほうがいい。 */}
         <div className="relative mt-4 hidden flex-wrap gap-1.5 [@media(min-height:700px)]:flex">
-          {CREED_FACTS.map((fact) => (
+          {[
+            CREED_AREAS,
+            t("{n}か所", { n: CREED_SPOTS }),
+            t("うち指定文化財{n}件", { n: CREED_DESIGNATED }),
+          ].map((fact) => (
             <span
               key={fact}
               className="rounded-full border border-white/25 px-2.5 py-1 text-[11px] font-bold text-white/85"
@@ -130,6 +136,7 @@ export function Onboarding() {
 
       {choosing ? (
         <StartChoice
+          t={t}
           loggedIn={auth.status === "signedIn"}
           userName={auth.user?.name}
           onSignUp={() => {
@@ -153,15 +160,15 @@ export function Onboarding() {
           </span>
           <div className="min-w-0 flex-1">
             <p className="text-[12px] font-bold tracking-wide text-[var(--color-terracotta)]">
-              はじめかた {step + 1}／{STEPS.length}
+              {t("はじめかた")} {step + 1}／{STEPS.length}
             </p>
-            <h2 id="onboarding-title" className="mt-0.5 text-[17px] font-extrabold">{current.title}</h2>
+            <h2 id="onboarding-title" className="mt-0.5 text-[17px] font-extrabold">{t(current.title)}</h2>
           </div>
         </div>
 
-        <p className="mt-3 text-[13px] leading-6">{current.body}</p>
+        <p className="mt-3 text-[13px] leading-6">{t(current.body)}</p>
         <p className="mt-2 rounded-xl bg-[var(--color-panel-soft)] px-3 py-2 text-[12px] text-[var(--color-ink-soft)]">
-          {current.hint}
+          {t(current.hint)}
         </p>
 
         <div className="mt-4 flex items-center gap-2">
@@ -182,14 +189,14 @@ export function Onboarding() {
             onClick={close}
             className="flex min-h-11 items-center px-3 text-[12px] font-bold text-[var(--color-ink-soft)]"
           >
-            スキップ
+            {t("スキップ")}
           </button>
           <button
             type="button"
             onClick={() => (last ? close() : setStep(step + 1))}
             className="flex min-h-11 items-center rounded-xl bg-[var(--color-terracotta)] px-5 text-[13px] font-bold text-white"
           >
-            {last ? "はじめる" : "次へ"}
+            {last ? t("はじめる") : t("次へ")}
           </button>
         </div>
       </div>
@@ -204,12 +211,14 @@ export function Onboarding() {
  * 取り残された気分にならないよう、ゲストも同じ幅のボタンにする。
  */
 function StartChoice({
+  t,
   loggedIn,
   userName,
   onSignUp,
   onSignIn,
   onGuest,
 }: {
+  t: (ja: string, vars?: Record<string, string | number>) => string;
   loggedIn: boolean;
   userName?: string;
   onSignUp: () => void;
@@ -219,28 +228,31 @@ function StartChoice({
   const big = "flex min-h-14 w-full items-center justify-center rounded-2xl text-[16px] font-extrabold transition active:scale-[0.99]";
   return (
     <div className="anim-sheet mx-auto w-full max-w-[432px] shrink-0 rounded-3xl border border-[var(--color-border)] bg-[var(--color-panel)] p-5 shadow-2xl">
-      <h2 id="onboarding-title" className="text-[18px] font-extrabold">
-        {loggedIn ? `おかえりなさい、${userName ?? ""}さん` : "よりみっけをはじめる"}
+      {/* 言語の選択をいちばん上に。読めない言語のまま案内を読ませない。 */}
+      <LanguagePicker compact />
+
+      <h2 id="onboarding-title" className="mt-4 text-[18px] font-extrabold">
+        {loggedIn ? t("おかえりなさい、{name}さん", { name: userName ?? "" }) : t("よりみっけをはじめる")}
       </h2>
       <p className="mt-1 text-[12.5px] leading-6 text-[var(--color-ink-soft)]">
-        ログインしなくても、すべての機能を使えます。
+        {t("ログインしなくても、すべての機能を使えます。")}
       </p>
       {loggedIn ? (
         <button type="button" onClick={onGuest} className={`${big} mt-4 bg-[var(--color-terracotta)] text-white`}>
-          つづける
+          {t("つづける")}
         </button>
       ) : (
         <div className="mt-4 flex flex-col gap-2.5">
           <div className="grid grid-cols-2 gap-2.5">
             <button type="button" onClick={onSignUp} className={`${big} bg-[var(--color-terracotta)] text-white`}>
-              新規登録
+              {t("新規登録")}
             </button>
             <button
               type="button"
               onClick={onSignIn}
               className={`${big} border-2 border-[var(--color-terracotta)] bg-[var(--color-panel)] text-[var(--color-terracotta)]`}
             >
-              ログイン
+              {t("ログイン")}
             </button>
           </div>
           <button
@@ -248,7 +260,7 @@ function StartChoice({
             onClick={onGuest}
             className={`${big} border border-[var(--color-border)] bg-[var(--color-panel-soft)] text-[var(--color-ink)]`}
           >
-            ログインせずに使う
+            {t("ログインせずに使う")}
           </button>
         </div>
       )}

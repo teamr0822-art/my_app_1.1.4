@@ -7,6 +7,7 @@ import { useLocation } from "@/lib/location-context";
 import { useToast } from "@/lib/toast-context";
 import { createPost, uploadPhoto, ROLE_LABEL, type PostKind } from "@/lib/supabase";
 import { CloseIcon } from "@/components/icons";
+import { useT } from "@/lib/i18n";
 
 /**
  * 投稿の画面。4種類を1つの画面でまかなう。
@@ -23,6 +24,9 @@ import { CloseIcon } from "@/components/icons";
  */
 
 const CATEGORIES = ["史跡", "神社・寺", "自然・景色", "食べ物", "休憩できる場所", "その他"];
+
+/** アプリへの意見の種類。細かく分けすぎると選ぶのが面倒になるので4つだけ。 */
+const FEEDBACK_KINDS = ["使いにくいところ", "ほしい機能", "うまく動かない", "そのほか"];
 
 const REPORT_REASONS = [
   "情報がまちがっている",
@@ -42,6 +46,7 @@ export function PostSheet() {
 }
 
 function PostForm() {
+  const t = useT();
   const post = usePost();
   const auth = useAuth();
   const geo = useLocation();
@@ -54,7 +59,7 @@ function PostForm() {
   const [category, setCategory] = useState(CATEGORIES[0]);
   const [address, setAddress] = useState("");
   const [rating, setRating] = useState(0);
-  const [reason, setReason] = useState(REPORT_REASONS[0]);
+  const [reason, setReason] = useState(kind === "feedback" ? FEEDBACK_KINDS[0] : REPORT_REASONS[0]);
   const [facilities, setFacilities] = useState<Record<string, boolean>>({});
   const [photos, setPhotos] = useState<File[]>([]);
   const [busy, setBusy] = useState(false);
@@ -78,12 +83,14 @@ function PostForm() {
 
   const heading =
     kind === "new_spot"
-      ? "新しい場所を教える"
+      ? t("新しい場所を教える")
       : kind === "review"
-        ? "口コミを書く"
+        ? t("口コミを書く")
         : kind === "report"
-          ? "まちがい・危険を知らせる"
-          : "写真を送る";
+          ? t("まちがい・危険を知らせる")
+          : kind === "feedback"
+            ? t("アプリへの意見を送る")
+            : t("写真を送る");
 
   const addPhotos = (files: FileList | null) => {
     if (!files) return;
@@ -96,14 +103,15 @@ function PostForm() {
     setError(null);
 
     if (kind === "new_spot") {
-      if (!title.trim()) return setError("場所の名前を入れてください。");
-      if (!spotPos) return setError("位置が分かりません。現在地を許可するか、あとで場所の近くで投稿してください。");
+      if (!title.trim()) return setError(t("場所の名前を入れてください。"));
+      if (!spotPos) return setError(t("位置が分かりません。現在地を許可するか、あとで場所の近くで投稿してください。"));
     }
     if (kind === "review" && !body.trim() && rating === 0) {
-      return setError("星か、ひとことを入れてください。");
+      return setError(t("星か、ひとことを入れてください。"));
     }
-    if (kind === "report" && !body.trim()) return setError("どこがおかしいかを書いてください。");
-    if (kind === "photo" && photos.length === 0) return setError("写真を選んでください。");
+    if (kind === "report" && !body.trim()) return setError(t("どこがおかしいかを書いてください。"));
+    if (kind === "feedback" && !body.trim()) return setError(t("ご意見を書いてください。"));
+    if (kind === "photo" && photos.length === 0) return setError(t("写真を選んでください。"));
 
     setBusy(true);
     try {
@@ -120,13 +128,13 @@ function PostForm() {
         category: kind === "new_spot" ? category : null,
         facilities,
         rating: kind === "review" && rating > 0 ? rating : null,
-        reportReason: kind === "report" ? reason : null,
+        reportReason: kind === "report" || kind === "feedback" ? reason : null,
         photoPaths: paths,
         authorRole: post.role,
       });
       post.notePosted();
       setDone(true);
-      toast("投稿を受け付けました");
+      toast(t("投稿を受け付けました"));
     } catch (err) {
       setError(err instanceof Error ? err.message : "うまくいきませんでした。");
     } finally {
@@ -162,7 +170,7 @@ function PostForm() {
           <button
             type="button"
             onClick={() => post.closePost()}
-            aria-label="閉じる"
+            aria-label={t("閉じる")}
             className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full text-[var(--color-ink-soft)]"
           >
             <CloseIcon size={20} />
@@ -171,10 +179,8 @@ function PostForm() {
 
         {auth.status !== "signedIn" ? (
           <div className="mt-3 space-y-3 text-[14px] leading-7">
-            <p>投稿にはログインが必要です。</p>
-            <p className="text-[12px] text-[var(--color-ink-soft)]">
-              誰が出した情報かが分からないと、あとで使えないためです。
-            </p>
+            <p>{t("投稿にはログインが必要です。")}</p>
+            <p className="text-[12px] text-[var(--color-ink-soft)]">{t("誰が出した情報かが分からないと、あとで使えないためです。")}</p>
             <button
               type="button"
               onClick={() => {
@@ -182,65 +188,60 @@ function PostForm() {
                 auth.openAuth("signIn");
               }}
               className="flex min-h-12 w-full items-center justify-center rounded-2xl bg-[var(--color-terracotta)] text-[15px] font-bold text-white"
-            >
-              ログインする
-            </button>
+            >{t("ログインする")}</button>
           </div>
         ) : done ? (
           <div className="mt-3 space-y-3 text-[14px] leading-7">
-            <p>ありがとうございます。投稿を受け付けました。</p>
-            <p className="text-[12px] leading-6 text-[var(--color-ink-soft)]">
-              集まった投稿は、内容を確かめてから地図に反映します。いまはまだ地図には
-              出ません。送った内容は、設定画面の「わたしの投稿」で確認できます。
-            </p>
+            <p>{t("ありがとうございます。投稿を受け付けました。")}</p>
+            <p className="text-[12px] leading-6 text-[var(--color-ink-soft)]">{t("集まった投稿は、内容を確かめてから地図に反映します。いまはまだ地図には 出ません。送った内容は、設定画面の「わたしの投稿」で確認できます。")}</p>
             <button
               type="button"
               onClick={() => post.closePost()}
               className="flex min-h-12 w-full items-center justify-center rounded-2xl bg-[var(--color-terracotta)] text-[15px] font-bold text-white"
-            >
-              閉じる
-            </button>
+            >{t("閉じる")}</button>
           </div>
         ) : (
           <form onSubmit={submit} noValidate className="mt-3">
             {/* いまどの立場で投稿するか。合言葉を入れた人はここに出る。 */}
             {post.role !== "general" && (
               <p className="mb-3 inline-flex items-center rounded-full bg-[var(--color-green-soft)] px-3 py-1 text-[12px] font-bold text-[var(--color-green)]">
-                {post.roleLabel ?? ROLE_LABEL[post.role]}として投稿します
+                {t("{role}として投稿します", { role: post.roleLabel ?? t(ROLE_LABEL[post.role]) })}
               </p>
             )}
 
             {kind === "new_spot" && (
               <>
                 <label className="block text-[13px] font-bold">
-                  場所の名前
+                  {t("場所の名前")}
                   <input
                     ref={firstField as React.RefObject<HTMLInputElement>}
                     type="text"
                     value={title}
                     onChange={(e) => setTitle(e.target.value)}
                     maxLength={60}
-                    placeholder="例：〇〇の石碑"
+                    placeholder={t("例：〇〇の石碑")}
                     className={field}
                   />
                 </label>
 
                 <label className="mt-4 block text-[13px] font-bold">
-                  どんな場所
+                  {t("どんな場所")}
                   <select value={category} onChange={(e) => setCategory(e.target.value)} className={field}>
                     {CATEGORIES.map((c) => (
-                      <option key={c}>{c}</option>
+                      <option key={c} value={c}>
+                        {t(c)}
+                      </option>
                     ))}
                   </select>
                 </label>
 
                 {/* 位置。現在地をそのまま使うのがいちばん確実なので、それを基本にする。 */}
                 <div className="mt-4 rounded-xl border border-[var(--color-border)] p-3">
-                  <p className="text-[13px] font-bold">場所</p>
+                  <p className="text-[13px] font-bold">{t("場所")}</p>
                   <p className="mt-1 text-[12px] leading-5 text-[var(--color-ink-soft)]">
                     {spotPos
-                      ? `現在地を使います（${spotPos[0].toFixed(5)}, ${spotPos[1].toFixed(5)}）`
-                      : "現在地が取れていません。その場所の近くで投稿してください。"}
+                      ? t("現在地を使います（{lat}, {lng}）", { lat: spotPos[0].toFixed(5), lng: spotPos[1].toFixed(5) })
+                      : t("現在地が取れていません。その場所の近くで投稿してください。")}
                   </p>
                   <button
                     type="button"
@@ -249,25 +250,23 @@ function PostForm() {
                       if (!geo.fix) geo.retry();
                     }}
                     className="mt-2 min-h-11 rounded-xl border border-[var(--color-border)] px-3 text-[13px] font-bold"
-                  >
-                    いまの現在地に更新
-                  </button>
+                  >{t("いまの現在地に更新")}</button>
                 </div>
 
                 <label className="mt-4 block text-[13px] font-bold">
-                  住所や目印（任意）
+                  {t("住所や目印（任意）")}
                   <input
                     type="text"
                     value={address}
                     onChange={(e) => setAddress(e.target.value)}
                     maxLength={120}
-                    placeholder="例：松江市殿町 城の北側の坂の途中"
+                    placeholder={t("例：松江市殿町 城の北側の坂の途中")}
                     className={field}
                   />
                 </label>
 
                 <fieldset className="mt-4">
-                  <legend className="text-[13px] font-bold">ここにあるもの（任意）</legend>
+                  <legend className="text-[13px] font-bold">{t("ここにあるもの（任意）")}</legend>
                   <div className="mt-2 flex flex-wrap gap-2">
                     {[
                       ["parking", "駐車場"],
@@ -287,7 +286,7 @@ function PostForm() {
                             : "border-[var(--color-border)] text-[var(--color-ink)]"
                         }`}
                       >
-                        {label}
+                        {t(label)}
                       </button>
                     ))}
                   </div>
@@ -297,8 +296,8 @@ function PostForm() {
 
             {kind === "review" && (
               <fieldset>
-                <legend className="text-[13px] font-bold">よかったところ</legend>
-                <div className="mt-2 flex gap-1" role="radiogroup" aria-label="評価">
+                <legend className="text-[13px] font-bold">{t("よかったところ")}</legend>
+                <div className="mt-2 flex gap-1" role="radiogroup" aria-label={t("評価")}>
                   {[1, 2, 3, 4, 5].map((n) => (
                     <button
                       key={n}
@@ -318,12 +317,27 @@ function PostForm() {
               </fieldset>
             )}
 
+            {kind === "feedback" && (
+              <label className="block text-[13px] font-bold">
+                {t("どんなご意見ですか")}
+                <select value={reason} onChange={(e) => setReason(e.target.value)} className={field}>
+                  {FEEDBACK_KINDS.map((r) => (
+                    <option key={r} value={r}>
+                      {t(r)}
+                    </option>
+                  ))}
+                </select>
+              </label>
+            )}
+
             {kind === "report" && (
               <label className="block text-[13px] font-bold">
-                どうしましたか
+                {t("どうしましたか")}
                 <select value={reason} onChange={(e) => setReason(e.target.value)} className={field}>
                   {REPORT_REASONS.map((r) => (
-                    <option key={r}>{r}</option>
+                    <option key={r} value={r}>
+                      {t(r)}
+                    </option>
                   ))}
                 </select>
               </label>
@@ -331,7 +345,7 @@ function PostForm() {
 
             {kind !== "new_spot" && (
               <label className="mt-4 block text-[13px] font-bold">
-                {kind === "report" ? "くわしく" : "ひとこと（任意）"}
+                {kind === "report" ? t("くわしく") : kind === "feedback" ? t("ご意見") : t("ひとこと（任意）")}
                 <textarea
                   ref={kind !== "photo" ? (firstField as React.RefObject<HTMLTextAreaElement>) : undefined}
                   value={body}
@@ -339,7 +353,11 @@ function PostForm() {
                   maxLength={500}
                   rows={4}
                   placeholder={
-                    kind === "report" ? "例：門が閉まっていて中に入れませんでした" : "例：朝は人が少なくて静かでした"
+                    kind === "report"
+                      ? t("例：門が閉まっていて中に入れませんでした")
+                      : kind === "feedback"
+                        ? t("例：文字が小さくて外だと読みにくいです")
+                        : t("例：朝は人が少なくて静かでした")
                   }
                   className={`${field} resize-none`}
                 />
@@ -361,7 +379,7 @@ function PostForm() {
 
             {/* 写真。使い道はこれから決めるので、いまは集めるだけ。 */}
             <div className="mt-4">
-              <p className="text-[13px] font-bold">写真（{MAX_PHOTOS}枚まで・任意）</p>
+              <p className="text-[13px] font-bold">{t("写真（{n}枚まで・任意）", { n: MAX_PHOTOS })}</p>
               <input
                 type="file"
                 accept="image/*"
@@ -378,9 +396,7 @@ function PostForm() {
                         type="button"
                         onClick={() => setPhotos((p) => p.filter((_, k) => k !== i))}
                         className="min-h-11 px-2 font-bold text-[var(--color-terracotta)]"
-                      >
-                        外す
-                      </button>
+                      >{t("外す")}</button>
                     </li>
                   ))}
                 </ul>
@@ -401,13 +417,10 @@ function PostForm() {
               aria-disabled={busy}
               className="mt-5 flex min-h-13 w-full items-center justify-center rounded-2xl bg-[var(--color-terracotta)] py-3.5 text-[16px] font-bold text-white aria-disabled:opacity-60"
             >
-              {busy ? "送っています…" : "送る"}
+              {busy ? t("送っています…") : t("送る")}
             </button>
 
-            <p className="mt-2 text-[11px] leading-5 text-[var(--color-ink-soft)]">
-              投稿はいったん集めるだけで、すぐには地図に出ません。内容を確かめてから
-              反映します。個人が特定できる写真や、他人の敷地の中は避けてください。
-            </p>
+            <p className="mt-2 text-[11px] leading-5 text-[var(--color-ink-soft)]">{t("投稿はいったん集めるだけで、すぐには地図に出ません。内容を確かめてから 反映します。個人が特定できる写真や、他人の敷地の中は避けてください。")}</p>
           </form>
         )}
       </div>

@@ -5,6 +5,9 @@ import { useSettings } from "@/lib/settings-context";
 import { AREAS, STATS, DATA_SOURCE, SPOTS } from "@/lib/spots";
 import { useVisited } from "@/lib/visited";
 import { useAuth } from "@/lib/auth-context";
+import { usePost } from "@/lib/post-context";
+import { useT } from "@/lib/i18n";
+import { LanguagePicker } from "@/components/language-picker";
 import { useProfile } from "@/lib/profile";
 import { useJourney } from "@/lib/journey";
 import { JourneyCard } from "@/components/journey-card";
@@ -65,6 +68,7 @@ function Toggle({
 
 export function SettingsScreen() {
   const s = useSettings();
+  const t = useT();
   const visited = useVisited();
 
   return (
@@ -74,14 +78,21 @@ export function SettingsScreen() {
       }`}
     >
       <header className="px-5 pb-4 pt-[calc(20px+env(safe-area-inset-top))]">
-        <h1 className="text-[22px] font-extrabold tracking-tight">設定</h1>
+        <h1 className="text-[22px] font-extrabold tracking-tight">{t("設定")}</h1>
         <p className="mt-1 text-[12px] text-[var(--color-ink-soft)]">
-          音声ガイドの動作をカスタマイズできます
+          {t("音声ガイドの動作をカスタマイズできます")}
         </p>
       </header>
 
       {/* アカウント。設定のいちばん上に置き、途中からでもログイン・新規登録できるようにする。 */}
       <AccountCard />
+
+      {/* 言語。旅先で開いた人が最初に触るので、いちばん上に置く。 */}
+      <section className="px-4 pb-3">
+        <div className="rounded-2xl border border-[var(--color-border)] bg-[var(--color-panel)] p-4">
+          <LanguagePicker />
+        </div>
+      </section>
 
       {/* Mute mode — distinct restricted palette */}
       <section className="px-4">
@@ -104,7 +115,7 @@ export function SettingsScreen() {
           </span>
           <div className="min-w-0 flex-1">
             <p className="text-[15px] font-bold">
-              ミュートモード{" "}
+              {t("ミュートモード")}{" "}
               <span
                 className={
                   s.muted ? "text-[var(--color-mute-ink)]" : "text-[var(--color-ink-soft)]"
@@ -113,14 +124,12 @@ export function SettingsScreen() {
                 {s.muted ? "ON" : "OFF"}
               </span>
             </p>
-            <p className="mt-0.5 text-[12px] leading-relaxed text-[var(--color-ink-soft)]">
-              音声の入出力を止め、文字だけでご案内します。周囲に配慮したい場所で。
-            </p>
+            <p className="mt-0.5 text-[12px] leading-relaxed text-[var(--color-ink-soft)]">{t("音声の入出力を止め、文字だけでご案内します。周囲に配慮したい場所で。")}</p>
           </div>
           <Toggle
             on={s.muted}
             danger
-            label="ミュートモード"
+            label={t("ミュートモード")}
             onClick={() => s.toggle("muted")}
           />
         </div>
@@ -130,65 +139,59 @@ export function SettingsScreen() {
       <PostSection />
 
       {/* 歩いた距離。ログインした人だけの機能なので、していない人には案内だけ出す。 */}
-      <SectionTitle>歩いた距離</SectionTitle>
+      <SectionTitle>{t("歩いた距離")}</SectionTitle>
       <section className="px-4">
         <JourneySection />
       </section>
 
       {/* 訪れた記録。端末にしか残らないので、消す手段も同じ場所に置く。 */}
-      <SectionTitle>訪れた記録</SectionTitle>
+      <SectionTitle>{t("訪れた記録")}</SectionTitle>
       <section className="px-4">
         <div className="flex items-center justify-between gap-3 rounded-2xl border border-[var(--color-border)] bg-[var(--color-panel)] p-4">
           <div className="min-w-0">
             <p className="text-[15px] font-bold">
-              これまでに{visited.count}か所
+              {t("これまでに{n}か所", { n: visited.count })}
             </p>
-            <p className="mt-0.5 text-[12px] leading-relaxed text-[var(--color-ink-soft)]">
-              案内中にスポットへ40m以内まで近づくと、自動で記録されます。この端末にだけ保存され、どこにも送られません。
-            </p>
+            <p className="mt-0.5 text-[12px] leading-relaxed text-[var(--color-ink-soft)]">{t("案内中にスポットへ40m以内まで近づくと、自動で記録されます。この端末にだけ保存され、どこにも送られません。")}</p>
           </div>
           {visited.count > 0 && (
             <button
               type="button"
               onClick={() => visited.clearVisited()}
               className="min-h-11 shrink-0 rounded-xl border border-[var(--color-border)] px-3 text-[13px] font-bold text-[var(--color-ink-soft)]"
-            >
-              消す
-            </button>
+            >{t("消す")}</button>
           )}
         </div>
       </section>
 
       {/* 屋外モード: 晴天下で読めるかどうかは実用機能なので、設定の上のほうに置く */}
-      <SectionTitle>画面</SectionTitle>
+      <SectionTitle>{t("画面")}</SectionTitle>
       <section className="px-4">
         <div className="flex items-center justify-between gap-3 rounded-2xl border border-[var(--color-border)] bg-[var(--color-panel)] p-4">
           <div className="min-w-0">
             <p className="text-[15px] font-bold">
-              屋外モード{" "}
+              {t("屋外モード")}{" "}
               <span className="text-[12px] font-bold text-[var(--color-ink-soft)]">
                 {s.outdoor ? "ON" : "OFF"}
               </span>
             </p>
-            <p className="mt-0.5 text-[12px] leading-relaxed text-[var(--color-ink-soft)]">
-              直射日光の下でも読めるように、文字と背景のコントラストを最大にします。
-            </p>
+            <p className="mt-0.5 text-[12px] leading-relaxed text-[var(--color-ink-soft)]">{t("直射日光の下でも読めるように、文字と背景のコントラストを最大にします。")}</p>
           </div>
           <Toggle
             on={s.outdoor}
-            label="屋外モード"
+            label={t("屋外モード")}
             onClick={() => s.toggle("outdoor")}
           />
         </div>
       </section>
 
       {/* Voice section */}
-      <SectionTitle>音声エンジン</SectionTitle>
+      <SectionTitle>{t("音声エンジン")}</SectionTitle>
       <section className="px-4">
         <div className="overflow-hidden rounded-2xl border border-[var(--color-border)] bg-[var(--color-panel)]">
           <Row
-            label="音声の方式"
-            sub="サーバー音声が使えない時は自動で端末音声に切り替わります"
+            label={t("音声の方式")}
+            sub={t("サーバー音声が使えない時は自動で端末音声に切り替わります")}
           >
             <div className="flex gap-1 rounded-full bg-[var(--color-panel-soft)] p-1">
               {(["server", "browser"] as const).map((e) => (
@@ -202,19 +205,19 @@ export function SettingsScreen() {
                       : "text-[var(--color-ink-soft)]"
                   }`}
                 >
-                  {e === "server" ? "高精度" : "端末内蔵"}
+                  {e === "server" ? t("高精度") : t("端末内蔵")}
                 </button>
               ))}
             </div>
           </Row>
 
           <Divider />
-          <Row label="読み上げの声" sub="高精度モードで使う音声">
+          <Row label={t("読み上げの声")} sub={t("高精度モードで使う音声")}>
             <select
               value={s.ttsVoice}
               onChange={(e) => s.set("ttsVoice", e.target.value)}
               disabled={s.voiceEngine !== "server"}
-              aria-label="読み上げの声"
+              aria-label={t("読み上げの声")}
               className="min-h-11 rounded-lg border border-[var(--color-border)] bg-[var(--color-bg)] px-2.5 text-[13px] outline-none disabled:opacity-50"
             >
               {TTS_VOICES.map((v) => (
@@ -226,7 +229,7 @@ export function SettingsScreen() {
           </Row>
 
           <Divider />
-          <Row label="読み上げ速度" sub={`${s.rate.toFixed(1)}倍速`}>
+          <Row label={t("読み上げ速度")} sub={t("{n}倍速", { n: s.rate.toFixed(1) })}>
             <input
               type="range"
               min={0.5}
@@ -234,7 +237,7 @@ export function SettingsScreen() {
               step={0.1}
               value={s.rate}
               onChange={(e) => s.set("rate", Number(e.target.value))}
-              aria-label="読み上げ速度"
+              aria-label={t("読み上げ速度")}
               className="h-11 w-32 accent-[var(--color-terracotta)]"
             />
           </Row>
@@ -242,25 +245,25 @@ export function SettingsScreen() {
       </section>
 
       {/* Companion section */}
-      <SectionTitle>お散歩コンパニオン</SectionTitle>
+      <SectionTitle>{t("お散歩コンパニオン")}</SectionTitle>
       <section className="px-4">
         <div className="overflow-hidden rounded-2xl border border-[var(--color-border)] bg-[var(--color-panel)]">
           <Row
-            label="コンパニオンを表示"
-            sub="画面右下から、近くの史跡について雑談できます"
+            label={t("コンパニオンを表示")}
+            sub={t("画面右下から、近くの史跡について雑談できます")}
             icon={<SparkIcon size={16} className="text-[var(--color-green)]" />}
           >
             <Toggle
               on={s.companionOn}
-              label="コンパニオンを表示"
+              label={t("コンパニオンを表示")}
               onClick={() => s.toggle("companionOn")}
             />
           </Row>
           <Divider />
-          <Row label="ハンズフリー会話" sub="話し終わると自動で聞き取りを続けます">
+          <Row label={t("ハンズフリー会話")} sub={t("話し終わると自動で聞き取りを続けます")}>
             <Toggle
               on={s.companionAutoListen}
-              label="ハンズフリー会話"
+              label={t("ハンズフリー会話")}
               onClick={() => s.toggle("companionAutoListen")}
             />
           </Row>
@@ -268,17 +271,15 @@ export function SettingsScreen() {
       </section>
 
       {/* About / data source */}
-      <SectionTitle>このアプリについて</SectionTitle>
+      <SectionTitle>{t("このアプリについて")}</SectionTitle>
       <section className="px-4">
         <button
           type="button"
           onClick={replayOnboarding}
           className="mb-3 w-full rounded-2xl border border-[var(--color-border)] bg-[var(--color-panel)] px-4 py-3 text-left text-[13px] font-bold active:scale-[0.99]"
         >
-          使い方をもう一度見る
-          <span className="mt-0.5 block text-[12px] font-normal text-[var(--color-ink-soft)]">
-            はじめての3ステップを表示します
-          </span>
+          {t("使い方をもう一度見る")}
+          <span className="mt-0.5 block text-[12px] font-normal text-[var(--color-ink-soft)]">{t("はじめての3ステップを表示します")}</span>
         </button>
 
         <div className="rounded-2xl border border-[var(--color-border)] bg-[var(--color-panel)] p-4">
@@ -287,18 +288,24 @@ export function SettingsScreen() {
               <InfoIcon size={18} />
             </span>
             <div className="text-[12px] leading-relaxed text-[var(--color-ink-soft)]">
-              <p className="font-bold text-[var(--color-ink)]">よりみっけ</p>
-              <p className="mt-0.5">知らなかった街の魅力を、旅の途中で見つけよう。</p>
+              <p className="font-bold text-[var(--color-ink)]">{t("よりみっけ")}</p>
+              <p className="mt-0.5">{t("知らなかった街の魅力を、旅の途中で見つけよう。")}</p>
               <p className="mt-1">
-                {AREAS.join("・")}の指定文化財{STATS.kunishitei + STATS.kenshitei}件
-                （国指定{STATS.kunishitei}件・県指定{STATS.kenshitei}件）のうち、
-                音声ガイド対応の{SPOTS.length}スポットを収録しています。
+                {t(
+                  "{areas}の指定文化財{total}件（国指定{kuni}件・県指定{ken}件）のうち、音声ガイド対応の{spots}スポットを収録しています。",
+                  {
+                    areas: AREAS.join("・"),
+                    total: STATS.kunishitei + STATS.kenshitei,
+                    kuni: STATS.kunishitei,
+                    ken: STATS.kenshitei,
+                    spots: SPOTS.length,
+                  },
+                )}
               </p>
-              <p className="mt-2">
-                位置情報は住所をもとに国土地理院ジオコーディングで取得。AIガイドの
-                回答は各スポットの資料にもとづいて生成され、出典を明記します。
+              <p className="mt-2">{t("位置情報は住所をもとに国土地理院ジオコーディングで取得。AIガイドの 回答は各スポットの資料にもとづいて生成され、出典を明記します。")}</p>
+              <p className="mt-2 text-[12px]">
+                {t("出典")}: {DATA_SOURCE}
               </p>
-              <p className="mt-2 text-[12px]">出典: {DATA_SOURCE}</p>
             </div>
           </div>
         </div>
@@ -307,10 +314,12 @@ export function SettingsScreen() {
   );
 }
 
+/** 見出し。文字列で渡されたものは、そのまま訳を引く（訳が無ければ日本語のまま）。 */
 function SectionTitle({ children }: { children: React.ReactNode }) {
+  const t = useT();
   return (
     <h2 className="px-5 pb-2 pt-6 text-[12px] font-bold uppercase tracking-wide text-[var(--color-ink-soft)]">
-      {children}
+      {typeof children === "string" ? t(children) : children}
     </h2>
   );
 }
@@ -326,14 +335,15 @@ function Row({
   icon?: React.ReactNode;
   children: React.ReactNode;
 }) {
+  const t = useT();
   return (
     <div className="flex items-center gap-3 px-4 py-3.5">
       {icon && <span aria-hidden="true">{icon}</span>}
       <div className="min-w-0 flex-1">
-        <p className="text-[14px] font-semibold">{label}</p>
+        <p className="text-[14px] font-semibold">{t(label)}</p>
         {sub && (
           <p className="mt-0.5 text-[12px] leading-relaxed text-[var(--color-ink-soft)]">
-            {sub}
+            {t(sub)}
           </p>
         )}
       </div>
@@ -351,6 +361,7 @@ function Divider() {
  * ログインは任意なので、していない状態でも「困っている」見え方にはしない。
  */
 function AccountCard() {
+  const t = useT();
   const auth = useAuth();
   const profile = useProfile();
   const { toast } = useToast();
@@ -361,7 +372,7 @@ function AccountCard() {
   // ニックネームはログインした人だけの機能。付けていればそれを、
   // まだなら登録した表示名を出す。ログインしていない人は「ゲスト」のまま。
   const signedIn = auth.status === "signedIn" && auth.user;
-  const shown = (signedIn ? profile.nickname || auth.user!.name : "") || "ゲスト";
+  const shown = (signedIn ? profile.nickname || auth.user!.name : "") || t("ゲスト");
 
   const save = () => {
     profile.setNickname(draft);
@@ -389,8 +400,8 @@ function AccountCard() {
               {signedIn
                 ? auth.user!.email
                 : auth.status === "loading"
-                  ? "ログイン状態を確認しています…"
-                  : "ログインしていません（この端末にだけ保存）"}
+                  ? t("ログイン状態を確認しています…")
+                  : t("ログインしていません（この端末にだけ保存）")}
             </p>
           </div>
           {signedIn && (
@@ -398,12 +409,10 @@ function AccountCard() {
               type="button"
               onClick={async () => {
                 await auth.signOut();
-                toast("ログアウトしました");
+                toast(t("ログアウトしました"));
               }}
               className="flex min-h-11 shrink-0 items-center rounded-xl border border-[var(--color-border)] px-3 text-[13px] font-bold"
-            >
-              ログアウト
-            </button>
+            >{t("ログアウト")}</button>
           )}
         </div>
 
@@ -433,17 +442,15 @@ function AccountCard() {
               }}
               maxLength={30}
               autoFocus
-              placeholder="例：たびびと"
-              aria-label="ニックネーム"
+              placeholder={t("例：たびびと")}
+              aria-label={t("ニックネーム")}
               className="min-h-12 min-w-0 flex-1 rounded-xl border border-[var(--color-border)] bg-[var(--color-panel)] px-3.5 text-[16px] outline-none focus:border-[var(--color-terracotta)]"
             />
             <button
               type="button"
               onClick={save}
               className="min-h-12 shrink-0 rounded-xl bg-[var(--color-terracotta)] px-4 text-[14px] font-bold text-white"
-            >
-              保存
-            </button>
+            >{t("保存")}</button>
           </div>
         )}
 
@@ -454,20 +461,14 @@ function AccountCard() {
                 type="button"
                 onClick={() => auth.openAuth("signUp")}
                 className={`${big} bg-[var(--color-terracotta)] text-white`}
-              >
-                新規登録
-              </button>
+              >{t("新規登録")}</button>
               <button
                 type="button"
                 onClick={() => auth.openAuth("signIn")}
                 className={`${big} border-2 border-[var(--color-terracotta)] text-[var(--color-terracotta)]`}
-              >
-                ログイン
-              </button>
+              >{t("ログイン")}</button>
             </div>
-            <p className="mt-2 text-[11px] leading-5 text-[var(--color-ink-soft)]">
-              ログインしなくても、すべての機能を使えます。
-            </p>
+            <p className="mt-2 text-[11px] leading-5 text-[var(--color-ink-soft)]">{t("ログインしなくても、すべての機能を使えます。")}</p>
           </>
         )}
       </div>
@@ -483,6 +484,7 @@ function AccountCard() {
  * 何が記録されるのかを先に見せて、そのうえで選んでもらう。
  */
 function JourneySection() {
+  const t = useT();
   const auth = useAuth();
   if (auth.status === "signedIn") {
     return (
@@ -494,27 +496,20 @@ function JourneySection() {
   }
   return (
     <div className="rounded-2xl border border-dashed border-[var(--color-border)] bg-[var(--color-panel)] p-4">
-      <p className="text-[15px] font-extrabold">ログインすると使えます</p>
-      <p className="mt-1 text-[12.5px] leading-6 text-[var(--color-ink-soft)]">
-        歩いた距離を、きょう・7日間・今月のカレンダーで見られます。ニックネームも
-        ログインした人だけの機能です。ログインしないまま使う分には、何も記録しません。
-      </p>
+      <p className="text-[15px] font-extrabold">{t("ログインすると使えます")}</p>
+      <p className="mt-1 text-[12.5px] leading-6 text-[var(--color-ink-soft)]">{t("歩いた距離を、きょう・7日間・今月のカレンダーで見られます。ニックネームも ログインした人だけの機能です。ログインしないまま使う分には、何も記録しません。")}</p>
       {auth.status !== "loading" && (
         <div className="mt-3 grid grid-cols-2 gap-2">
           <button
             type="button"
             onClick={() => auth.openAuth("signUp")}
             className="flex min-h-12 items-center justify-center rounded-xl bg-[var(--color-terracotta)] text-[15px] font-extrabold text-white"
-          >
-            新規登録
-          </button>
+          >{t("新規登録")}</button>
           <button
             type="button"
             onClick={() => auth.openAuth("signIn")}
             className="flex min-h-12 items-center justify-center rounded-xl border-2 border-[var(--color-terracotta)] text-[15px] font-extrabold text-[var(--color-terracotta)]"
-          >
-            ログイン
-          </button>
+          >{t("ログイン")}</button>
         </div>
       )}
     </div>
@@ -523,6 +518,7 @@ function JourneySection() {
 
 /** 歩いた距離を消すボタン。記録は端末にしかないので、消す手段も同じ場所に置く。 */
 function JourneyClear() {
+  const t = useT();
   const journey = useJourney();
   if (journey.totalMeters <= 0) return null;
   return (
@@ -530,9 +526,7 @@ function JourneyClear() {
       type="button"
       onClick={() => journey.clearJourney()}
       className="mt-2 min-h-11 w-full rounded-xl border border-[var(--color-border)] text-[13px] font-bold text-[var(--color-ink-soft)]"
-    >
-      歩いた距離の記録を消す
-    </button>
+    >{t("歩いた距離の記録を消す")}</button>
   );
 }
 
@@ -541,15 +535,43 @@ function JourneyClear() {
  * 「どの立場で投稿するか」と「送ったものの一覧」を並べて置く。
  */
 function PostSection() {
+  const t = useT();
   const auth = useAuth();
   if (auth.status !== "signedIn") return null;
   return (
     <>
-      <SectionTitle>投稿</SectionTitle>
+      <SectionTitle>{t("投稿")}</SectionTitle>
       <section className="space-y-2 px-4">
         <ContributorCard />
+        <FeedbackCard />
         <MyPostsCard />
       </section>
     </>
+  );
+}
+
+/**
+ * アプリそのものへの意見を送るところ。
+ *
+ * スポットへの口コミと混ざらないよう、投稿の種類を分けて保存する（kind=feedback）。
+ * 「使いにくい」と言ってもらえる場所が無いと、作った側には何も届かない。
+ */
+function FeedbackCard() {
+  const post = usePost();
+  const t = useT();
+  return (
+    <div className="rounded-2xl border border-[var(--color-border)] bg-[var(--color-panel)] p-4">
+      <p className="text-[15px] font-extrabold">{t("このアプリへの意見")}</p>
+      <p className="mt-0.5 text-[12px] leading-5 text-[var(--color-ink-soft)]">
+        {t("使いにくいところ、ほしい機能、うまく動かないところを教えてください。作った人に届きます。")}
+      </p>
+      <button
+        type="button"
+        onClick={() => post.openPost({ kind: "feedback" })}
+        className="mt-3 flex min-h-12 w-full items-center justify-center rounded-xl border-2 border-[var(--color-terracotta)] text-[15px] font-extrabold text-[var(--color-terracotta)]"
+      >
+        {t("意見を送る")}
+      </button>
+    </div>
   );
 }

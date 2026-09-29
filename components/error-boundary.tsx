@@ -1,6 +1,7 @@
 "use client";
 
 import { Component, type ReactNode } from "react";
+import { translateStatic } from "@/lib/i18n";
 
 type Props = {
   children: ReactNode;
@@ -38,30 +39,24 @@ export class ErrorBoundary extends Component<Props, State> {
 
   render() {
     if (!this.state.error) return this.props.children;
-    const what = this.props.label ?? "この画面";
+    const what = translateStatic(this.props.label ?? "この画面");
     return (
       <div className="flex h-full w-full flex-col items-center justify-center gap-3 px-6 py-10 text-center">
         <p className="text-base font-semibold text-[var(--color-ink)]">
-          {what}の表示に失敗しました
+          {translateStatic("{what}の表示に失敗しました").replace("{what}", what)}
         </p>
-        <p className="max-w-xs text-sm leading-relaxed text-[var(--color-ink-soft)]">
-          一時的な不具合の可能性があります。もう一度読み込むか、他の画面をお試しください。
-        </p>
+        <p className="max-w-xs text-sm leading-relaxed text-[var(--color-ink-soft)]">{translateStatic("一時的な不具合の可能性があります。もう一度読み込むか、他の画面をお試しください。")}</p>
         <div className="flex gap-2">
           <button
             type="button"
             onClick={this.reset}
             className="rounded-full bg-[var(--color-terracotta)] px-5 py-2 text-sm font-semibold text-white"
-          >
-            もう一度試す
-          </button>
+          >{translateStatic("もう一度試す")}</button>
           <button
             type="button"
             onClick={() => location.reload()}
             className="rounded-full border border-[var(--color-border)] px-5 py-2 text-sm font-semibold text-[var(--color-ink)]"
-          >
-            アプリを再読み込み
-          </button>
+          >{translateStatic("アプリを再読み込み")}</button>
         </div>
       </div>
     );
