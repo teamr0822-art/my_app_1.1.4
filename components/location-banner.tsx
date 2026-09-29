@@ -21,18 +21,20 @@ export function LocationBanner() {
 
   const message =
     geo.manualArea !== null
-      ? `「${geo.manualArea}」を基準に表示しています`
+      ? t("「{area}」を基準に表示しています", { area: geo.manualArea })
       : geo.status === "denied"
-        ? "位置情報が許可されていないため、現在地からの距離は表示できません"
+        ? t("位置情報が許可されていないため、現在地からの距離は表示できません")
         : geo.status === "unsupported"
-          ? "この端末では位置情報を使えません"
+          ? t("この端末では位置情報を使えません")
           : geo.status === "coarse"
-            ? `現在地の精度が粗いため（誤差およそ${Math.round((geo.accuracy ?? 0) / 10) * 10}m）、距離は表示していません`
+            ? t("現在地の精度が粗いため（誤差およそ{m}m）、距離は表示していません", {
+                m: Math.round((geo.accuracy ?? 0) / 10) * 10,
+              })
             : geo.status === "locating"
-              ? "現在地を確認しています…"
+              ? t("現在地を確認しています…")
               : geo.status === "slow"
-                ? "現在地をまだ確認できていません。許可を求める表示が出ていれば「許可」を押してください"
-                : "現在地を取得できませんでした";
+                ? t("現在地をまだ確認できていません。許可を求める表示が出ていれば「許可」を押してください")
+                : t("現在地を取得できませんでした");
 
   return (
     <div
@@ -44,7 +46,9 @@ export function LocationBanner() {
         <span className="font-bold">{message}</span>
         {/* 測位できていない間に何を表示しているのかも言う（既定は松江市）。 */}
         {!geo.manualArea && !geo.fix && geo.status !== "locating" && (
-          <span className="text-[var(--color-ink-soft)]">いまは{geo.areaLabel}を表示しています</span>
+          <span className="text-[var(--color-ink-soft)]">
+            {t("いまは{area}を表示しています", { area: geo.areaLabel })}
+          </span>
         )}
         <button
           type="button"
@@ -52,7 +56,7 @@ export function LocationBanner() {
           aria-expanded={picking}
           className="min-h-11 font-bold text-[var(--color-terracotta)] underline"
         >
-          {geo.manualArea ? "街を変える" : "いる街を選ぶ"}
+          {geo.manualArea ? t("街を変える") : t("いる街を選ぶ")}
         </button>
         {geo.manualArea && (
           <button
