@@ -8,6 +8,8 @@ import { useAuth } from "@/lib/auth-context";
 import { useProfile } from "@/lib/profile";
 import { useJourney } from "@/lib/journey";
 import { JourneyCard } from "@/components/journey-card";
+import { ContributorCard, MyPostsCard } from "@/components/my-posts";
+import { saveNickname } from "@/lib/supabase";
 import { useToast } from "@/lib/toast-context";
 import { replayOnboarding } from "@/components/onboarding";
 import { MicOffIcon, VolumeIcon, SparkIcon, InfoIcon } from "@/components/icons";
@@ -123,6 +125,9 @@ export function SettingsScreen() {
           />
         </div>
       </section>
+
+      {/* 投稿。ログインしている人だけに出す（属性と履歴）。 */}
+      <PostSection />
 
       {/* 歩いた距離。ログインした人だけの機能なので、していない人には案内だけ出す。 */}
       <SectionTitle>歩いた距離</SectionTitle>
@@ -360,6 +365,8 @@ function AccountCard() {
 
   const save = () => {
     profile.setNickname(draft);
+    // サーバー側にも残す。投稿の表示名に使うため。失敗しても端末の名前は変わる。
+    if (signedIn) saveNickname(draft).catch(() => {});
     setEditing(false);
     toast(draft.trim() ? `ニックネームを「${draft.trim().slice(0, 30)}」にしました` : "ニックネームを消しました");
   };
@@ -526,5 +533,23 @@ function JourneyClear() {
     >
       歩いた距離の記録を消す
     </button>
+  );
+}
+
+/**
+ * 投稿まわりの設定。ログインしている人にだけ出す。
+ * 「どの立場で投稿するか」と「送ったものの一覧」を並べて置く。
+ */
+function PostSection() {
+  const auth = useAuth();
+  if (auth.status !== "signedIn") return null;
+  return (
+    <>
+      <SectionTitle>投稿</SectionTitle>
+      <section className="space-y-2 px-4">
+        <ContributorCard />
+        <MyPostsCard />
+      </section>
+    </>
   );
 }

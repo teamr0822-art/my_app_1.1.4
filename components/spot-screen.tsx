@@ -3,11 +3,14 @@
 import dynamic from "next/dynamic";
 import { useEffect, useRef, useState } from "react";
 import type { Nav } from "@/app/page";
-import { getSpot } from "@/lib/spots";
+import { getSpot, distanceMeters, formatDistance } from "@/lib/spots";
 import { hoursOf } from "@/lib/visit-hours";
 import { useVoice } from "@/lib/use-voice";
 import { useGuideChat } from "@/lib/use-guide-chat";
 import { useSettings } from "@/lib/settings-context";
+import { useLocation } from "@/lib/location-context";
+import { usePost } from "@/lib/post-context";
+import type { PostKind } from "@/lib/supabase";
 import {
   ChevronLeftIcon,
   MicIcon,
@@ -40,6 +43,18 @@ const QUESTION_CHIPS = [
 export function SpotScreen({ spotId, nav }: { spotId: string; nav: Nav }) {
   const spot = getSpot(spotId);
   const { muted, handsFree, toggle } = useSettings();
+  const geo = useLocation();
+  /**
+   * 現在地からの徒歩の目安。速さは分速80m（不動産の表示と同じ目安）。
+   * 測位できていないときは何も出さない（違う街の数字を見せないため）。
+   */
+  const walk =
+    geo.canMeasure && spot
+      ? (() => {
+          const meters = distanceMeters(geo.pos, [spot.lat, spot.lng]);
+          return { meters, minutes: Math.max(1, Math.round(meters / 80)) };
+        })()
+      : null;
   const voice = useVoice();
   // If the AI cannot answer, the guide still has the spot's own material.
   const chat = useGuideChat({
@@ -268,10 +283,24 @@ export function SpotScreen({ spotId, nav }: { spotId: string; nav: Nav }) {
           {hours.label}
           {hours.guessed ? "（目安）" : ""}
         </span>
+        {/* 現在地からの目安。距離だけより「徒歩◯分」のほうが行くかどうか決めやすい。 */}
+        {walk && (
+          <span className="rounded-full bg-[var(--color-terracotta-soft)] px-2 py-0.5 text-[12px] font-bold text-[var(--color-terracotta)]">
+            徒歩{walk.minutes}分・{formatDistance(walk.meters)}
+          </span>
+        )}
         {spot.facilities?.toilet && <Facility>トイレあり</Facility>}
         {spot.facilities?.parking && <Facility>駐車場あり</Facility>}
+        {spot.facilities?.bicycle && <Facility>駐輪場あり</Facility>}
         {spot.facilities?.shelter && <Facility>雨宿りできる</Facility>}
         {spot.facilities?.indoor && <Facility>雨の日も見学可</Facility>}
+      </div>
+
+      {/* 投稿。行った人しか知らないことを、その場で送ってもらう入口。 */}
+      <div className="flex shrink-0 gap-2 border-b border-[var(--color-border)] px-4 py-2">
+        <PostButton kind="review" spot={spot}>口コミ</PostButton>
+        <PostButton kind="photo" spot={spot}>写真</PostButton>
+        <PostButton kind="report" spot={spot}>まちがい・危険</PostButton>
       </div>
 
       {!started ? (
@@ -475,5 +504,27 @@ function Facility({ children }: { children: React.ReactNode }) {
     <span className="rounded-full bg-[var(--color-panel-soft)] px-2 py-0.5 text-[12px] font-bold text-[var(--color-ink-soft)]">
       {children}
     </span>
+  );
+}
+
+/** スポット画面から投稿を開くボタン。 */
+function PostButton({
+  kind,
+  spot,
+  children,
+}: {
+  kind: PostKind;
+  spot: { id: string; name: string };
+  children: React.ReactNode;
+}) {
+  const post = usePost();
+  return (
+    <button
+      type="button"
+      onClick={() => post.openPost({ kind, spotId: spot.id, spotName: spot.name })}
+      className="min-h-11 flex-1 rounded-xl border border-[var(--color-border)] text-[12px] font-bold text-[var(--color-ink)]"
+    >
+      {children}
+    </button>
   );
 }

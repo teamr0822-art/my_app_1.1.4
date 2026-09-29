@@ -16,6 +16,7 @@ import {
   type RouteStep,
 } from "@/lib/use-route-directions";
 import { InfoIcon, CloseIcon } from "@/components/icons";
+import { usePost } from "@/lib/post-context";
 
 /** How close counts as "arrived", in metres. Wide enough for street-level GPS. */
 const ARRIVAL_METERS = 40;
@@ -42,6 +43,7 @@ export function MapScreen({
   routeTransport?: string;
 }) {
   const geo = useLocation();
+  const post = usePost();
   const { pos, located, areaLabel } = geo;
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [showInfo, setShowInfo] = useState(false);
@@ -236,6 +238,15 @@ export function MapScreen({
               : `${STATS.kunishitei + STATS.kenshitei}件の指定文化財のうち、音声ガイド対応${SPOTS.length}件`}
           </p>
         </div>
+        <div className="flex shrink-0 items-center gap-2">
+        {/* まだ載っていない場所を、その場で教えてもらう入口。 */}
+        <button
+          type="button"
+          onClick={() => post.openPost({ kind: "new_spot" })}
+          className="flex min-h-11 items-center rounded-full border border-[var(--color-border)] bg-[var(--color-panel-soft)] px-3 text-[12px] font-bold"
+        >
+          ＋場所を教える
+        </button>
         <button
           type="button"
           onClick={() => setShowInfo((v) => !v)}
@@ -244,6 +255,7 @@ export function MapScreen({
         >
           <InfoIcon size={18} />
         </button>
+        </div>
       </header>
 
       <LocationBanner />

@@ -33,6 +33,8 @@ export type Spot = {
     toilet?: boolean;
     /** 見学者が使える駐車場がある */
     parking?: boolean;
+    /** 見学者が使える駐輪場がある */
+    bicycle?: boolean;
     /** 屋根のある休憩場所があり、雨宿りできる */
     shelter?: boolean;
     /** 屋内展示が主で、雨の日でも見学できる */

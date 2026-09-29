@@ -7,6 +7,8 @@ import { ToastProvider } from "@/lib/toast-context";
 import { AuthProvider, useAuth } from "@/lib/auth-context";
 import { setJourneyEnabled } from "@/lib/journey";
 import { AuthSheet } from "@/components/auth-sheet";
+import { PostProvider } from "@/lib/post-context";
+import { PostSheet } from "@/components/post-sheet";
 import { HomeScreen } from "@/components/home-screen";
 import { MapScreen } from "@/components/map-screen";
 import { SettingsScreen } from "@/components/settings-screen";
@@ -158,6 +160,7 @@ export default function Page() {
       <AuthProvider>
         {/* 歩いた距離を記録するのはログイン中だけ（設定画面の説明もそれに合わせている）。 */}
         <JourneySwitch />
+      <PostProvider>
         <main className="app-frame">
           {/* One boundary per screen visit: if the map throws, the tab bar
               still works and moving to another tab clears the error, instead
@@ -185,11 +188,14 @@ export default function Page() {
           <Onboarding />
           {/* ログイン／新規登録。はじめての案内と設定画面の両方から開く。 */}
           <AuthSheet />
+          {/* 投稿（新しい場所・口コミ・通報・写真）。どの画面からでも開く。 */}
+          <PostSheet />
 
           <ErrorBoundary label="コンパニオン">
             <CompanionLayer nav={nav} bottomNavVisible={showBottomNav} />
           </ErrorBoundary>
         </main>
+      </PostProvider>
       </AuthProvider>
       </ToastProvider>
       </LocationProvider>

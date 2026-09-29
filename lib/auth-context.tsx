@@ -23,8 +23,8 @@ import { createContext, useCallback, useContext, useEffect, useMemo, useRef, use
  * ログイン状態（アクセストークン）はこの端末の localStorage にだけ保存する。
  */
 
-const SUPABASE_URL = (process.env.NEXT_PUBLIC_SUPABASE_URL ?? "").replace(/\/+$/, "");
-const SUPABASE_KEY =
+export const SUPABASE_URL = (process.env.NEXT_PUBLIC_SUPABASE_URL ?? "").replace(/\/+$/, "");
+export const SUPABASE_KEY =
   process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY ?? process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY ?? "";
 
 /** 環境変数がそろっていて、ログインを使える状態か。 */
@@ -151,6 +151,42 @@ function toMessage(data: unknown): string {
   return "うまくいきませんでした。時間をおいてもう一度お試しください。";
 }
 
+/**
+ * いま有効なログイン情報の控え。
+ *
+ * データベースを呼ぶところ（lib/supabase.ts）は React の外なので、フックからは
+ * 受け取れない。ここに最新のものを置いておき、必要になったら読む。
+ */
+let currentSession: Session | null = null;
+
+/** データベースを呼ぶときのトークン。期限が近ければ先に更新する。 */
+export async function getAccessToken(): Promise<string | null> {
+  const session = currentSession;
+  if (!session) return null;
+  const now = Math.floor(Date.now() / 1000);
+  if (session.expiresAt - now > 10) return session.accessToken;
+  const refreshed = await refreshSession(session);
+  return refreshed?.accessToken ?? null;
+}
+
+/** いまログインしている人のID（投稿の user_id に使う）。 */
+export function getUserIdFromSession(): string | null {
+  return currentSession?.user.id ?? null;
+}
+
+/** 期限切れのトークンを更新する（Provider の外からも呼べるように、ここに置く）。 */
+async function refreshSession(current: Session): Promise<Session | null> {
+  const r = await authFetch("/token?grant_type=refresh_token", { refresh_token: current.refreshToken });
+  if (r.ok) {
+    const next = toSession(r.data as RawSession);
+    currentSession = next;
+    save(next);
+    return next;
+  }
+  const network = (r.data as { msg?: string } | null)?.msg === "__network__";
+  return network ? current : null;
+}
+
 function load(): Session | null {
   try {
     const raw = localStorage.getItem(STORAGE_KEY);
@@ -196,6 +232,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const refreshing = useRef<Promise<Session | null> | null>(null);
 
   const apply = useCallback((next: Session | null) => {
+    currentSession = next;
     setSession(next);
     save(next);
     setStatus(next ? "signedIn" : "signedOut");
@@ -203,13 +240,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
   const refresh = useCallback(async (current: Session): Promise<Session | null> => {
     if (!refreshing.current) {
-      refreshing.current = (async () => {
-        const r = await authFetch("/token?grant_type=refresh_token", { refresh_token: current.refreshToken });
-        if (r.ok) return toSession(r.data as RawSession);
-        // 圏外で更新できなかっただけなら、手元の情報でログインしたまま扱う。
-        const network = (r.data as { msg?: string } | null)?.msg === "__network__";
-        return network ? current : null;
-      })().finally(() => {
+      refreshing.current = refreshSession(current).finally(() => {
         refreshing.current = null;
       });
     }
