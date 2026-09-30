@@ -3,6 +3,7 @@
 import { useEffect, useRef, useState } from "react";
 import type { LayerGroup, Map as LMap, Marker } from "leaflet";
 import type { Spot } from "@/lib/spots";
+import { translateStatic } from "@/lib/i18n";
 
 type Props = {
   center: [number, number];
@@ -240,10 +241,10 @@ export function LeafletMap({
             if (cameraRef.current === "follow") onCameraChangeRef.current?.("free");
             spin(delta);
           };
-          button(rotateGroup, "左に回転", "↺", () => spinByHand(-30));
+          button(rotateGroup, translateStatic("左に回転"), "↺", () => spinByHand(-30));
           const compass = button(
             rotateGroup,
-            "北を上に戻す",
+            translateStatic("北を上に戻す"),
             compassSvg(),
             () => {
               // 追いかけている間のコンパスは「進む向きが上 ⇔ 北が上」の切り替え。
@@ -254,10 +255,10 @@ export function LeafletMap({
               map.setBearing?.(0);
             },
           );
-          button(rotateGroup, "右に回転", "↻", () => spinByHand(30));
+          button(rotateGroup, translateStatic("右に回転"), "↻", () => spinByHand(30));
 
           const viewGroup = group();
-          button(viewGroup, "現在地へ", "◎", () => {
+          button(viewGroup, translateStatic("現在地へ"), "◎", () => {
             // 案内中は「追いかける」に戻す。案内していなければ、その場に寄るだけ。
             if (cameraRef.current !== undefined && onCameraChangeRef.current) {
               onCameraChangeRef.current("follow");
@@ -266,7 +267,7 @@ export function LeafletMap({
             const pos = userPosRef.current;
             if (pos) map.setView(pos, Math.max(map.getZoom(), 18));
           });
-          button(viewGroup, "ルート全体を表示", "<span style=\"font-size:12px;font-weight:700\">全体</span>", () => {
+          button(viewGroup, translateStatic("ルート全体を表示"), `<span style="font-size:12px;font-weight:700">${translateStatic("全体")}</span>`, () => {
             if (cameraRef.current !== undefined && onCameraChangeRef.current) {
               onCameraChangeRef.current("overview");
               return;
@@ -286,8 +287,8 @@ export function LeafletMap({
           const sync = () => {
             const deg = Math.round(map.getBearing?.() ?? 0);
             if (needle) needle.style.transform = `rotate(${-deg}deg)`;
-            compass.setAttribute("aria-label", deg ? "北を上に戻す" : "北が上です");
-            compass.title = deg ? "北を上に戻す" : "北が上です";
+            compass.setAttribute("aria-label", translateStatic(deg ? "北を上に戻す" : "北が上です"));
+            compass.title = translateStatic(deg ? "北を上に戻す" : "北が上です");
           };
           map.on("rotate", sync);
           sync();

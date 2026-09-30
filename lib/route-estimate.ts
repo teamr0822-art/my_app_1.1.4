@@ -30,7 +30,7 @@ const METRES_PER_MINUTE: Record<string, number> = {
 const DETOUR = 1.25;
 
 /** 各スポットで実際に使う時間（分）。見学の性質で変える。 */
-function dwellMinutes(spot: Spot): number {
+export function dwellMinutes(spot: Spot): number {
   const kind = hoursOf(spot).kind;
   if (kind === "facility") return 40; // 受付・展示を見る
   if (kind === "daytime") return 20; // 境内をひと回り
@@ -108,6 +108,8 @@ export function suggestStopCount(
   let base = Math.floor(minutes / perStop);
 
   if (moods.includes("ゆったり")) base = Math.round(base * 0.7);
+  // 「あまり歩きたくない」は、数を減らすだけでなく近い範囲に寄せる（radiusFor 側）。
+  if (moods.includes("あまり歩きたくない")) base = Math.round(base * 0.6);
   if (moods.includes("たくさん歩きたい")) base = Math.round(base * 1.25);
 
   const center = Math.max(2, Math.min(10, base));

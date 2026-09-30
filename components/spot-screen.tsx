@@ -3,7 +3,7 @@
 import dynamic from "next/dynamic";
 import { useEffect, useRef, useState } from "react";
 import type { Nav } from "@/app/page";
-import { getSpot, distanceMeters, formatDistance } from "@/lib/spots";
+import { getSpot, distanceMeters, formatDistance, type Spot } from "@/lib/spots";
 import { hoursOf } from "@/lib/visit-hours";
 import { useVoice } from "@/lib/use-voice";
 import { useGuideChat } from "@/lib/use-guide-chat";
@@ -315,6 +315,8 @@ export function SpotScreen({ spotId, nav }: { spotId: string; nav: Nav }) {
          * first tap — and tapping one starts the guide with that question.
          */
         <div className="flex flex-1 flex-col items-center justify-center gap-6 px-6 py-6 text-center">
+          {/* 資料で確かめられている事実。AIの解説より前に、これを先に置く。 */}
+          <FactsCard spot={spot} lang={lang} t={t} />
           {/* 案内をはじめる前の注意書き。文面は data/notices.json にある。 */}
           <SpotNotice spotId={spot.id} lang={lang} t={t} />
           <button
@@ -356,6 +358,26 @@ export function SpotScreen({ spotId, nav }: { spotId: string; nav: Nav }) {
         </div>
       ) : (
         <>
+          {/*
+            どこまでが資料で、どこからがAIの言葉なのかを分ける。
+            会話が続くと、この2つは同じ吹き出しの中で見分けがつかなくなる。
+            事実はたたんで常に取り出せるようにし、会話の側には「AIが話している」
+            と明記する。
+          */}
+          <div className="shrink-0 border-b border-[var(--color-border)] px-4 py-2">
+            <details className="text-[12px] leading-relaxed">
+              <summary className="cursor-pointer font-bold text-[var(--color-green)]">
+                {t("確認されている情報を見る")}
+              </summary>
+              <div className="mt-1.5">
+                <FactsBody spot={spot} lang={lang} t={t} />
+              </div>
+            </details>
+            <p className="mt-1.5 text-[11px] font-bold text-[var(--color-terracotta)]">
+              {t("ここから下は、よりみっけの解説です（AIが話しています）")}
+            </p>
+          </div>
+
           {/* Chat log */}
           <div
             ref={logRef}
@@ -529,6 +551,96 @@ function PostButton({
     >
       {children}
     </button>
+  );
+}
+
+/**
+ * 「確認されている情報」。
+ *
+ * ■ なぜ分けるのか
+ * 画面の中には性質のちがう2つの文章がある。ひとつは自治体の一覧や文化庁の
+ * データベースで確かめた事実、もうひとつは AI が組み立てた解説。見た目が同じ
+ * だと、旅行者にはどちらも「アプリが言っていること」に見え、まちがいがあった
+ * ときにどこを疑えばいいのか分からない。だから、事実には出典を添えて先に置き、
+ * AI の言葉には「解説」と名札を付ける。
+ */
+function FactsBody({
+  spot,
+  lang,
+  t,
+}: {
+  spot: Spot;
+  lang: Lang;
+  t: (ja: string, vars?: Record<string, string | number>) => string;
+}) {
+  const grounding = spot.grounding?.trim();
+  return (
+    <>
+      {/*
+        資料の本文は日本語のまま（自治体の記述をそのまま載せている）。
+        日本語以外の画面では、いきなり日本語の段落を出すと「訳し忘れ」に見える
+        ので、たたんで「原文」と名札を付ける。時代・所在地・出典は言語を問わず
+        読めるので、そちらは開かなくても見える位置に置く。
+      */}
+      {grounding && lang === "ja" && (
+        <p className="text-[12.5px] leading-6 text-[var(--color-ink)]">{grounding}</p>
+      )}
+      {grounding && lang !== "ja" && (
+        <details>
+          <summary className="cursor-pointer text-[11.5px] font-bold text-[var(--color-ink-soft)]">
+            {t("資料の原文（日本語）")}
+          </summary>
+          <p lang="ja" className="mt-1 text-[12.5px] leading-6 text-[var(--color-ink)]">{grounding}</p>
+        </details>
+      )}
+      <dl className="mt-1.5 flex flex-wrap gap-x-3 gap-y-0.5 text-[11.5px] text-[var(--color-ink-soft)]">
+        {spot.era && (
+          <div className="flex gap-1">
+            <dt className="font-bold">{t("時代")}</dt>
+            <dd>{spot.era}</dd>
+          </div>
+        )}
+        {spot.address && (
+          <div className="flex gap-1">
+            <dt className="font-bold">{t("所在地")}</dt>
+            <dd>{spot.address}</dd>
+          </div>
+        )}
+      </dl>
+      {spot.sources?.length > 0 && (
+        <details className="mt-1.5">
+          <summary className="cursor-pointer text-[11px] font-bold text-[var(--color-ink-soft)]">
+            {t("出典（{n}件）", { n: spot.sources.length })}
+          </summary>
+          <ul className="mt-1 list-disc pl-4 text-[11px] leading-relaxed text-[var(--color-ink-soft)]">
+            {spot.sources.map((src) => (
+              /* 出典は資料の名前そのもの。訳さず原文のまま出す。 */
+              <li key={src} lang="ja">{src}</li>
+            ))}
+          </ul>
+        </details>
+      )}
+    </>
+  );
+}
+
+function FactsCard({
+  spot,
+  lang,
+  t,
+}: {
+  spot: Spot;
+  lang: Lang;
+  t: (ja: string, vars?: Record<string, string | number>) => string;
+}) {
+  if (!spot.grounding?.trim() && !spot.sources?.length) return null;
+  return (
+    <div className="w-full rounded-2xl border border-[var(--color-green)] bg-[var(--color-green-soft)] p-3.5 text-left">
+      <p className="text-[12px] font-bold text-[var(--color-green)]">{t("確認されている情報")}</p>
+      <div className="mt-1">
+        <FactsBody spot={spot} lang={lang} t={t} />
+      </div>
+    </div>
   );
 }
 

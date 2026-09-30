@@ -9,7 +9,7 @@ import { LocationBanner } from "@/components/location-banner";
 import { useGuideChat } from "@/lib/use-guide-chat";
 import { hoursForPrompt, hoursOf, lateWarning } from "@/lib/visit-hours";
 import { formatMinutes } from "@/lib/format";
-import { estimateItinerary, suggestStopCount, describeMinutes as describeSpan } from "@/lib/route-estimate";
+import { dwellMinutes, estimateItinerary, suggestStopCount, describeMinutes as describeSpan } from "@/lib/route-estimate";
 import { stripMarkdown } from "@/lib/format";
 import { SendIcon, SparkIcon } from "@/components/icons";
 
@@ -46,13 +46,17 @@ const METRES_PER_MINUTE: Record<string, number> = {
 
 const TRANSPORTS = Object.keys(METRES_PER_MINUTE);
 
-function radiusFor(minutes: number, transport: string): number {
+function radiusFor(minutes: number, transport: string, moods: string[] = []): number {
   const speed = METRES_PER_MINUTE[transport] ?? 80;
-  return Math.min(30000, Math.max(500, minutes * speed * 0.35));
+  // 「あまり歩きたくない」を選んだ人に、片道20分の候補を見せても意味がない。
+  // 数を減らす（suggestStopCount）だけでなく、探す範囲そのものを狭める。
+  const reach = moods.includes("あまり歩きたくない") ? 0.2 : 0.35;
+  return Math.min(30000, Math.max(500, minutes * speed * reach));
 }
 
 const MOODS = [
   "ゆったり",
+  "あまり歩きたくない",
   "たくさん歩きたい",
   "歴史を深掘り",
   "食べ歩き",
@@ -100,6 +104,18 @@ export function RouteScreen({ nav, hidden = false }: { nav: Nav; hidden?: boolea
   const { t, lang } = useI18n();
 
   /**
+   * ホームの「あと○分」から来たときは、その時間を最初から入れておく。
+   * 押した本人にとっては条件をもう選び終えているので、ここで選び直させない。
+   */
+  const planSeq = nav.plan?.seq ?? 0;
+  useEffect(() => {
+    if (!nav.plan) return;
+    setMinutes(nav.plan.minutes);
+    setUseEndTime(false);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [planSeq]);
+
+  /**
    * Minutes left until the chosen clock time. Recomputed on every render rather
    * than stored, so a form left open for ten minutes does not plan a trip that
    * is ten minutes too long.
@@ -132,7 +148,7 @@ export function RouteScreen({ nav, hidden = false }: { nav: Nav; hidden?: boolea
   // handed spots from every prefecture in the dataset and could propose a
   // "half-day walk" spanning Kochi, Hiroshima and Kagoshima.
   const candidates = useMemo(() => {
-    const radius = radiusFor(tripMinutes, transport);
+    const radius = radiusFor(tripMinutes, transport, moods);
     // 測位できていないときは、基準の街（手で選んだ街／既定の松江市）の中だけ
     // から選ぶ。距離順だけだと、スポットの少ない街でよその県が混ざる。
     const pool = geo.canMeasure ? SPOTS : spotsInArea(geo.areaLabel);
@@ -149,7 +165,7 @@ export function RouteScreen({ nav, hidden = false }: { nav: Nav; hidden?: boolea
         ? within
         : ranked.filter((r) => r.d <= FALLBACK_LIMIT_M).slice(0, MIN_CANDIDATES);
     return picked.slice(0, MAX_CANDIDATES);
-  }, [geo.pos, geo.canMeasure, geo.areaLabel, tripMinutes, transport]);
+  }, [geo.pos, geo.canMeasure, geo.areaLabel, tripMinutes, transport, moods]);
 
   const area = candidates[0]?.spot
     ? [candidates[0].spot.prefecture, candidates[0].spot.city].filter(Boolean).join("")
@@ -235,6 +251,32 @@ export function RouteScreen({ nav, hidden = false }: { nav: Nav; hidden?: boolea
    * その時刻、そうでなければ「いま＋使える時間」。時間の決まった場所が
    * 夕方以降に入ったときだけ注意を出すために使う。
    */
+  /**
+   * 何時に着くかの見込み。
+   *
+   * 「移動20分・見学15分」と書いてあっても、それが何時になるのかは自分で
+   * 足し算しないと分からない。閉まる時刻があるのは「合計時間」ではなく
+   * 「到着時刻」のほうなので、時計の形でも出す。
+   */
+  const schedule = useMemo(() => {
+    if (!estimate) return null;
+    const startedAt = Date.now();
+    // legs[0] が「現在地→1か所め」かどうかで、区間と立ち寄り先の対応がずれる。
+    const hasStartLeg = estimate.legs[0]?.from === "現在地";
+    let acc = 0;
+    return routeSpots.map((spot, i) => {
+      const legIndex = hasStartLeg ? i : i - 1;
+      const leg = legIndex >= 0 ? estimate.legs[legIndex] : undefined;
+      acc += leg?.minutes ?? 0;
+      const arrive = new Date(startedAt + acc * 60000);
+      acc += dwellMinutes(spot);
+      const leave = new Date(startedAt + acc * 60000);
+      const hhmm = (d: Date) =>
+        `${d.getHours()}:${String(d.getMinutes()).padStart(2, "0")}`;
+      return { arrive: hhmm(arrive), leave: hhmm(leave) };
+    });
+  }, [estimate, routeSpots]);
+
   const endsAtMinutes = useMemo(() => {
     if (useEndTime && !endTimeInvalid && endTime) {
       const [h, m] = endTime.split(":").map(Number);
@@ -357,7 +399,6 @@ export function RouteScreen({ nav, hidden = false }: { nav: Nav; hidden?: boolea
         </fieldset>
 
         <Option label={t("移動手段")} values={TRANSPORTS} value={transport} onChange={setTransport} />
-        <Option label={t("天気")} values={["晴れ", "くもり", "雨"]} value={weather} onChange={setWeather} />
 
         {/* Multi-select: "歴史を深掘り" and "食べ歩き" are not rival moods, and
             forcing one of them out made the answer worse than the visitor asked
@@ -387,14 +428,31 @@ export function RouteScreen({ nav, hidden = false }: { nav: Nav; hidden?: boolea
           </div>
         </fieldset>
 
-        <label className="flex flex-col gap-2 text-sm font-bold">
-          {t("追加の希望（任意）")}
-          <textarea value={request} onChange={(e) => setRequest(e.target.value)} placeholder={t("例：混雑を避けたい、眺めの良い場所に行きたい")} className="min-h-24 resize-none rounded-2xl border border-[var(--color-border)] bg-[var(--color-panel)] p-3 font-normal outline-none placeholder:text-[var(--color-ink-soft)] focus:border-[var(--color-terracotta)]" />
-        </label>
+        {/*
+          天気と追加の希望は、たたんでおく。
+          出発前に必ず決めるのは「時間・移動手段・気分」の3つで、残りを同じ
+          高さで並べると、画面が長くなって肝心の作成ボタンが見えなくなる。
+          既定値（晴れ・希望なし）でも十分なルートが出るので、開くのは任意。
+        */}
+        <details className="rounded-2xl border border-[var(--color-border)] bg-[var(--color-panel)] px-4 py-3">
+          <summary className="cursor-pointer text-sm font-bold">
+            {t("＋詳細条件")}
+            <span className="ml-1 font-normal text-[var(--color-ink-soft)]">
+              {t("（天気・追加の希望）")}
+            </span>
+          </summary>
+          <div className="mt-3 flex flex-col gap-4">
+            <Option label={t("天気")} values={["晴れ", "くもり", "雨"]} value={weather} onChange={setWeather} />
+            <label className="flex flex-col gap-2 text-sm font-bold">
+              {t("追加の希望（任意）")}
+              <textarea value={request} onChange={(e) => setRequest(e.target.value)} placeholder={t("例：混雑を避けたい、眺めの良い場所に行きたい")} className="min-h-24 resize-none rounded-2xl border border-[var(--color-border)] bg-[var(--color-panel)] p-3 font-normal outline-none placeholder:text-[var(--color-ink-soft)] focus:border-[var(--color-terracotta)]" />
+            </label>
+          </div>
+        </details>
 
         {candidates.length === 0 && (
           <p role="status" className="rounded-2xl border border-dashed border-[var(--color-border)] bg-[var(--color-panel)] p-4 text-[13px] leading-relaxed text-[var(--color-ink-soft)]">
-            {geo.canMeasure ? "現在地" : geo.areaLabel || "この街"}の周辺には、まだ登録されたスポットがありません。画面上の「いる街を選ぶ」から、ほかの街を選べます。
+            {t("{area}の周辺には、まだ登録されたスポットがありません。画面上の「いる街を選ぶ」から、ほかの街を選べます。", { area: geo.canMeasure ? t("現在地") : geo.areaLabel || t("この街") })}
           </p>
         )}
 
@@ -453,6 +511,13 @@ export function RouteScreen({ nav, hidden = false }: { nav: Nav; hidden?: boolea
                       <span className="font-bold">
                         {index + 1}. {spot.name}
                       </span>
+                      {/* 到着と出発の見込み。閉館に間に合うかは、合計時間ではなく
+                          この時刻で判断されるため。 */}
+                      {schedule?.[index] && (
+                        <span className="rounded-full bg-[var(--color-panel)] px-2 py-0.5 text-[11px] font-bold text-[var(--color-ink-soft)] ring-1 ring-[var(--color-border)]">
+                          {schedule[index].arrive}–{schedule[index].leave}
+                        </span>
+                      )}
                       <span
                         className={`rounded-full px-2 py-0.5 text-[11px] font-bold ${
                           w.kind === "always"
@@ -476,6 +541,9 @@ export function RouteScreen({ nav, hidden = false }: { nav: Nav; hidden?: boolea
                 <p className="mt-2 rounded-lg bg-[var(--color-sun-soft)] p-2 text-[11px] leading-relaxed text-[var(--color-ink)]">
                   {hoursNote}
                 </p>
+              )}
+              {schedule && (
+                <p className="mt-2 text-[11px] leading-relaxed text-[var(--color-ink-soft)]">{t("時刻は「いま出発した場合」の見込みです。")}</p>
               )}
               <p className="mt-2 text-[11px] leading-relaxed text-[var(--color-ink-soft)]">{t("見学できる時間は公式の営業時間ではありません。時間の決まった場所は、公式の案内で確認してから向かってください。")}</p>
             </div>

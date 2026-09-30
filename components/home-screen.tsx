@@ -15,7 +15,22 @@ import { useState } from "react";
 import { ConciergeSheet } from "@/components/concierge";
 import { LocationBanner } from "@/components/location-banner";
 import { useVisited } from "@/lib/visited";
+import { hoursOf } from "@/lib/visit-hours";
+import { dwellMinutes } from "@/lib/route-estimate";
 import { ChevronLeftIcon, MicIcon, SparkIcon } from "@/components/icons";
+
+/**
+ * ホームのいちばん上で選べる「残り時間」。
+ *
+ * ホームに来る人がまず持っているのは行き先ではなく「あと何分あるか」なので、
+ * それをそのまま押せるようにして、ルート作成へ条件ごと渡す。
+ */
+const TIME_CHIPS = [
+  { label: "30分", minutes: 30 },
+  { label: "1時間", minutes: 60 },
+  { label: "2時間", minutes: 120 },
+  { label: "半日", minutes: 240 },
+];
 
 export function HomeScreen({ nav }: { nav: Nav }) {
   const { pos, canMeasure, areaLabel } = useLocation();
@@ -70,6 +85,47 @@ export function HomeScreen({ nav }: { nav: Nav }) {
 
       <LocationBanner />
 
+      {/*
+        いちばん上は「あと何分あるか」。
+        ホームを開く時点で決まっているのは行き先ではなく残り時間なので、それを
+        押すだけでルート作成に条件が渡るようにしている。カードを同じ大きさで
+        並べると何から始めればいいか分からなくなるため、ここだけ大きくする。
+      */}
+      <section className="px-5 pt-4">
+        <div className="rounded-2xl border border-[var(--color-terracotta)] bg-[var(--color-panel)] p-4">
+          <p className="text-[12px] font-bold text-[var(--color-terracotta)]">
+            {areaLabel
+              ? t("いま{area}のあたり", { area: areaLabel })
+              : t("いまいるあたり")}
+          </p>
+          <p className="mt-0.5 text-[18px] font-extrabold leading-snug text-pretty">
+            {t("あと何分、寄り道できますか？")}
+          </p>
+          <div className="mt-3 grid grid-cols-4 gap-2">
+            {TIME_CHIPS.map((c) => (
+              <button
+                key={c.label}
+                type="button"
+                onClick={() => nav.planRoute(c.minutes)}
+                className="flex min-h-12 items-center justify-center rounded-xl bg-[var(--color-terracotta)] px-1 text-center text-[14px] font-extrabold leading-tight text-white transition active:scale-[0.97]"
+              >
+                {t(c.label)}
+              </button>
+            ))}
+          </div>
+          <p className="mt-2 text-[11.5px] leading-5 text-[var(--color-ink-soft)]">
+            {t("選ぶと、その時間で回れる道すじを組みます。")}
+          </p>
+          <button
+            type="button"
+            onClick={() => nav.go("route")}
+            className="mt-2 flex min-h-11 w-full items-center justify-center text-[12.5px] font-bold text-[var(--color-terracotta)]"
+          >
+            {t("時間や気分をじっくり決める")}
+          </button>
+        </div>
+      </section>
+
       {/* 総合案内所。何をしたいか決まっていない人が最初に頼る場所なので、
           2つのボタンより上に、いちばん大きく置く。 */}
       <section className="px-5 pt-4">
@@ -97,45 +153,6 @@ export function HomeScreen({ nav }: { nav: Nav }) {
 
       {concierge && <ConciergeSheet onClose={() => setConcierge(false)} />}
 
-      {/* The two things you can do, stated plainly and placed first. */}
-      <section className="px-5 pt-4">
-        <div className="grid grid-cols-2 gap-3">
-          <button
-            type="button"
-            onClick={() => nearest && nav.openSpot(nearest.id)}
-            className="flex flex-col items-start gap-2 rounded-2xl border border-[var(--color-border)] bg-[var(--color-panel)] p-3.5 text-left transition active:scale-[0.99]"
-          >
-            <span
-              aria-hidden="true"
-              className="flex h-10 w-10 items-center justify-center rounded-xl bg-[var(--color-terracotta-soft)] text-[var(--color-terracotta)]"
-            >
-              <MicIcon size={20} />
-            </span>
-            <span className="block text-[14px] font-extrabold">{t("話しかけてみる")}</span>
-            <span className="block line-clamp-2 text-[12px] leading-4 text-[var(--color-ink-soft)]">
-              {nearest ? t("いちばん近い{name}から", { name: nearest.name }) : t("近くの場所から")}
-            </span>
-          </button>
-
-          <button
-            type="button"
-            onClick={() => nav.go("route")}
-            className="flex flex-col items-start gap-2 rounded-2xl border border-[var(--color-border)] bg-[var(--color-panel)] p-3.5 text-left transition active:scale-[0.99]"
-          >
-            <span
-              aria-hidden="true"
-              className="flex h-10 w-10 items-center justify-center rounded-xl bg-[var(--color-green-soft)] text-[var(--color-green)]"
-            >
-              <SparkIcon size={20} />
-            </span>
-            <span className="block text-[14px] font-extrabold">{t("寄り道をつくる")}</span>
-            <span className="block line-clamp-2 text-[12px] leading-4 text-[var(--color-ink-soft)]">
-              {t("時間と気分から道すじを提案")}
-            </span>
-          </button>
-        </div>
-      </section>
-
       {/* Spots list */}
       <section className="px-5 pt-5">
         <div className="mb-3 flex items-baseline justify-between">
@@ -159,7 +176,14 @@ export function HomeScreen({ nav }: { nav: Nav }) {
         )}
 
         <ul className="flex flex-col gap-3">
-          {spots.map((s) => (
+          {spots.map((s, i) => {
+            // 見学できる時間と滞在の目安を、一覧の時点で見せる。
+            // 「行ってみたら閉まっていた」「思ったより時間がかかった」は、
+            // 開いてから分かっても手遅れになる情報なので。
+            const w = hoursOf(s);
+            const stay = dwellMinutes(s);
+            const walkMin = canMeasure ? Math.max(1, Math.round(s.meters / 80)) : null;
+            return (
             <li key={s.id}>
               <button
                 type="button"
@@ -173,23 +197,54 @@ export function HomeScreen({ nav }: { nav: Nav }) {
                   {s.icon}
                 </span>
                 <span className="min-w-0 flex-1">
-                  <span className="block truncate text-[15px] font-bold">
-                    {s.name}
-                  </span>
-                  <span className="mt-1 flex flex-wrap items-center gap-1.5">
-                    <span className="rounded-md bg-[var(--color-terracotta-soft)] px-1.5 py-0.5 text-[12px] font-bold text-[var(--color-terracotta)]">
-                      {s.designation}
-                    </span>
-                    {/* 訪問済みの印。歩いて40m以内まで行くと自動で付く。 */}
-                    {visited.has(s.id) && (
-                      <span className="rounded-md bg-[var(--color-green)] px-1.5 py-0.5 text-[12px] font-bold text-white">{t("訪問済み")}</span>
+                  <span className="flex items-center gap-1.5">
+                    <span className="min-w-0 flex-1 truncate text-[15px] font-bold">{s.name}</span>
+                    {i === 0 && canMeasure && (
+                      <span className="shrink-0 rounded-md bg-[var(--color-green-soft)] px-1.5 py-0.5 text-[11px] font-bold text-[var(--color-green)]">
+                        {t("いちばん近い")}
+                      </span>
                     )}
-                    <span className="text-[12px] text-[var(--color-ink-soft)]">
-                      {/* 測位できていないときに距離を出すと、まったく違う街の
-                          数字を信じて歩き出すことになる。出さない。 */}
-                      {s.category}
-                      {canMeasure ? `・${formatDistance(s.meters)}` : `・${s.city ?? s.prefecture ?? ""}`}
+                  </span>
+
+                  {/* 行くかどうかを決める材料を1行に。徒歩の分数・滞在の目安・時間の制限。 */}
+                  <span className="mt-1 flex flex-wrap items-center gap-1.5 text-[12px]">
+                    {walkMin !== null ? (
+                      <span className="rounded-md bg-[var(--color-terracotta-soft)] px-1.5 py-0.5 font-bold text-[var(--color-terracotta)]">
+                        {t("徒歩{n}分", { n: walkMin })}・{formatDistance(s.meters)}
+                      </span>
+                    ) : (
+                      <span className="text-[var(--color-ink-soft)]">{s.city ?? s.prefecture ?? ""}</span>
+                    )}
+                    <span className="text-[var(--color-ink-soft)]">
+                      {t("滞在{n}分ほど", { n: stay })}
                     </span>
+                  </span>
+
+                  <span className="mt-1 flex flex-wrap items-center gap-1.5 text-[12px]">
+                    {/* 断定できる時間だけを出し、推測したものには「（目安）」を添える。
+                        色だけの○×にしないのは、確認していない時刻を信じさせないため。 */}
+                    <span
+                      className={`rounded-md px-1.5 py-0.5 font-bold ${
+                        w.kind === "always"
+                          ? "bg-[var(--color-green)] text-white"
+                          : w.kind === "unknown"
+                            ? "bg-[var(--color-panel-soft)] text-[var(--color-ink-soft)]"
+                            : "bg-[var(--color-sun-soft)] text-[var(--color-sun-ink)]"
+                      }`}
+                    >
+                      {t(w.label)}
+                      {w.guessed ? t("（目安）") : ""}
+                    </span>
+                    {visited.has(s.id) && (
+                      <span className="rounded-md bg-[var(--color-green)] px-1.5 py-0.5 font-bold text-white">{t("訪問済み")}</span>
+                    )}
+                    <span className="text-[var(--color-ink-soft)]">{s.designation}</span>
+                  </span>
+
+                  {/* タップすると何が起きるかを、言葉で書いておく。 */}
+                  <span className="mt-1.5 flex items-center gap-1 text-[12px] font-bold text-[var(--color-terracotta)]">
+                    <MicIcon size={13} />
+                    {t("話を聞く")}
                   </span>
                 </span>
                 <ChevronLeftIcon
@@ -198,7 +253,8 @@ export function HomeScreen({ nav }: { nav: Nav }) {
                 />
               </button>
             </li>
-          ))}
+            );
+          })}
         </ul>
       </section>
 

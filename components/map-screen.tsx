@@ -10,6 +10,7 @@ import type { CameraMode } from "@/components/leaflet-map";
 import { LocationBanner } from "@/components/location-banner";
 import { useWakeLock } from "@/lib/use-wake-lock";
 import { markVisited } from "@/lib/visited";
+import { dwellMinutes } from "@/lib/route-estimate";
 import {
   useRouteDirections,
   formatDuration,
@@ -131,6 +132,31 @@ export function MapScreen({
   const target = stopForLeg(activeLeg);
 
   /**
+   * あと何分で終わるか、何時に終わるか。
+   *
+   * ヘッダーには行程全体の時間しか出ていなかったので、2か所めを歩いている人が
+   * 知りたいこと（「この後どれくらい？」「17時に間に合う？」）に答えていなかった。
+   * 残っている区間の道のり（OSRM の実測）＋ 残りの見学時間で出す。
+   */
+  const remaining = useMemo(() => {
+    if (!hasRoute || finished) return null;
+    const travel = legs
+      .slice(activeLeg)
+      .reduce((sum, leg) => sum + (leg?.duration ?? 0), 0);
+    // これから訪れる立ち寄り先の見学時間。いま向かっている場所も含む。
+    const upcoming = routeSpots.slice(start ? activeLeg : activeLeg + 1);
+    const dwell = upcoming.reduce((sum, spot) => sum + dwellMinutes(spot), 0) * 60;
+    const seconds = travel + dwell;
+    if (!seconds) return null;
+    const end = new Date(Date.now() + seconds * 1000);
+    return {
+      label: formatDuration(seconds),
+      endsAt: `${end.getHours()}:${String(end.getMinutes()).padStart(2, "0")}`,
+      stopsLeft: upcoming.length,
+    };
+  }, [hasRoute, finished, legs, activeLeg, routeSpots, start]);
+
+  /**
    * The panel used to show the distance OSRM returned for the whole leg, which
    * only changes when directions are refetched (every ~50m of movement). Walk
    * ten metres and the number sat still, which reads as "the app is not
@@ -232,11 +258,36 @@ export function MapScreen({
           <h1 className="text-[16px] font-extrabold">
             {hasRoute ? t("ルート案内") : t("史跡マップ")}
           </h1>
+          {/* 案内中は「全体でどれだけか」より「あとどれだけか」。
+              歩き出したあとに要るのは残りの時間と終わる時刻なので、それを先に出す。 */}
           <p className="text-[12px] text-[var(--color-ink-soft)]">
-            {hasRoute && directions
-              ? `全${routeSpots.length}スポット・${formatDistance(directions.distance)}・${formatDuration(directions.duration)}（${routeTransport}）`
-              : `${STATS.kunishitei + STATS.kenshitei}件の指定文化財のうち、音声ガイド対応${SPOTS.length}件`}
+            {hasRoute && remaining
+              ? t("あと{time}・{clock}ごろ終わり（残り{n}か所）", {
+                  time: remaining.label,
+                  clock: remaining.endsAt,
+                  n: remaining.stopsLeft,
+                })
+              : hasRoute && directions
+                ? t("全{n}スポット・{dist}・{time}（{transport}）", {
+                    n: routeSpots.length,
+                    dist: formatDistance(directions.distance),
+                    time: formatDuration(directions.duration),
+                    transport: t(routeTransport),
+                  })
+                : t("{all}件の指定文化財のうち、音声ガイド対応{n}件", {
+                    all: STATS.kunishitei + STATS.kenshitei,
+                    n: SPOTS.length,
+                  })}
           </p>
+          {hasRoute && remaining && directions && (
+            <p className="text-[11px] text-[var(--color-ink-soft)]">
+              {t("全{n}スポット・{dist}（{transport}）", {
+                n: routeSpots.length,
+                dist: formatDistance(directions.distance),
+                transport: t(routeTransport),
+              })}
+            </p>
+          )}
         </div>
         <div className="flex shrink-0 items-center gap-2">
         {/* まだ載っていない場所を、その場で教えてもらう入口。 */}
@@ -411,7 +462,12 @@ export function MapScreen({
                                 </span>
                                 <span className="block truncate text-[12px] text-[var(--color-ink-soft)]">
                                   {leg
-                                    ? `${i === 0 && start ? "現在地" : "前の地点"}から ${formatDistance(leg.distance)}・${formatDuration(leg.duration)}`
+                                    ? t(
+                                        i === 0 && start
+                                          ? "現在地から {dist}・{time}"
+                                          : "前の地点から {dist}・{time}",
+                                        { dist: formatDistance(leg.distance), time: formatDuration(leg.duration) },
+                                      )
                                     : spot.designation}
                                 </span>
                               </button>

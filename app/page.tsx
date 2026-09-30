@@ -48,6 +48,13 @@ export type Nav = {
   /** スポットを開く前にいた画面。「戻る」でそこへ帰るために覚えている。 */
   spotFrom: Screen;
   startRoute: (ids: string[], transport?: string) => void;
+  /**
+   * ホームの「あと○分」から、その時間を持ってルート作成へ移る。
+   * seq を添えるのは、同じ時間をもう一度押したときにも反映させるため
+   * （値だけ見ていると、2回目は「変わっていない」ので無視されてしまう）。
+   */
+  plan: { minutes: number; seq: number } | null;
+  planRoute: (minutes: number) => void;
   routeIds: string[];
   routeTransport: string;
   /** 何番目の区間まで来たか。案内を再開するために保存している。 */
@@ -77,6 +84,7 @@ export default function Page() {
   const [routeIds, setRouteIds] = useState<string[]>([]);
   const [routeTransport, setRouteTransport] = useState("徒歩");
   const [routeLeg, setRouteLeg] = useState(0);
+  const [plan, setPlan] = useState<{ minutes: number; seq: number } | null>(null);
   /** 復元が終わるまでは保存しない（空の状態で上書きしてしまうため）。 */
   const restored = useRef(false);
 
@@ -135,6 +143,11 @@ export default function Page() {
       if (screen !== "spot") setSpotFrom(screen);
       setSpotId(id);
       setScreen("spot");
+    },
+    plan,
+    planRoute: (minutes) => {
+      setPlan((prev) => ({ minutes, seq: (prev?.seq ?? 0) + 1 }));
+      setScreen("route");
     },
     routeIds,
     routeTransport,
