@@ -17,7 +17,7 @@ import { LocationBanner } from "@/components/location-banner";
 import { useVisited } from "@/lib/visited";
 import { hoursOf } from "@/lib/visit-hours";
 import { dwellMinutes } from "@/lib/route-estimate";
-import { ChevronLeftIcon, MicIcon, SparkIcon } from "@/components/icons";
+import { MicIcon, SparkIcon } from "@/components/icons";
 
 /**
  * ホームのいちばん上で選べる「残り時間」。
@@ -49,6 +49,27 @@ export function HomeScreen({ nav }: { nav: Nav }) {
 
   const nearest = spots[0];
 
+  /**
+   * 「なんとなく探す」。
+   *
+   * 目的を持って開いた人には一覧と時間チップがあるが、何も決めていない人には
+   * どちらも使いどころがない。そこで、1か所だけ選んで差し出す。
+   * 選び方は、一覧に出ている近い5か所と訪問済みを外し、国指定より先に
+   * 市や県の指定から選ぶ。有名な場所は言われなくても行くので、ここで出すのは
+   * 「言われなければ通り過ぎる場所」にしたい。
+   */
+  const [pick, setPick] = useState<(typeof pool)[number] | null>(null);
+  const shuffle = () => {
+    const shown = new Set(spots.map((s) => s.id));
+    const rest = pool.filter((s) => !shown.has(s.id) && s.id !== pick?.id);
+    const fresh = rest.filter((s) => !visited.has(s.id));
+    const base = fresh.length ? fresh : rest.length ? rest : pool;
+    // 知られていない場所を先に。国指定しか残っていなければ、そこから選ぶ。
+    const humble = base.filter((s) => !s.designation.includes("国指定"));
+    const from = humble.length ? humble : base;
+    setPick(from[Math.floor(Math.random() * from.length)] ?? null);
+  };
+
   return (
     <div className="flex flex-1 flex-col overflow-y-auto pb-[var(--tabbar-clearance)]">
       {/* Header */}
@@ -63,23 +84,29 @@ export function HomeScreen({ nav }: { nav: Nav }) {
         /* shrink-0 matters: `overflow-hidden` (needed so the firework is clipped
            to the sky) also lets this flex item shrink below its content and
            clip the title and the figures with it. */
-        className="relative shrink-0 overflow-hidden bg-[linear-gradient(168deg,#2e2016_0%,#6b3a1f_50%,#b3652c_100%)] px-5 pb-6 pt-[calc(20px+env(safe-area-inset-top))] text-white"
+        className="relative shrink-0 overflow-hidden bg-[linear-gradient(168deg,#2e2016_0%,#6b3a1f_50%,#b3652c_100%)] px-5 pb-4 pt-[calc(18px+env(safe-area-inset-top))] text-white"
       >
         <SeasonMotif />
-        <h1 className="relative text-[28px] font-extrabold tracking-tight">{t("よりみっけ")}</h1>
-        <p className="relative mt-1.5 text-[13px] font-medium leading-relaxed text-pretty">
+        <h1 className="relative text-[26px] font-extrabold tracking-tight">{t("よりみっけ")}</h1>
+        <p className="relative mt-1 text-[13px] font-medium leading-relaxed text-pretty">
           {t("知らなかった街の魅力を、旅の途中で見つけよう。")}
         </p>
-        <p className="relative mt-2 text-[12px] leading-relaxed text-white/90 text-pretty">
-          {t("気になった場所に話しかけると、その土地の物語が返ってきます。")}
-        </p>
 
-        {/* Stat banner: the unit goes with the number, so "48" is never a
-            bare figure the reader has to decode. */}
-        <div className="relative mt-4 flex gap-2">
-          <Stat value={STATS.kunishitei} unit={t("件")} label={t("国の指定文化財")} />
-          <Stat value={STATS.kenshitei} unit={t("件")} label={t("県の指定文化財")} />
-          <Stat value={SPOTS.length} unit={t("か所")} label={t("話しかけられる")} />
+        {/*
+          数字は1つだけにする。
+          以前は「国55件・県40件・197か所」と3つ並べていたが、ここに要るのは
+          「近くに何件あるか」ではなく「このアプリは何を根拠にしているか」で、
+          それは1つで足りる。3つ並べると上半分が重くなり、開いて最初に見える
+          べき「あと何分？」が画面の中ほどまで押し下げられていた。
+        */}
+        <div className="relative mt-3 inline-flex items-center gap-2 rounded-xl bg-black/15 px-3 py-2">
+          <span className="text-[22px] font-extrabold leading-none">{SPOTS.length}</span>
+          <span className="text-[11.5px] font-bold leading-snug text-white/90">
+            {t("か所に話しかけられます")}
+            <span className="block font-medium text-white/80">
+              {t("国・県の指定文化財{n}件をふくむ", { n: STATS.kunishitei + STATS.kenshitei })}
+            </span>
+          </span>
         </div>
       </header>
 
@@ -124,6 +151,57 @@ export function HomeScreen({ nav }: { nav: Nav }) {
             {t("時間や気分をじっくり決める")}
           </button>
         </div>
+      </section>
+
+      {/*
+        目的のない人のための入口。「探す」の逆で、こちらから1か所だけ出す。
+      */}
+      <section className="px-5 pt-3">
+        {!pick ? (
+          <button
+            type="button"
+            onClick={shuffle}
+            className="flex min-h-12 w-full items-center justify-center gap-2 rounded-2xl border border-dashed border-[var(--color-terracotta)] bg-[var(--color-panel)] text-[14px] font-extrabold text-[var(--color-terracotta)] transition active:scale-[0.99]"
+          >
+            <SparkIcon size={16} />
+            {t("なんとなく探す")}
+          </button>
+        ) : (
+          <div className="rounded-2xl border border-dashed border-[var(--color-terracotta)] bg-[var(--color-panel)] p-4">
+            <p className="text-[12px] font-bold text-[var(--color-terracotta)]">{t("今日はこの場所。")}</p>
+            <div className="mt-2 flex items-start gap-3">
+              <span aria-hidden="true" className="text-3xl leading-none">{pick.icon}</span>
+              <div className="min-w-0 flex-1">
+                <p className="text-[15px] font-extrabold leading-snug">{pick.name}</p>
+                <p className="mt-0.5 text-[12px] text-[var(--color-ink-soft)]">
+                  {pick.designation}
+                  {canMeasure
+                    ? `・${t("徒歩{n}分", { n: Math.max(1, Math.round(distanceMeters(pos, [pick.lat, pick.lng]) / 80)) })}`
+                    : `・${pick.city ?? pick.prefecture ?? ""}`}
+                </p>
+              </div>
+            </div>
+            <div className="mt-3 flex gap-2">
+              <button
+                type="button"
+                onClick={() => nav.openSpot(pick.id)}
+                className="min-h-11 flex-1 rounded-xl bg-[var(--color-terracotta)] text-[14px] font-bold text-white"
+              >
+                {t("行ってみる")}
+              </button>
+              <button
+                type="button"
+                onClick={shuffle}
+                className="min-h-11 shrink-0 rounded-xl border border-[var(--color-border)] px-3.5 text-[13px] font-bold text-[var(--color-ink-soft)]"
+              >
+                {t("ほかの場所")}
+              </button>
+            </div>
+            <p className="mt-2 text-[11px] leading-5 text-[var(--color-ink-soft)]">
+              {t("あまり知られていない場所から選んでいます。")}
+            </p>
+          </div>
+        )}
       </section>
 
       {/* 総合案内所。何をしたいか決まっていない人が最初に頼る場所なので、
@@ -206,21 +284,24 @@ export function HomeScreen({ nav }: { nav: Nav }) {
                     )}
                   </span>
 
-                  {/* 行くかどうかを決める材料を1行に。徒歩の分数・滞在の目安・時間の制限。 */}
-                  <span className="mt-1 flex flex-wrap items-center gap-1.5 text-[12px]">
+                  {/*
+                    行くかどうかを決める材料は1行に収める。
+                    ここを飾り枠（チップ）にすると、幅の広い言語で折り返して
+                    カードが縦に伸びるので、地の文で書く。
+                  */}
+                  <span className="mt-0.5 block text-[12px] leading-5 text-[var(--color-ink-soft)]">
                     {walkMin !== null ? (
-                      <span className="rounded-md bg-[var(--color-terracotta-soft)] px-1.5 py-0.5 font-bold text-[var(--color-terracotta)]">
-                        {t("徒歩{n}分", { n: walkMin })}・{formatDistance(s.meters)}
+                      <span className="font-bold text-[var(--color-terracotta)]">
+                        {t("徒歩{n}分", { n: walkMin })}
                       </span>
                     ) : (
-                      <span className="text-[var(--color-ink-soft)]">{s.city ?? s.prefecture ?? ""}</span>
+                      <span>{s.city ?? s.prefecture ?? ""}</span>
                     )}
-                    <span className="text-[var(--color-ink-soft)]">
-                      {t("滞在{n}分ほど", { n: stay })}
-                    </span>
+                    {" ・ "}
+                    {t("滞在{n}分ほど", { n: stay })}
                   </span>
 
-                  <span className="mt-1 flex flex-wrap items-center gap-1.5 text-[12px]">
+                  <span className="mt-1 flex flex-wrap items-center gap-1.5 text-[11.5px]">
                     {/* 断定できる時間だけを出し、推測したものには「（目安）」を添える。
                         色だけの○×にしないのは、確認していない時刻を信じさせないため。 */}
                     <span
@@ -241,16 +322,21 @@ export function HomeScreen({ nav }: { nav: Nav }) {
                     <span className="text-[var(--color-ink-soft)]">{s.designation}</span>
                   </span>
 
-                  {/* タップすると何が起きるかを、言葉で書いておく。 */}
-                  <span className="mt-1.5 flex items-center gap-1 text-[12px] font-bold text-[var(--color-terracotta)]">
-                    <MicIcon size={13} />
-                    {t("話を聞く")}
-                  </span>
                 </span>
-                <ChevronLeftIcon
-                  size={18}
-                  className="shrink-0 rotate-180 text-[var(--color-ink-soft)]"
-                />
+                {/*
+                  「話を聞く」は行を1つ使わず、右端の矢印と入れ替える。
+                  矢印は「次の画面に進む」としか言っておらず、このアプリで
+                  起きること（その場所が話しはじめる）を伝えていなかった。
+                */}
+                <span
+                  aria-hidden="true"
+                  className="flex w-14 shrink-0 flex-col items-center gap-1 text-[var(--color-terracotta)]"
+                >
+                  <span className="flex h-9 w-9 items-center justify-center rounded-full bg-[var(--color-terracotta-soft)]">
+                    <MicIcon size={17} />
+                  </span>
+                  <span className="text-[10.5px] font-bold leading-none">{t("話を聞く")}</span>
+                </span>
               </button>
             </li>
             );
@@ -316,30 +402,5 @@ function SeasonMotif() {
         </g>
       ))}
     </svg>
-  );
-}
-
-function Stat({
-  value,
-  unit,
-  label,
-}: {
-  value: number;
-  unit: string;
-  label: string;
-}) {
-  return (
-    <div
-      /* A white tint over the green header left white text at 3.7:1 — the
-         headline numbers were the least legible text on the screen. Tinting
-         the tile darker instead of lighter takes the same design to 6.3:1. */
-      className="flex-1 rounded-xl bg-black/15 px-2.5 py-2 text-center"
-    >
-      <div className="text-[12px] font-medium text-white/90">{label}</div>
-      <div className="mt-0.5 text-lg font-extrabold leading-none">
-        {value}
-        <span className="ml-0.5 text-[12px] font-bold text-white/90">{unit}</span>
-      </div>
-    </div>
   );
 }

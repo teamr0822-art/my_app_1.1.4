@@ -396,8 +396,8 @@
   "いまいるあたり": "Autour de vous",
   "時間や気分をじっくり決める": "Choisir le temps et l'envie en détail",
   "いちばん近い": "Le plus proche",
-  "滞在{n}分ほど": "environ {n} min sur place",
-  "話を聞く": "Écouter son histoire",
+  "滞在{n}分ほど": "~{n} min sur place",
+  "話を聞く": "Écouter",
   "あまり歩きたくない": "Peu de marche",
   "＋詳細条件": "+ Plus d'options",
   "（天気・追加の希望）": "(météo, demandes particulières)",
@@ -424,5 +424,12 @@
   "現在地へ": "Aller à ma position",
   "ルート全体を表示": "Afficher tout l'itinéraire",
   "全体": "Tout",
-  "選ぶと、その時間で回れる道すじを組みます。": "Choisissez et un itinéraire adapté sera prévu."
+  "選ぶと、その時間で回れる道すじを組みます。": "Choisissez et un itinéraire adapté sera prévu.",
+  "か所に話しかけられます": "lieux à qui parler",
+  "国・県の指定文化財{n}件をふくむ": "dont {n} biens classés",
+  "なんとなく探す": "Au hasard",
+  "今日はこの場所。": "Aujourd'hui, celui-ci.",
+  "行ってみる": "Y aller",
+  "ほかの場所": "Un autre",
+  "あまり知られていない場所から選んでいます。": "Choisi parmi les lieux où personne ne s'arrête."
 }
