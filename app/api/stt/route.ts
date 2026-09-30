@@ -23,11 +23,14 @@ export async function POST(req: Request) {
       return Response.json({ error: "no audio" }, { status: 400 })
     }
     const bytes = new Uint8Array(await file.arrayBuffer())
+    // 画面の表示言語をそのまま使う。分からなければ日本語。
+    const requested = String(form.get("language") ?? "ja")
+    const language = ["ja", "en", "fr", "ko", "zh"].includes(requested) ? requested : "ja"
 
     const result = await transcribe({
       model: STT_MODEL,
       audio: bytes,
-      providerOptions: { openai: { language: "ja" } },
+      providerOptions: { openai: { language } },
     })
 
     return Response.json({ text: result.text })

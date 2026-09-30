@@ -1,5 +1,7 @@
 "use client";
 
+import { translateStatic } from "@/lib/i18n";
+
 import { useCallback, useRef, useState } from "react";
 
 export type ChatMsg = {
@@ -10,7 +12,7 @@ export type ChatMsg = {
 
 type ExtraPayload = {
   spotId?: string;
-  mode?: "spot" | "companion" | "route";
+  mode?: "spot" | "companion" | "route" | "concierge";
   nearby?: { name: string; grounding: string; city?: string; hours?: string }[];
   /** 答えてほしい言語（画面の表示言語と同じ）。 */
   lang?: string;
@@ -96,7 +98,7 @@ export function useGuideChat(extra: ExtraPayload) {
               : typeof payload?.message === "string"
                 ? payload.message
                 : "";
-          if (!text) throw new Error("AIから有効な回答が返りませんでした。");
+          if (!text) throw new Error(translateStatic("AIから有効な回答が返りませんでした。"));
           setMessages((m) =>
             m.map((msg) => (msg.id === assistantId ? { ...msg, content: text } : msg)),
           );
@@ -147,10 +149,10 @@ export function useGuideChat(extra: ExtraPayload) {
 
       if (!full.trim()) {
         full = extraRef.current.mode === "route"
-          ? "いまルートを作れませんでした。通信状況を確認して、条件を少し変えてもう一度お試しください。"
+          ? translateStatic("いまルートを作れませんでした。通信状況を確認して、条件を少し変えてもう一度お試しください。")
           : extraRef.current.fallbackText?.trim()
             ? extraRef.current.fallbackText.trim()
-            : "いま応答を受け取れませんでした。少し待ってからもう一度お試しください。";
+            : translateStatic("いま応答を受け取れませんでした。少し待ってからもう一度お試しください。");
         setMessages((m) =>
           m.map((msg) => (msg.id === assistantId ? { ...msg, content: full } : msg)),
         );

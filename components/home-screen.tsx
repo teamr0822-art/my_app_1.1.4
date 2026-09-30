@@ -11,6 +11,8 @@ import {
 } from "@/lib/spots";
 import { useLocation } from "@/lib/location-context";
 import { useT } from "@/lib/i18n";
+import { useState } from "react";
+import { ConciergeSheet } from "@/components/concierge";
 import { LocationBanner } from "@/components/location-banner";
 import { useVisited } from "@/lib/visited";
 import { ChevronLeftIcon, MicIcon, SparkIcon } from "@/components/icons";
@@ -18,6 +20,8 @@ import { ChevronLeftIcon, MicIcon, SparkIcon } from "@/components/icons";
 export function HomeScreen({ nav }: { nav: Nav }) {
   const { pos, canMeasure, areaLabel } = useLocation();
   const t = useT();
+  /** 総合案内所を開いているか。ホームからだけ開く。 */
+  const [concierge, setConcierge] = useState(false);
   const visited = useVisited();
 
   // 測位できていないときは、基準の街のスポットだけを並べる。距離順だけだと、
@@ -65,6 +69,33 @@ export function HomeScreen({ nav }: { nav: Nav }) {
       </header>
 
       <LocationBanner />
+
+      {/* 総合案内所。何をしたいか決まっていない人が最初に頼る場所なので、
+          2つのボタンより上に、いちばん大きく置く。 */}
+      <section className="px-5 pt-4">
+        <button
+          type="button"
+          onClick={() => setConcierge(true)}
+          className="flex w-full items-center gap-3 rounded-2xl border border-[var(--color-terracotta)] bg-[var(--color-terracotta-soft)] p-4 text-left transition active:scale-[0.99]"
+        >
+          <span
+            aria-hidden="true"
+            className="flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl bg-[var(--color-terracotta)] text-white"
+          >
+            <SparkIcon size={24} />
+          </span>
+          <span className="min-w-0 flex-1">
+            <span className="block text-[16px] font-extrabold text-[var(--color-terracotta)]">
+              {t("総合案内所に聞く")}
+            </span>
+            <span className="mt-0.5 block text-[12.5px] leading-5 text-[var(--color-ink-soft)]">
+              {t("アプリの使い方から、どこへ行くかの相談まで")}
+            </span>
+          </span>
+        </button>
+      </section>
+
+      {concierge && <ConciergeSheet onClose={() => setConcierge(false)} />}
 
       {/* The two things you can do, stated plainly and placed first. */}
       <section className="px-5 pt-4">

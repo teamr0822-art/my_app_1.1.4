@@ -10,6 +10,7 @@ import {
   type Candidate,
 } from "@/lib/ai";
 import { searchWikipedia } from "@/lib/wikipedia";
+import appGuide from "@/data/app-guide.json";
 import { rateLimit, clientKey } from "@/lib/rate-limit";
 
 /**
@@ -164,7 +165,7 @@ function callOptionsFor(candidate: Candidate): {
 type Body = {
   messages: ModelMessage[];
   spotId?: string;
-  mode?: "spot" | "companion" | "route";
+  mode?: "spot" | "companion" | "route" | "concierge";
   nearby?: NearbySpot[];
   /** 答える言語。画面の表示言語をそのまま受け取る（既定は日本語）。 */
   lang?: string;
@@ -265,6 +266,55 @@ export async function POST(req: Request) {
       "候補スポット一覧:\n" + context,
       languageRule,
     ].filter(Boolean).join("\n");
+  } else if (mode === "concierge") {
+    /*
+     * 総合案内所。観光案内所のカウンターに立っている人のつもりで、
+     *   ・このアプリの使い方
+     *   ・どこへ行くとよいか（収録スポットの中から）
+     *   ・マナーや注意
+     * に答える。アプリの説明は data/app-guide.json にまとめてあり、
+     * 文面を変えたいときはそのファイルだけ直せばよい。
+     */
+    const guide = appGuide as {
+      about: string;
+      coverage: string;
+      features: string[];
+      manners: string;
+      privacy: string;
+      limits: string[];
+      faq: { q: string; a: string }[];
+    };
+    const context = nearby?.length
+      ? nearby.map((s) => `・${s.name}（${s.city ?? ""}）: ${s.grounding}`).join("\n")
+      : "近くのスポットの情報はありません。";
+    system = [
+      "あなたは「よりみっけ」の総合案内所です。観光案内所のカウンターにいる案内係のように、来た人の相談に答えます。",
+      "答えるのは、(1) このアプリの使い方、(2) 収録しているスポットや歩き方の相談、(3) 訪ねるときのマナーや注意、の3つです。",
+      "",
+      "【このアプリについて】",
+      guide.about,
+      guide.coverage,
+      "できること:",
+      ...guide.features.map((f) => `- ${f}`),
+      `マナー: ${guide.manners}`,
+      `プライバシー: ${guide.privacy}`,
+      "できないこと:",
+      ...guide.limits.map((l) => `- ${l}`),
+      "よくある質問:",
+      ...guide.faq.map((f) => `- ${f.q} → ${f.a}`),
+      "",
+      "【いま近くにあるスポット】",
+      context,
+      "",
+      "【答え方のルール】",
+      "- 3〜5文程度で簡潔に。読み上げにも使うので、記号や箇条書きの装飾は使わない。",
+      "- アプリの操作を聞かれたら、どの画面のどのボタンかを具体的に言う。",
+      "- 行き先を聞かれたら、上の近くのスポットから理由を添えて1〜3か所すすめる。遠い場所はすすめない。",
+      "- 営業時間・料金・交通の時刻は正確な情報を持っていないので、断言せず公式の確認をすすめる。",
+      "- アプリと関係のない話題でも、旅の相談なら分かる範囲で答えてよい。分からないことは正直に伝える。",
+      "- 文化財の由来など、確かな知識が要るときは searchWikipedia で調べてから答える。",
+      languageRule,
+    ].filter(Boolean).join("\n");
   } else if (mode === "companion") {
     const context =
       nearby && nearby.length
@@ -326,7 +376,7 @@ export async function POST(req: Request) {
     const offline =
       mode === "route"
         ? fallbackRoute(nearby)
-        : mode === "companion"
+        : mode === "companion" || mode === "concierge"
           ? offlineCompanionAnswer(nearby)
           : offlineSpotAnswer(spot);
     return new Response(
@@ -431,7 +481,7 @@ export async function POST(req: Request) {
         const offline =
           mode === "route"
             ? fallbackRoute(nearby)
-            : mode === "companion"
+            : mode === "companion" || mode === "concierge"
               ? offlineCompanionAnswer(nearby)
               : offlineSpotAnswer(spot);
         const reason = describeFailure(failure);

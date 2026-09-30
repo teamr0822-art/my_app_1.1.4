@@ -3,11 +3,27 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { useSettings } from "./settings-context";
 import { stripMarkdown, stripUrls } from "./format";
+import { useI18n, type Lang } from "@/lib/i18n";
+
+/** 表示言語 → 読み上げ・聞き取りに使う言語コード。 */
+const SPEECH_LANG: Record<Lang, string> = {
+  ja: "ja-JP",
+  en: "en-US",
+  fr: "fr-FR",
+  ko: "ko-KR",
+  zh: "zh-CN",
+};
 
 type SpeakOpts = { onEnd?: () => void };
 
 export function useVoice() {
   const { voiceEngine, muted, rate, ttsVoice } = useSettings();
+  const { lang } = useI18n();
+  /**
+   * 読み上げと聞き取りの言語。表示言語に合わせないと、英語の文を日本語の声が
+   * 読み上げることになり、何を言っているか分からなくなる。
+   */
+  const speechLang = SPEECH_LANG[lang] ?? "ja-JP";
   const [recording, setRecording] = useState(false);
   const [speaking, setSpeaking] = useState(false);
   const [transcribing, setTranscribing] = useState(false);
@@ -58,13 +74,14 @@ export function useVoice() {
       }
       window.speechSynthesis.cancel();
       const u = new SpeechSynthesisUtterance(text);
-      u.lang = "ja-JP";
+      u.lang = speechLang;
       u.rate = rate;
       const voices = window.speechSynthesis.getVoices();
-      const ja =
-        voices.find((v) => v.lang === "ja-JP") ||
-        voices.find((v) => v.lang?.startsWith("ja"));
-      if (ja) u.voice = ja;
+      const head = speechLang.split("-")[0];
+      const match =
+        voices.find((v) => v.lang === speechLang) ||
+        voices.find((v) => v.lang?.replace("_", "-").startsWith(head));
+      if (match) u.voice = match;
       u.onend = () => {
         setSpeaking(false);
         opts?.onEnd?.();
@@ -76,8 +93,8 @@ export function useVoice() {
       setSpeaking(true);
       window.speechSynthesis.speak(u);
     },
-    [rate],
-  );
+    [rate, speechLang],
+  )
 
   const speak = useCallback(
     async (raw: string, opts?: SpeakOpts) => {
@@ -140,7 +157,7 @@ export function useVoice() {
         return;
       }
       const rec = new SR();
-      rec.lang = "ja-JP";
+      rec.lang = speechLang;
       rec.interimResults = false;
       rec.maxAlternatives = 1;
       recognitionRef.current = rec;
@@ -238,6 +255,9 @@ export function useVoice() {
           setTranscribing(true);
           const form = new FormData();
           form.append("audio", blob, "speech.webm");
+          // 聞き取りの言語も表示言語に合わせる（英語で話す人の声を日本語として
+          // 書き起こすと、まったく違う文字列になる）。
+          form.append("language", speechLang.split("-")[0]);
           const res = await fetch("/api/stt", { method: "POST", body: form });
           const data = await res.json();
           resolve(data.text || "");
