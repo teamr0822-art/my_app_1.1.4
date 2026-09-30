@@ -73,7 +73,7 @@ function AuthForm({ mode }: { mode: AuthMode }) {
       setSentTo(email.trim());
       return;
     }
-    toast(signUp ? "登録しました。ようこそ！" : "ログインしました");
+    toast(signUp ? t("登録しました。ようこそ！") : t("ログインしました"));
     auth.closeAuth();
   };
 

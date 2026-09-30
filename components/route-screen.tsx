@@ -352,8 +352,8 @@ export function RouteScreen({ nav, hidden = false }: { nav: Nav; hidden?: boolea
           </div>
           <p aria-live="polite" className="text-[12px] text-[var(--color-ink-soft)]">
             {endTimeInvalid
-              ? "いまより後の時刻を選んでください。"
-              : `この条件でおよそ ${describeMinutes(tripMinutes)} の寄り道を組みます。`}
+              ? t("いまより後の時刻を選んでください。")
+              : t("この条件でおよそ{time}の寄り道を組みます。", { time: describeMinutes(tripMinutes) })}
           </p>
         </fieldset>
 
@@ -389,7 +389,7 @@ export function RouteScreen({ nav, hidden = false }: { nav: Nav; hidden?: boolea
         </fieldset>
 
         <label className="flex flex-col gap-2 text-sm font-bold">
-          追加の希望（任意）
+          {t("追加の希望（任意）")}
           <textarea value={request} onChange={(e) => setRequest(e.target.value)} placeholder={t("例：混雑を避けたい、眺めの良い場所に行きたい")} className="min-h-24 resize-none rounded-2xl border border-[var(--color-border)] bg-[var(--color-panel)] p-3 font-normal outline-none placeholder:text-[var(--color-ink-soft)] focus:border-[var(--color-terracotta)]" />
         </label>
 
@@ -414,7 +414,7 @@ export function RouteScreen({ nav, hidden = false }: { nav: Nav; hidden?: boolea
             */}
             <div className="mt-4 rounded-xl bg-[var(--color-terracotta-soft)] p-3">
               <p className="text-[12px] font-bold text-[var(--color-terracotta)]">
-                案内する立ち寄り先（{routeSpots.length}か所）
+                {t("案内する立ち寄り先（{n}か所）", { n: routeSpots.length })}
               </p>
               {/*
                 距離と時間は、AIの文章ではなくここに出す。座標から計算した
@@ -424,15 +424,16 @@ export function RouteScreen({ nav, hidden = false }: { nav: Nav; hidden?: boolea
               {estimate && (
                 <div className="mt-2 rounded-xl bg-[var(--color-panel)] p-2.5">
                   <p className="text-[12px] font-bold text-[var(--color-ink)]">
-                    移動 約{formatDistance(estimate.meters)}・{describeSpan(estimate.travelMinutes)}
-                    {" ／ "}見学 約{describeSpan(estimate.dwellMinutes)}
+                    {t("移動 約{dist}・{time}", { dist: formatDistance(estimate.meters), time: describeSpan(estimate.travelMinutes) })}
+                    {" ／ "}
+                    {t("見学 約{time}", { time: describeSpan(estimate.dwellMinutes) })}
                   </p>
                   <p className="mt-0.5 text-[12px] text-[var(--color-ink-soft)]">
-                    合計 約{describeSpan(estimate.totalMinutes)}（使える時間 {describeMinutes(tripMinutes)}）
+                    {t("合計 約{total}（使える時間 {budget}）", { total: describeSpan(estimate.totalMinutes), budget: describeMinutes(tripMinutes) })}
                     {estimate.totalMinutes > tripMinutes * 1.1
-                      ? "・少し詰まっています"
+                      ? t("・少し詰まっています")
                       : estimate.totalMinutes < tripMinutes * 0.6
-                        ? "・かなり余ります。「もっと回りたい」と伝えると増やせます"
+                        ? t("・かなり余ります。「もっと回りたい」と伝えると増やせます")
                         : ""}
                   </p>
                   <p className="mt-1 text-[11px] leading-relaxed text-[var(--color-ink-soft)]">{t("直線距離から出した見込みです。案内をはじめると、実際の道のりで計算し直します。")}</p>
@@ -462,11 +463,11 @@ export function RouteScreen({ nav, hidden = false }: { nav: Nav; hidden?: boolea
                               : "bg-[var(--color-sun-soft)] text-[var(--color-sun-ink)]"
                         }`}
                       >
-                        {w.label}
-                        {w.guessed ? "（目安）" : ""}
+                        {t(w.label)}
+                        {w.guessed ? t("（目安）") : ""}
                       </span>
                       <span className="w-full text-[11px] leading-relaxed text-[var(--color-ink-soft)]">
-                        {w.detail}
+                        {t(w.detail)}
                       </span>
                     </li>
                   );
@@ -479,9 +480,9 @@ export function RouteScreen({ nav, hidden = false }: { nav: Nav; hidden?: boolea
               )}
               <p className="mt-2 text-[11px] leading-relaxed text-[var(--color-ink-soft)]">{t("見学できる時間は公式の営業時間ではありません。時間の決まった場所は、公式の案内で確認してから向かってください。")}</p>
             </div>
-            <button type="button" onClick={() => nav.startRoute(routeSpotIds, transport)} className="mt-3 w-full rounded-xl bg-[var(--color-green)] px-4 py-3 text-sm font-bold text-white">{guiding ? "この内容に案内を切り替える" : "このルートで案内をはじめる"}</button></div>}
+            <button type="button" onClick={() => nav.startRoute(routeSpotIds, transport)} className="mt-3 w-full rounded-xl bg-[var(--color-green)] px-4 py-3 text-sm font-bold text-white">{guiding ? t("この内容に案内を切り替える") : t("このルートで案内をはじめる")}</button></div>}
 
-        {messages.length > 0 && <div className="rounded-2xl border border-[var(--color-border)] p-4"><p className="text-sm font-bold">{t("途中で変更する")}</p><p className="mb-2 mt-0.5 text-[12px] leading-relaxed text-[var(--color-ink-soft)]">{guiding ? "案内中でも変えられます。書き直したあと、上の「この内容に案内を切り替える」を押すと反映されます。" : "「短くして」「逆から回って」のように話しかけてください。"}</p><div className="flex gap-2"><input value={draft} onChange={(e) => setDraft(e.target.value)} onKeyDown={(e) => { if (e.key === "Enter" && !e.nativeEvent.isComposing && e.keyCode !== 229) { e.preventDefault(); if (draft.trim()) { send(draft); setDraft(""); } } }} aria-label={t("ルートの変更内容")} placeholder={t("例：逆から回って、短くして、雨なので屋内中心に")} className="min-w-0 flex-1 rounded-xl border border-[var(--color-border)] bg-transparent px-3 py-2 text-sm outline-none" /><button type="button" aria-label={t("変更を送信")} onClick={() => { if (draft.trim()) { send(draft); setDraft(""); } }} className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-[var(--color-green)] text-white"><SendIcon size={17} /></button></div></div>}
+        {messages.length > 0 && <div className="rounded-2xl border border-[var(--color-border)] p-4"><p className="text-sm font-bold">{t("途中で変更する")}</p><p className="mb-2 mt-0.5 text-[12px] leading-relaxed text-[var(--color-ink-soft)]">{guiding ? t("案内中でも変えられます。書き直したあと、上の「この内容に案内を切り替える」を押すと反映されます。") : t("「短くして」「逆から回って」のように話しかけてください。")}</p><div className="flex gap-2"><input value={draft} onChange={(e) => setDraft(e.target.value)} onKeyDown={(e) => { if (e.key === "Enter" && !e.nativeEvent.isComposing && e.keyCode !== 229) { e.preventDefault(); if (draft.trim()) { send(draft); setDraft(""); } } }} aria-label={t("ルートの変更内容")} placeholder={t("例：逆から回って、短くして、雨なので屋内中心に")} className="min-w-0 flex-1 rounded-xl border border-[var(--color-border)] bg-transparent px-3 py-2 text-sm outline-none" /><button type="button" aria-label={t("変更を送信")} onClick={() => { if (draft.trim()) { send(draft); setDraft(""); } }} className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-[var(--color-green)] text-white"><SendIcon size={17} /></button></div></div>}
       </div>
     </section>
   );

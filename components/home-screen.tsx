@@ -202,9 +202,18 @@ export function HomeScreen({ nav }: { nav: Nav }) {
         </ul>
       </section>
 
-      <p className="mt-5 px-5 text-[12px] leading-relaxed text-[var(--color-ink-soft)]">
-        {DATA_SOURCE}
-      </p>
+      {/* <p> の中に <details> は置けない（HTMLとして不正で、表示が崩れる）。 */}
+      <div className="mt-5 px-5 text-[12px] leading-relaxed text-[var(--color-ink-soft)]">
+        {/* 出典は資料そのもの。日本語以外の画面では要約を訳して出し、
+            原文（日本語）は開いたときだけ見せる（設定画面と同じ扱い）。 */}
+        {t("各市の公式文化財一覧、文化庁の指定文化財データベース、自治体サイトなどをもとに選定し、座標は国土地理院の住所検索で照合しています。")}
+        <details className="mt-1">
+          <summary className="cursor-pointer font-bold">{t("出典の原文（日本語）")}</summary>
+          <span lang="ja" className="mt-1 block">
+            {DATA_SOURCE}
+          </span>
+        </details>
+      </div>
     </div>
   );
 }

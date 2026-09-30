@@ -303,9 +303,23 @@ export function SettingsScreen() {
                 )}
               </p>
               <p className="mt-2">{t("位置情報は住所をもとに国土地理院ジオコーディングで取得。AIガイドの 回答は各スポットの資料にもとづいて生成され、出典を明記します。")}</p>
+              {/*
+                出典は資料そのものなので、訳さずに原文（日本語）を残す。
+                ただし日本語以外で読んでいる人には長い日本語の塊でしかないので、
+                要約だけを訳して出し、原文は開いたときに見せる。
+              */}
               <p className="mt-2 text-[12px]">
-                {t("出典")}: {DATA_SOURCE}
+                {t("出典")}:{" "}
+                {t("各市の公式文化財一覧、文化庁の指定文化財データベース、自治体サイトなどをもとに選定し、座標は国土地理院の住所検索で照合しています。")}
               </p>
+              <details className="mt-1">
+                <summary className="cursor-pointer text-[12px] font-bold text-[var(--color-ink-soft)]">
+                  {t("出典の原文（日本語）")}
+                </summary>
+                <p lang="ja" className="mt-1 text-[12px] leading-relaxed">
+                  {DATA_SOURCE}
+                </p>
+              </details>
             </div>
           </div>
         </div>
@@ -427,7 +441,7 @@ function AccountCard() {
             }}
             className="mt-3 min-h-11 w-full rounded-xl border border-[var(--color-border)] text-[13px] font-bold"
           >
-            {profile.nickname ? "ニックネームを変える" : "ニックネームを付ける"}
+            {profile.nickname ? t("ニックネームを変える") : t("ニックネームを付ける")}
           </button>
         )}
         {editing && signedIn && (

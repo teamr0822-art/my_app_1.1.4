@@ -414,18 +414,18 @@ export function SpotScreen({ spotId, nav }: { spotId: string; nav: Nav }) {
                 }`}
               >
                 {handsFree ? <MicIcon size={15} /> : <MicOffIcon size={15} />}
-                ハンズフリー{handsFree ? "ON" : "OFF"}
+                {t("ハンズフリー")}{handsFree ? "ON" : "OFF"}
               </button>
               <p aria-live="polite" className="min-w-0 flex-1 text-[12px] leading-snug text-[var(--color-ink-soft)]">
                 {!voice.browserSRAvailable
-                  ? "この端末では音声認識が使えません"
+                  ? t("この端末では音声認識が使えません")
                   : handsFree
                     ? voice.recording
-                      ? "聞いています。そのまま話しかけてください"
+                      ? t("聞いています。そのまま話しかけてください")
                       : voice.speaking
-                        ? "話し終わると、また聞きはじめます"
-                        : "次の質問を待っています"
-                    : "オンにすると、マイクを押さずに続けて話せます"}
+                        ? t("話し終わると、また聞きはじめます")
+                        : t("次の質問を待っています")
+                    : t("オンにすると、マイクを押さずに続けて話せます")}
               </p>
             </div>
 

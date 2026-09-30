@@ -1,4 +1,5 @@
 import type { Spot } from "@/lib/spots";
+import { translateStatic } from "@/lib/i18n";
 
 /**
  * 見学できる時間の「目安」。
@@ -153,5 +154,9 @@ export function lateWarning(
   if (!risky.length) return null;
   if (endsAtMinutes < 17 * 60) return null;
   const names = risky.slice(0, 3).map((s) => s.name).join("・");
-  return `夕方以降になります。${names}${risky.length > 3 ? "など" : ""}は開いている時間が決まっているため、先に回るか、時間を確認してから向かってください。`;
+  // 文面は辞書（data/i18n）で訳す。名前の部分だけ差し込む。
+  return translateStatic("夕方以降になります。{names}は開いている時間が決まっているため、先に回るか、時間を確認してから向かってください。").replace(
+    "{names}",
+    `${names}${risky.length > 3 ? translateStatic("など") : ""}`,
+  );
 }

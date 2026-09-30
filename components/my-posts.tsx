@@ -51,8 +51,8 @@ export function ContributorCard() {
           </p>
           <p className="mt-0.5 text-[12px] leading-5 text-[var(--color-ink-soft)]">
             {post.role === "general"
-              ? "合言葉を入れると、協力隊や企業、公式の情報提供者として投稿できます。"
-              : "投稿にこの肩書きが付きます。"}
+              ? t("合言葉を入れると、協力隊や企業、公式の情報提供者として投稿できます。")
+              : t("投稿にこの肩書きが付きます。")}
           </p>
         </div>
         <button
@@ -61,7 +61,7 @@ export function ContributorCard() {
           aria-expanded={open}
           className="min-h-11 shrink-0 rounded-xl border border-[var(--color-border)] px-3 text-[13px] font-bold"
         >
-          {post.role === "general" ? "合言葉を入れる" : "変更"}
+          {post.role === "general" ? t("合言葉を入れる") : t("変更")}
         </button>
       </div>
 
