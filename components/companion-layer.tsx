@@ -29,9 +29,21 @@ export function CompanionLayer({
   const geo = useGeolocation();
   const voice = useVoice();
 
-  // The spot screen has its own microphone button in the same corner; two
-  // round buttons stacked on top of each other is unusable on a phone.
-  const micScreen = nav.screen === "spot";
+  /**
+   * 浮かぶボタンを出すのは地図の画面だけ。
+   *
+   * 話しかける入口は、画面ごとに1つにする。
+   *   ホーム   → 総合案内所
+   *   ルート   → 「途中で変更する」の入力欄
+   *   スポット → その場所の案内（同じ位置に自前のマイクがある）
+   *   地図     → このコンパニオン
+   * 以前はどの画面にも浮かんでいたため、ホームでは一覧カードの「話を聞く」に、
+   * ルート画面では「ルートを作成する」ボタンの角に重なっていた。丸いボタンが
+   * 2つ重なって見えるのはこれが原因。歩きながらの雑談は地図の画面で足りる。
+   */
+  const micScreen = nav.screen !== "map";
+  /** 案内中か。浮かぶボタンの高さを変えるために見ている。 */
+  const guiding = nav.routeIds.length > 0;
 
   const near = useMemo(() => nearestSpot(geo.pos), [geo.pos]);
 
@@ -156,7 +168,15 @@ export function CompanionLayer({
           aria-label={t("お散歩コンパニオンを開く")}
           className="anim-breathe fixed right-4 z-40 flex h-14 w-14 items-center justify-center rounded-full bg-[var(--color-amber)] text-white shadow-xl"
           style={{
-            bottom: `calc(${bottomNavVisible ? 86 : 20}px + env(safe-area-inset-bottom))`,
+            /*
+              案内中は画面の下に「あと470m」の帯と、地図の操作ボタン（進む向きが上／
+              全体を見る）が並ぶ。既定の高さのままだとその帯の下に潜り込み、
+              押せないうえに「行程」ボタンと重なって見えていた。案内中だけ、
+              それらより上へ逃がす。
+            */
+            bottom: guiding
+              ? "calc(258px + env(safe-area-inset-bottom))"
+              : `calc(${bottomNavVisible ? 86 : 20}px + env(safe-area-inset-bottom))`,
           }}
         >
           <SparkIcon size={24} />
