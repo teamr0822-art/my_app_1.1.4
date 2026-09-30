@@ -50,7 +50,7 @@ export function CompanionLayer({
     nearby,
     lang,
     fallbackText: nearby[0]?.grounding?.trim()
-      ? `いまAIとつながらないので、手元の資料からお話ししますね。\n\n${nearby[0].name}\n${nearby[0].grounding.trim()}`
+      ? `${t("いまAIとつながらないので、手元の資料からお話ししますね。")}\n\n${nearby[0].name}\n${nearby[0].grounding.trim()}`
       : undefined,
   });
   const [open, setOpen] = useState(false);
@@ -104,7 +104,11 @@ export function CompanionLayer({
     if (!greeted) {
       setGreeted(true);
       const dist = formatDistance(near.meters);
-      const greeting = `こんにちは、お散歩のお供です。いまは${near.spot.name}のあたり（およそ${dist}）にいますね。この近くの歴史や見どころ、気になることがあれば気軽に話しかけてください。`;
+      // あいさつも表示言語で出す（英語で開いた人に日本語で話しかけない）。
+      const greeting = t(
+        "こんにちは、お散歩のお供です。いまは{name}のあたり（およそ{dist}）にいますね。この近くの歴史や見どころ、気になることがあれば気軽に話しかけてください。",
+        { name: near.spot.name, dist },
+      );
       chat.pushAssistant(greeting);
       voice.speak(greeting, {
         onEnd: () => {

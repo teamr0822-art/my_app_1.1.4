@@ -210,10 +210,21 @@ export async function POST(req: Request) {
     zh: "中国語（简体中文）",
   };
   const answerLanguage = LANG_NAMES[lang ?? "ja"] ?? "日本語";
-  const languageRule =
-    answerLanguage === "日本語"
-      ? ""
-      : `必ず${answerLanguage}だけで答えてください。日本語は使わないでください（固有名詞は、現地表記のあとに読み方を添えてよい）。`;
+  /*
+   * 言語の指示。
+   *
+   * 以前は日本語以外のときだけ、しかも system の最後に1行足していた。すると
+   * 会話が続くうちに効き目が薄れ、3問目から日本語に戻ることがあった（実機で確認）。
+   * いまは日本語のときも必ず入れ、system の先頭と末尾の両方に置いている。
+   */
+  const languageRule = [
+    `【必ず守ること：言語】`,
+    `この会話では、最初の一言から最後まで、すべて${answerLanguage}で答えてください。`,
+    `利用者が別の言語で質問しても、答えは${answerLanguage}です。`,
+    `手元の資料が日本語でも、${answerLanguage}に訳して答えてください。`,
+    `出典の書き方も${answerLanguage}にしてください（英語なら "(Source: ...)" のように）。`,
+    `固有名詞は、${answerLanguage}の表記のあとに現地の表記を添えてもかまいません。`,
+  ].join("\n");
   if (!Array.isArray(messages)) {
     return new Response("messages must be an array", { status: 400 });
   }
@@ -231,7 +242,9 @@ export async function POST(req: Request) {
           .join("\n")
       : "候補スポットなし";
     system = [
-      "あなたは日本の文化財をめぐる観光ルート作成AIです。日本語で答えてください。",
+      languageRule,
+      "",
+      `あなたは日本の文化財をめぐる観光ルート作成AIです。${answerLanguage}で答えてください。`,
       "利用者の条件と候補スポットだけを根拠に、無理のない1つのルートを提案します。",
       // 距離と時間はアプリが座標から計算する。モデルに書かせていたときは、
       // 実測1.5kmの区間を「150m」と書くような答えが出ていた。
@@ -288,6 +301,8 @@ export async function POST(req: Request) {
       ? nearby.map((s) => `・${s.name}（${s.city ?? ""}）: ${s.grounding}`).join("\n")
       : "近くのスポットの情報はありません。";
     system = [
+      languageRule,
+      "",
       "あなたは「よりみっけ」の総合案内所です。観光案内所のカウンターにいる案内係のように、来た人の相談に答えます。",
       "答えるのは、(1) このアプリの使い方、(2) 収録しているスポットや歩き方の相談、(3) 訪ねるときのマナーや注意、の3つです。",
       "",
@@ -323,8 +338,10 @@ export async function POST(req: Request) {
             .join("\n\n")
         : "近くに登録された文化財の情報はありません。";
     system = [
+      languageRule,
+      "",
       `あなたは${areaFromNearby(nearby)}のまち歩きに寄り添うAIコンパニオンです。`,
-      "利用者と歩きながら、気さくに雑談する相棒として日本語で話します。",
+      `利用者と歩きながら、気さくに雑談する相棒として${answerLanguage}で話します。`,
       "以下は近くの文化財の情報です。話題に関係すれば自然に触れてください。",
       "",
       context,
@@ -343,8 +360,10 @@ export async function POST(req: Request) {
       return new Response("Unknown spot", { status: 400 });
     }
     system = [
+      languageRule,
+      "",
       `あなたは${areaOf(spot)}の文化財「${spot.name}」の案内をするAI音声ガイドです。`,
-      "訪れた人の質問に、下記の資料にもとづいて日本語で答えます。",
+      `訪れた人の質問に、下記の資料にもとづいて${answerLanguage}で答えます。`,
       "",
       "【このスポットの資料】",
       `名称: ${spot.name}`,

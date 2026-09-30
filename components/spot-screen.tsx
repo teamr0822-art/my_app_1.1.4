@@ -63,7 +63,7 @@ export function SpotScreen({ spotId, nav }: { spotId: string; nav: Nav }) {
     mode: "spot",
     lang,
     fallbackText: spot?.grounding?.trim()
-      ? `いまAIとつながらないので、手元の資料からお伝えします。\n\n${spot.grounding.trim()}`
+      ? `${t("いまAIとつながらないので、手元の資料からお伝えします。")}\n\n${spot.grounding.trim()}`
       : undefined,
   });
   const [started, setStarted] = useState(false);
@@ -106,7 +106,12 @@ export function SpotScreen({ spotId, nav }: { spotId: string; nav: Nav }) {
   const begin = () => {
     if (started) return;
     setStarted(true);
-    const greeting = `こんにちは。${spot.name}へようこそ。わたしがこの場所をご案内します。気になることがあれば、マイクを押して話しかけてくださいね。`;
+    // 最初のあいさつも表示言語で。ここだけ日本語だと、英語で開いた人には
+    // 「壊れている」ように見える（実機で指摘された）。
+    const greeting = t(
+      "こんにちは。{name}へようこそ。わたしがこの場所をご案内します。気になることがあれば、マイクを押して話しかけてくださいね。",
+      { name: spot.name },
+    );
     chat.pushAssistant(greeting);
     voice.speak(greeting);
   };
