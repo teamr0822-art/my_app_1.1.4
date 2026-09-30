@@ -1,3 +1,5 @@
+import { translateStatic } from "@/lib/i18n";
+
 /**
  * Removes Markdown decoration from model output.
  *
@@ -37,4 +39,19 @@ export function stripMarkdown(text: string): string {
     // Collapse the blank lines left behind
     .replace(/\n{3,}/g, "\n\n")
     .trim();
+}
+
+/**
+ * 「1時間30分」のような所要時間の書き方。
+ *
+ * 画面の言語に合わせて訳す（英語なら "1 h 30 min"）。フックの外からも呼ぶので
+ * translateStatic を使う。数字だけを差し込み、並びは辞書側で決められる。
+ */
+export function formatMinutes(total: number): string {
+  const minutes = Math.max(0, Math.round(total));
+  const h = Math.floor(minutes / 60);
+  const m = minutes % 60;
+  if (h && m) return translateStatic("{h}時間{m}分").replace("{h}", String(h)).replace("{m}", String(m));
+  if (h) return translateStatic("{h}時間").replace("{h}", String(h));
+  return translateStatic("{m}分").replace("{m}", String(m));
 }

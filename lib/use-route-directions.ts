@@ -1,5 +1,7 @@
 "use client";
 
+import { formatMinutes } from "@/lib/format";
+
 import { useEffect, useRef, useState } from "react";
 import type { Spot } from "@/lib/spots";
 
@@ -290,9 +292,6 @@ export function useRouteDirections(
 
 /** "12分" / "1時間5分" */
 export function formatDuration(seconds: number): string {
-  const minutes = Math.max(1, Math.round(seconds / 60));
-  if (minutes < 60) return `${minutes}分`;
-  const hours = Math.floor(minutes / 60);
-  const rest = minutes % 60;
-  return rest ? `${hours}時間${rest}分` : `${hours}時間`;
+  // 表示は lib/format.ts に一本化（画面の言語に合わせて訳される）。
+  return formatMinutes(Math.max(1, Math.round(seconds / 60)));
 }

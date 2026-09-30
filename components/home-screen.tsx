@@ -48,9 +48,9 @@ export function HomeScreen({ nav }: { nav: Nav }) {
         /* shrink-0 matters: `overflow-hidden` (needed so the firework is clipped
            to the sky) also lets this flex item shrink below its content and
            clip the title and the figures with it. */
-        className="relative shrink-0 overflow-hidden bg-[linear-gradient(168deg,#1c2e4d_0%,#2f5478_52%,#3d6f8e_100%)] px-5 pb-6 pt-[calc(20px+env(safe-area-inset-top))] text-white"
+        className="relative shrink-0 overflow-hidden bg-[linear-gradient(168deg,#2e2016_0%,#6b3a1f_50%,#b3652c_100%)] px-5 pb-6 pt-[calc(20px+env(safe-area-inset-top))] text-white"
       >
-        <Firework />
+        <SeasonMotif />
         <h1 className="relative text-[28px] font-extrabold tracking-tight">{t("よりみっけ")}</h1>
         <p className="relative mt-1.5 text-[13px] font-medium leading-relaxed text-pretty">
           {t("知らなかった街の魅力を、旅の途中で見つけよう。")}
@@ -219,42 +219,46 @@ export function HomeScreen({ nav }: { nav: Nav }) {
 }
 
 /**
- * A firework over the header. Drawn rather than animated: this screen is opened
- * outdoors, often in a hurry, and a looping animation behind the title would
- * compete with the text for attention — and with anyone who has asked their
- * device for less motion.
+ * 見出しの飾り。舞い落ちるもみじと銀杏。
+ *
+ * 以前は花火だった（夏の夕暮れの絵）。季節を秋に替えたので、同じ位置・同じ
+ * 大きさのまま絵柄だけ差し替えている。装飾なので aria-hidden、動きもなし
+ * （歩きながら読む画面で、動くものが文字と競わないように）。
  */
-function Firework() {
-  const rays = Array.from({ length: 16 }, (_, i) => (i * 360) / 16);
+function SeasonMotif() {
+  // 位置・角度・大きさ・色を決め打ちにして、開くたびに散らばりが変わらないようにする。
+  const leaves = [
+    { x: 18, y: 26, r: -18, s: 1.15, kind: "maple", c: "var(--color-sunset)" },
+    { x: 54, y: 14, r: 24, s: 0.85, kind: "ginkgo", c: "var(--color-sun)" },
+    { x: 84, y: 40, r: -6, s: 1, kind: "maple", c: "var(--color-sun)" },
+    { x: 38, y: 62, r: 40, s: 0.7, kind: "ginkgo", c: "var(--color-sunset)" },
+    { x: 72, y: 78, r: -34, s: 0.9, kind: "maple", c: "var(--color-sunset)" },
+    { x: 100, y: 66, r: 12, s: 0.75, kind: "ginkgo", c: "var(--color-sun)" },
+  ];
   return (
     <svg
       aria-hidden="true"
       viewBox="0 0 120 120"
-      className="pointer-events-none absolute -right-8 -top-6 h-32 w-32 opacity-55"
+      className="pointer-events-none absolute -right-6 -top-4 h-36 w-36 opacity-70"
     >
-      <g transform="translate(60 60)">
-        {rays.map((deg, i) => (
-          <g key={deg} transform={`rotate(${deg})`}>
-            <line
-              x1="0"
-              y1="-8"
-              x2="0"
-              y2={i % 2 ? "-38" : "-46"}
-              stroke={i % 2 ? "var(--color-sunset)" : "var(--color-sun)"}
-              strokeWidth="1.6"
-              strokeLinecap="round"
-              opacity="0.85"
+      {leaves.map((l, i) => (
+        <g key={i} transform={`translate(${l.x} ${l.y}) rotate(${l.r}) scale(${l.s})`}>
+          {l.kind === "maple" ? (
+            /* もみじ: 五つの切れ込みを持つ星形を、単純化して描く。 */
+            <path
+              d="M0 -9 L2.6 -3.4 L8.6 -5.2 L5 -0.4 L9.6 2.6 L3.4 3 L4.2 8.8 L0 4.8 L-4.2 8.8 L-3.4 3 L-9.6 2.6 L-5 -0.4 L-8.6 -5.2 L-2.6 -3.4 Z"
+              fill={l.c}
+              opacity="0.9"
             />
-            <circle
-              cx="0"
-              cy={i % 2 ? "-41" : "-49"}
-              r="2"
-              fill={i % 2 ? "var(--color-sunset)" : "var(--color-sun)"}
-            />
-          </g>
-        ))}
-        <circle r="3.5" fill="var(--color-sun)" opacity="0.9" />
-      </g>
+          ) : (
+            /* いちょう: 扇形と軸。 */
+            <>
+              <path d="M0 4 C-7 4 -8.5 -2 0 -8 C8.5 -2 7 4 0 4 Z" fill={l.c} opacity="0.9" />
+              <line x1="0" y1="4" x2="0" y2="8.5" stroke={l.c} strokeWidth="1.2" strokeLinecap="round" opacity="0.7" />
+            </>
+          )}
+        </g>
+      ))}
     </svg>
   );
 }

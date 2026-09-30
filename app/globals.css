@@ -22,33 +22,43 @@
    * --color-sunset) are decoration only — fills, sparks, rules — and never
    * carry words, which is why their darker -ink partners exist.
    */
-  --color-bg: #f5f3e4;
-  --color-panel: #fdfcf5;
-  --color-panel-soft: #eceedd;
-  --color-ink: #26302c;
-  /* 直射日光下での可読性のため、背景に対して 7.7:1 まで濃くしている。 */
-  --color-ink-soft: #454e49;
-  --color-border: #e0dcc4;
+  /*
+   * 秋の配色（2026年9月に夏の配色から切り替え）。
+   *
+   * 地は日に焼けた和紙、押すものは柿渋の赤茶、支えるのは枯れかけた苔の緑。
+   * 差し色は銀杏の黄と紅葉の赤。夏の「青空と花火」から、
+   * 「夕暮れの紅葉」へ置き換えたもので、構造や余白は何も変えていない。
+   *
+   * 文字に使う色はすべて、置かれうる地の上で 4.5:1 以上を実測して選んでいる
+   * （--color-sun と --color-sunset は飾り専用。文字には -ink のほうを使う）。
+   */
+  --color-bg: #f7f0e1;
+  --color-panel: #fffaf1;
+  --color-panel-soft: #f0e7d5;
+  --color-ink: #2b241c;
+  /* 直射日光下での可読性のため、背景に対して 8.8:1 まで濃くしている。 */
+  --color-ink-soft: #4b4136;
+  --color-border: #e3d8c0;
 
-  /* Primary: the sky. Buttons, the active tab, anything you can act on. */
-  --color-terracotta: #3d6f8e;
-  --color-terracotta-soft: #e7f0f6;
+  /* Primary: 柿渋。ボタン、選択中のタブ、押せるもの全般。 */
+  --color-terracotta: #a2512a;
+  --color-terracotta-soft: #f7e7da;
 
-  /* Supporting: the green of the fields, no longer carrying the whole app. */
-  --color-green: #587136;
-  --color-green-soft: #e8eed7;
+  /* Supporting: 枯れかけた苔の緑。 */
+  --color-green: #5c6b33;
+  --color-green-soft: #ebeed6;
 
-  /* Fireworks. Vivid pair for decoration, dark pair for anything with text. */
-  --color-sun: #e0952a;
-  --color-sun-ink: #8f5f1b;
-  --color-sun-soft: #fbf0d6;
-  --color-sunset: #d1583c;
-  --color-sunset-ink: #b04a32;
-  --color-sunset-soft: #fbe8e0;
+  /* 銀杏と紅葉。飾り用の鮮やかな対と、文字にも使える濃い対。 */
+  --color-sun: #d9922b;
+  --color-sun-ink: #8a5417;
+  --color-sun-soft: #fbeed3;
+  --color-sunset: #c2542f;
+  --color-sunset-ink: #a8412a;
+  --color-sunset-soft: #fae5dc;
 
-  /* Used as a fill behind white text, so darker than the vivid sunflower. */
-  --color-amber: #a16b1e;
-  --color-amber-soft: #fbf0d6;
+  /* 白い文字を載せる地に使うので、鮮やかな銀杏より濃い。 */
+  --color-amber: #99631c;
+  --color-amber-soft: #fbeed3;
 
   /* Mute (restricted) palette */
   --color-mute-bg: #f7ece0;
@@ -58,17 +68,15 @@
   --color-mute-accent: #b3672c;
 
   /*
-   * Colours the map needs that the page palette had no name for.
-   * The location dot is a deeper, more saturated blue than the sky used for
-   * buttons: on the map it has to read as "this is you", not as one more piece
-   * of app furniture.
+   * 地図のためだけの色。現在地の点は、ボタンの柿渋と取り違えないよう、
+   * あえて青のまま残している（「これは自分だ」と読ませるため）。
    */
-  --color-map-skeleton: #e6ecef;
-  --color-neutral-soft: #b0a894;
-  --color-scrim: #2b2622;
+  --color-map-skeleton: #e9e6dd;
+  --color-neutral-soft: #b3a68c;
+  --color-scrim: #2b2018;
   --color-location: #1f4f8f;
-  --color-route-done: #bdb9a4;
-  --color-green-deep: #34402f;
+  --color-route-done: #c3b8a0;
+  --color-green-deep: #3a4127;
 
   --radius: 16px;
 }
@@ -251,9 +259,9 @@ body {
   --color-ink: #101512;
   --color-ink-soft: #2c3531;
   --color-border: #7d7a68;
-  --color-terracotta: #1f4f6b;
-  --color-terracotta-soft: #dbe8f0;
-  --color-green: #33471c;
+  --color-terracotta: #8a3f1c;
+  --color-terracotta-soft: #f5e2d5;
+  --color-green: #3c4a1e;
   --color-sun-soft: #fbecc9;
   --color-sun-ink: #6b4510;
 }

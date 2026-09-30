@@ -1,5 +1,6 @@
 "use client";
 
+import { translateStatic } from "@/lib/i18n";
 import { SUPABASE_KEY, SUPABASE_URL, AUTH_CONFIGURED, getAccessToken } from "@/lib/auth-context";
 
 /**
@@ -14,12 +15,12 @@ import { SUPABASE_KEY, SUPABASE_URL, AUTH_CONFIGURED, getAccessToken } from "@/l
 export class SupabaseError extends Error {}
 
 function ensure(): void {
-  if (!AUTH_CONFIGURED) throw new SupabaseError("この機能はまだ準備中です。");
+  if (!AUTH_CONFIGURED) throw new SupabaseError(translateStatic("この機能はまだ準備中です。"));
 }
 
 async function authHeaders(): Promise<Record<string, string>> {
   const token = await getAccessToken();
-  if (!token) throw new SupabaseError("ログインが必要です。");
+  if (!token) throw new SupabaseError(translateStatic("ログインが必要です。"));
   return { apikey: SUPABASE_KEY, Authorization: `Bearer ${token}` };
 }
 
@@ -27,14 +28,14 @@ async function authHeaders(): Promise<Record<string, string>> {
 function toMessage(status: number, data: unknown): string {
   const d = (data ?? {}) as { message?: string; hint?: string; error?: string };
   const raw = `${d.message ?? d.error ?? ""} ${d.hint ?? ""}`.toLowerCase();
-  if (raw.includes("合言葉")) return "合言葉が違います。";
-  if (raw.includes("ログインが必要")) return "ログインが必要です。";
-  if (status === 401 || status === 403) return "権限がありません。ログインし直してください。";
+  if (raw.includes("合言葉")) return translateStatic("合言葉が違います。");
+  if (raw.includes("ログインが必要")) return translateStatic("ログインが必要です。");
+  if (status === 401 || status === 403) return translateStatic("権限がありません。ログインし直してください。");
   if (status === 404 || raw.includes("does not exist") || raw.includes("schema cache"))
-    return "サーバー側の準備がまだです（データベースの設定を実行してください）。";
-  if (status === 413 || raw.includes("too large")) return "写真が大きすぎます。";
-  if (status >= 500) return "サーバーが混み合っています。しばらくしてからお試しください。";
-  return "うまくいきませんでした。時間をおいてもう一度お試しください。";
+    return translateStatic("サーバー側の準備がまだです（データベースの設定を実行してください）。");
+  if (status === 413 || raw.includes("too large")) return translateStatic("写真が大きすぎます。");
+  if (status >= 500) return translateStatic("サーバーが混み合っています。しばらくしてからお試しください。");
+  return translateStatic("うまくいきませんでした。時間をおいてもう一度お試しください。");
 }
 
 async function request(path: string, init: RequestInit): Promise<unknown> {
@@ -43,7 +44,7 @@ async function request(path: string, init: RequestInit): Promise<unknown> {
   try {
     res = await fetch(`${SUPABASE_URL}${path}`, init);
   } catch {
-    throw new SupabaseError("通信できませんでした。電波の良い場所でもう一度お試しください。");
+    throw new SupabaseError(translateStatic("通信できませんでした。電波の良い場所でもう一度お試しください。"));
   }
   const text = await res.text();
   let data: unknown = null;
@@ -99,7 +100,7 @@ export async function claimRole(code: string): Promise<{ role: Role; label: stri
     body: JSON.stringify({ p_code: code }),
   })) as { role: Role; label: string | null }[];
   const hit = Array.isArray(rows) ? rows[0] : null;
-  if (!hit) throw new SupabaseError("合言葉が違います。");
+  if (!hit) throw new SupabaseError(translateStatic("合言葉が違います。"));
   return hit;
 }
 
@@ -229,7 +230,7 @@ export async function uploadPhoto(file: File): Promise<string> {
   const headers = await authHeaders();
   const userId = await getUserId();
   const blob = await shrinkImage(file);
-  if (blob.size > MAX_UPLOAD_BYTES) throw new SupabaseError("写真が大きすぎます。");
+  if (blob.size > MAX_UPLOAD_BYTES) throw new SupabaseError(translateStatic("写真が大きすぎます。"));
   const name = `${userId}/${Date.now()}-${Math.random().toString(36).slice(2, 8)}.jpg`;
   await request(`/storage/v1/object/post-photos/${name}`, {
     method: "POST",
@@ -259,6 +260,6 @@ export async function photoUrl(path: string): Promise<string | null> {
 async function getUserId(): Promise<string> {
   const { getUserIdFromSession } = await import("@/lib/auth-context");
   const id = getUserIdFromSession();
-  if (!id) throw new SupabaseError("ログインが必要です。");
+  if (!id) throw new SupabaseError(translateStatic("ログインが必要です。"));
   return id;
 }

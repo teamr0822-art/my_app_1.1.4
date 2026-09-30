@@ -8,6 +8,7 @@ import { useI18n, useT } from "@/lib/i18n";
 import { LocationBanner } from "@/components/location-banner";
 import { useGuideChat } from "@/lib/use-guide-chat";
 import { hoursForPrompt, hoursOf, lateWarning } from "@/lib/visit-hours";
+import { formatMinutes } from "@/lib/format";
 import { estimateItinerary, suggestStopCount, describeMinutes as describeSpan } from "@/lib/route-estimate";
 import { stripMarkdown } from "@/lib/format";
 import { SendIcon, SparkIcon } from "@/components/icons";
@@ -60,13 +61,8 @@ const MOODS = [
 ];
 
 /** "90" → "1時間30分" — used for the label the clock produces. */
-function describeMinutes(total: number): string {
-  const h = Math.floor(total / 60);
-  const m = total % 60;
-  if (h && m) return `${h}時間${m}分`;
-  if (h) return `${h}時間`;
-  return `${m}分`;
-}
+/** 所要時間の書き方は lib/format.ts に1つだけ置き、画面の言語に合わせて訳す。 */
+const describeMinutes = formatMinutes;
 
 /** Upper bound on candidates sent to the model (keeps the prompt small). */
 const MAX_CANDIDATES = 25;
@@ -127,7 +123,10 @@ export function RouteScreen({ nav, hidden = false }: { nav: Nav; hidden?: boolea
   /** A deadline already past is the one input that cannot be planned around. */
   const endTimeInvalid = useEndTime && (minutesUntilEnd === null || minutesUntilEnd < 10);
   const tripMinutes = useEndTime && minutesUntilEnd && minutesUntilEnd >= 10 ? minutesUntilEnd : minutes;
-  const tripLabel = useEndTime && !endTimeInvalid ? `${endTime}まで（約${describeMinutes(tripMinutes)}）` : describeMinutes(tripMinutes);
+  const tripLabel =
+    useEndTime && !endTimeInvalid
+      ? t("{time}まで（約{dur}）", { time: endTime, dur: describeMinutes(tripMinutes) })
+      : describeMinutes(tripMinutes);
 
   // Candidate spots near the user, closest first. Without this the model was
   // handed spots from every prefecture in the dataset and could propose a
@@ -310,7 +309,7 @@ export function RouteScreen({ nav, hidden = false }: { nav: Nav; hidden?: boolea
                   }}
                   className={`${chip} ${on ? "border-[var(--color-terracotta)] bg-[var(--color-terracotta)] text-white" : "text-[var(--color-ink-soft)]"}`}
                 >
-                  {d.label}
+                  {t(d.label)}
                 </button>
               );
             })}

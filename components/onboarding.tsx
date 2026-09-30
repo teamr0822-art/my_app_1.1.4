@@ -97,11 +97,11 @@ export function Onboarding() {
       aria-labelledby="onboarding-title"
       /* 上下に分ける。空いていた上半分が理念、下がこれまでの操作説明。
          背景は上ほど濃い夜空にして、白い文字が必ず読めるようにする。 */
-      className="fixed inset-0 z-[900] flex flex-col justify-between bg-[linear-gradient(180deg,rgba(16,26,45,0.92)_0%,rgba(22,38,62,0.86)_45%,rgba(0,0,0,0.5)_100%)] px-4 pb-[calc(24px+env(safe-area-inset-bottom))] pt-[calc(28px+env(safe-area-inset-top))] backdrop-blur-[2px]"
+      className="fixed inset-0 z-[900] flex flex-col justify-between bg-[linear-gradient(180deg,rgba(38,24,14,0.93)_0%,rgba(74,42,22,0.88)_45%,rgba(0,0,0,0.5)_100%)] px-4 pb-[calc(24px+env(safe-area-inset-bottom))] pt-[calc(28px+env(safe-area-inset-top))] backdrop-blur-[2px]"
     >
       {/* 理念。打ち上げ花火を背に、大きく置く。 */}
       <div className="relative mx-auto flex w-full max-w-[432px] flex-1 flex-col justify-center overflow-hidden">
-        <Firework />
+        <SeasonMotif />
         <p className="relative font-mono text-[11px] tracking-[0.3em] text-[var(--color-sun)]">
           YORIMIKKE
         </p>
@@ -282,28 +282,41 @@ export function replayOnboarding() {
  * 背景の花火。ホーム画面のヘッダーと同じモチーフを、理念の後ろに小さく敷く。
  * 装飾なので aria-hidden、動きは1回だけ（読む邪魔をしない）。
  */
-function Firework() {
-  const rays = Array.from({ length: 16 }, (_, i) => (i * 360) / 16);
+/**
+ * 理念の背にある飾り。舞い落ちる葉（もみじ・いちょう）。
+ * 以前は花火だったものを、季節に合わせて差し替えた。装飾なので aria-hidden。
+ */
+function SeasonMotif() {
+  const leaves = [
+    { x: 40, y: 40, r: -20, s: 2.2, kind: "maple" },
+    { x: 118, y: 22, r: 28, s: 1.6, kind: "ginkgo" },
+    { x: 150, y: 70, r: -8, s: 2, kind: "maple" },
+    { x: 74, y: 104, r: 44, s: 1.4, kind: "ginkgo" },
+    { x: 140, y: 140, r: -36, s: 1.8, kind: "maple" },
+    { x: 30, y: 150, r: 16, s: 1.3, kind: "ginkgo" },
+  ];
   return (
     <svg
       aria-hidden="true"
       viewBox="0 0 200 200"
       className="pointer-events-none absolute -right-8 -top-4 h-[230px] w-[230px] opacity-45"
     >
-      {rays.map((deg) => (
-        <line
-          key={deg}
-          x1="100"
-          y1="100"
-          x2={100 + Math.cos((deg * Math.PI) / 180) * 88}
-          y2={100 + Math.sin((deg * Math.PI) / 180) * 88}
-          stroke="var(--color-sun)"
-          strokeWidth="2"
-          strokeLinecap="round"
-          opacity={deg % 45 === 0 ? 0.9 : 0.45}
-        />
+      {leaves.map((l, i) => (
+        <g key={i} transform={`translate(${l.x} ${l.y}) rotate(${l.r}) scale(${l.s})`}>
+          {l.kind === "maple" ? (
+            <path
+              d="M0 -9 L2.6 -3.4 L8.6 -5.2 L5 -0.4 L9.6 2.6 L3.4 3 L4.2 8.8 L0 4.8 L-4.2 8.8 L-3.4 3 L-9.6 2.6 L-5 -0.4 L-8.6 -5.2 L-2.6 -3.4 Z"
+              fill="var(--color-sunset)"
+              opacity="0.85"
+            />
+          ) : (
+            <>
+              <path d="M0 4 C-7 4 -8.5 -2 0 -8 C8.5 -2 7 4 0 4 Z" fill="var(--color-sun)" opacity="0.9" />
+              <line x1="0" y1="4" x2="0" y2="8.5" stroke="var(--color-sun)" strokeWidth="1.2" strokeLinecap="round" opacity="0.7" />
+            </>
+          )}
+        </g>
       ))}
-      <circle cx="100" cy="100" r="6" fill="#fff" />
     </svg>
   );
 }

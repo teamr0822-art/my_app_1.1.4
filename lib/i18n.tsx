@@ -48,6 +48,15 @@ const DICTIONARIES: Record<Lang, Record<string, string>> = {
 
 const STORAGE_KEY = "yorimikke-lang-v1";
 
+/**
+ * いま選ばれている言語の控え（フックを使えない場所から読むため）。
+ *
+ * localStorage を直接読まないのが肝心。サーバーで描いた HTML は必ず日本語なので、
+ * ブラウザでの最初の描画も日本語でないと食い違い（hydration error）になる。
+ * ここは Provider が画面を出したあとに設定し、そのとき全体が描き直される。
+ */
+let currentLang: Lang = "ja";
+
 type I18nState = {
   lang: Lang;
   setLang: (lang: Lang) => void;
@@ -78,9 +87,13 @@ export function I18nProvider({ children }: { children: React.ReactNode }) {
   useEffect(() => {
     try {
       const saved = window.localStorage.getItem(STORAGE_KEY) as Lang | null;
-      setLangState(saved && LANGS.some((l) => l.code === saved) ? saved : detect());
+      const next = saved && LANGS.some((l) => l.code === saved) ? saved : detect();
+      currentLang = next;
+      setLangState(next);
     } catch {
-      setLangState(detect());
+      const next = detect();
+      currentLang = next;
+      setLangState(next);
     }
   }, []);
 
@@ -90,6 +103,7 @@ export function I18nProvider({ children }: { children: React.ReactNode }) {
   }, [lang]);
 
   const setLang = useCallback((next: Lang) => {
+    currentLang = next;
     setLangState(next);
     try {
       window.localStorage.setItem(STORAGE_KEY, next);
@@ -127,14 +141,7 @@ export function useI18n(): I18nState {
  * 逃げ道。保存してある言語を直接読む。画面の描き直しには連動しない。
  */
 export function translateStatic(ja: string): string {
-  let lang: Lang = "ja";
-  try {
-    const saved = window.localStorage.getItem(STORAGE_KEY) as Lang | null;
-    if (saved && LANGS.some((l) => l.code === saved)) lang = saved;
-  } catch {
-    /* 読めなければ日本語のまま */
-  }
-  return DICTIONARIES[lang][ja] ?? ja;
+  return DICTIONARIES[currentLang][ja] ?? ja;
 }
 
 /** 文字だけ要るときの近道。 */

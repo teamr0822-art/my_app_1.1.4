@@ -1,3 +1,4 @@
+import { formatMinutes } from "@/lib/format";
 import { distanceMeters, type Spot } from "@/lib/spots";
 import { hoursOf } from "@/lib/visit-hours";
 
@@ -114,11 +115,5 @@ export function suggestStopCount(
 }
 
 /** 「1時間40分」のように読める形に。 */
-export function describeMinutes(total: number): string {
-  const m = Math.max(0, Math.round(total));
-  const h = Math.floor(m / 60);
-  const rest = m % 60;
-  if (h && rest) return `${h}時間${rest}分`;
-  if (h) return `${h}時間`;
-  return `${rest}分`;
-}
+/** 所要時間の書き方は lib/format.ts と共通。画面の言語に合わせて訳される。 */
+export const describeMinutes = formatMinutes;

@@ -1,5 +1,7 @@
 "use client";
 
+import { translateStatic } from "@/lib/i18n";
+
 import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState } from "react";
 
 /**
@@ -136,19 +138,19 @@ function toMessage(data: unknown): string {
   const raw = d.msg || d.message || d.error_description || d.error || "";
   const code = d.error_code || d.code || "";
   const m = `${code} ${raw}`.toLowerCase();
-  if (raw === "__network__") return "通信できませんでした。電波の良い場所でもう一度お試しください。";
-  if (m.includes("invalid login") || m.includes("invalid_credentials")) return "メールアドレスかパスワードが違います。";
+  if (raw === "__network__") return translateStatic("通信できませんでした。電波の良い場所でもう一度お試しください。");
+  if (m.includes("invalid login") || m.includes("invalid_credentials")) return translateStatic("メールアドレスかパスワードが違います。");
   if (m.includes("email not confirmed") || m.includes("email_not_confirmed"))
-    return "メールアドレスの確認がまだです。届いたメールのリンクを押してから、もう一度ログインしてください。";
+    return translateStatic("メールアドレスの確認がまだです。届いたメールのリンクを押してから、もう一度ログインしてください。");
   if (m.includes("already registered") || m.includes("user_already_exists") || m.includes("email_exists"))
-    return "このメールアドレスは登録済みです。「ログイン」からお入りください。";
+    return translateStatic("このメールアドレスは登録済みです。「ログイン」からお入りください。");
   if (m.includes("password") && (m.includes("at least") || m.includes("weak") || m.includes("short")))
-    return "パスワードが短すぎるか、簡単すぎます。8文字以上で、英字と数字を混ぜてください。";
-  if (m.includes("invalid") && m.includes("email")) return "メールアドレスの形が正しくありません。";
+    return translateStatic("パスワードが短すぎるか、簡単すぎます。8文字以上で、英字と数字を混ぜてください。");
+  if (m.includes("invalid") && m.includes("email")) return translateStatic("メールアドレスの形が正しくありません。");
   if (m.includes("rate limit") || m.includes("over_email_send_rate_limit") || m.includes("too many"))
-    return "短い時間に何度も試したため、少し待つ必要があります。しばらくしてからお試しください。";
-  if (m.includes("signup") && m.includes("disabled")) return "いまは新規登録を受け付けていません。";
-  return "うまくいきませんでした。時間をおいてもう一度お試しください。";
+    return translateStatic("短い時間に何度も試したため、少し待つ必要があります。しばらくしてからお試しください。");
+  if (m.includes("signup") && m.includes("disabled")) return translateStatic("いまは新規登録を受け付けていません。");
+  return translateStatic("うまくいきませんでした。時間をおいてもう一度お試しください。");
 }
 
 /**
@@ -283,7 +285,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
   const signIn = useCallback<AuthState["signIn"]>(
     async (email, password) => {
-      if (!AUTH_CONFIGURED) return { ok: false, message: "ログイン機能は準備中です。" };
+      if (!AUTH_CONFIGURED) return { ok: false, message: translateStatic("ログイン機能は準備中です。") };
       const r = await authFetch("/token?grant_type=password", { email: email.trim(), password });
       if (!r.ok) return { ok: false, message: toMessage(r.data) };
       apply(toSession(r.data as RawSession));
@@ -294,7 +296,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
   const signUp = useCallback<AuthState["signUp"]>(
     async (email, password, name) => {
-      if (!AUTH_CONFIGURED) return { ok: false, message: "ログイン機能は準備中です。" };
+      if (!AUTH_CONFIGURED) return { ok: false, message: translateStatic("ログイン機能は準備中です。") };
       const r = await authFetch("/signup", {
         email: email.trim(),
         password,
