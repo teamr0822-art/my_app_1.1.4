@@ -28,7 +28,16 @@ const CATEGORIES = ["史跡", "神社・寺", "自然・景色", "食べ物", "�
 /** アプリへの意見の種類。細かく分けすぎると選ぶのが面倒になるので4つだけ。 */
 const FEEDBACK_KINDS = ["使いにくいところ", "ほしい機能", "うまく動かない", "そのほか"];
 
+/**
+ * 通報の種類。
+ *
+ * 先頭の「近隣の迷惑〜」が、この機能のいちばんの目的。
+ * 住んでいる人が来てほしくない場所を見つけて、一覧から外すために使う。
+ * 以前はこの項目が無く、「立入禁止・閉鎖している」（＝物理的に閉まっている）
+ * とも違うので、いちばん大事な通報が「その他」に埋もれていた。
+ */
 const REPORT_REASONS = [
+  "近隣の迷惑になっている・住宅がすぐそば",
   "情報がまちがっている",
   "立入禁止・閉鎖している",
   "危険な場所がある",
@@ -60,6 +69,14 @@ function PostForm() {
   const [address, setAddress] = useState("");
   const [rating, setRating] = useState(0);
   const [reason, setReason] = useState(kind === "feedback" ? FEEDBACK_KINDS[0] : REPORT_REASONS[0]);
+  /**
+   * 写真を出してよいか、本人に確かめた印。
+   *
+   * 権利の確認は、あとから遡れない。他人の写真が混ざったまま集めてしまうと、
+   * 集めた分がまるごと使えなくなる。文章を書き添えるだけでは「読んでいない」
+   * ことにできてしまうので、写真を付けたときだけ、はっきり押してもらう。
+   */
+  const [photoOk, setPhotoOk] = useState(false);
   const [facilities, setFacilities] = useState<Record<string, boolean>>({});
   const [photos, setPhotos] = useState<File[]>([]);
   const [busy, setBusy] = useState(false);
@@ -112,6 +129,9 @@ function PostForm() {
     if (kind === "report" && !body.trim()) return setError(t("どこがおかしいかを書いてください。"));
     if (kind === "feedback" && !body.trim()) return setError(t("ご意見を書いてください。"));
     if (kind === "photo" && photos.length === 0) return setError(t("写真を選んでください。"));
+    if (photos.length > 0 && !photoOk) {
+      return setError(t("写真については、自分で撮ったものであることの確認をお願いします。"));
+    }
 
     setBusy(true);
     try {
@@ -400,6 +420,24 @@ function PostForm() {
                     </li>
                   ))}
                 </ul>
+              )}
+
+              {/* 写真を選んだときだけ出す。何も付けない人の手間は増やさない。 */}
+              {photos.length > 0 && (
+                <label className="mt-3 flex items-start gap-2.5 rounded-xl bg-[var(--color-panel-soft)] p-3">
+                  <input
+                    type="checkbox"
+                    checked={photoOk}
+                    onChange={(e) => setPhotoOk(e.target.checked)}
+                    className="mt-0.5 h-5 w-5 shrink-0 accent-[var(--color-terracotta)]"
+                  />
+                  <span className="text-[12px] font-bold leading-5">
+                    {t("この写真は自分で撮ったもので、よりみっけに載せてもかまいません。")}
+                    <span className="mt-1 block font-normal text-[var(--color-ink-soft)]">
+                      {t("ほかの人が撮った写真や、ネットで見つけた写真は送らないでください。写っている人の顔や、表札・車のナンバーにもご注意ください。")}
+                    </span>
+                  </span>
+                </label>
               )}
             </div>
 

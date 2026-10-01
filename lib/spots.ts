@@ -1,4 +1,5 @@
 import common from "@/data/areas/common.json";
+import excludedFile from "@/data/areas/excluded.json";
 import kochi from "@/data/areas/kochi.json";
 import hiroshima from "@/data/areas/hiroshima.json";
 import ibusuki from "@/data/areas/ibusuki.json";
@@ -76,6 +77,21 @@ export type AreaFile = {
 const AREA_FILES: AreaFile[] = [kochi, hiroshima, ibusuki, matsue] as AreaFile[];
 
 /**
+ * 一覧から外した場所の id。
+ *
+ * ■ なぜ「消す」ではなく「外す」なのか
+ * いちばん多い外す理由は、住んでいる人が来てほしくない場所だと分かったとき。
+ * ところがこのデータは各市の公式文化財一覧から作っているので、該当の行を
+ * ファイルから消しただけでは、次にデータを足したり作り直したときに同じ場所が
+ * また入ってくる。そしてまた同じ苦情が起きる。
+ * id で弾く形にしておけば、元のデータは公式一覧のままにできて、外した事実と
+ * 理由だけが別に残る。
+ */
+const EXCLUDED_IDS = new Set(
+  ((excludedFile as { excluded?: { id: string }[] }).excluded ?? []).map((e) => e.id),
+);
+
+/**
  * 街ごとのファイルを1つのデータセットにまとめる。
  * - id が既に出てきたスポットは捨てる（先に読んだ街を優先。既存のルートを壊さない）
  * - city がファイルの area と違うスポットは警告する（街の判定がずれるため）
@@ -88,6 +104,8 @@ function mergeAreas(files: AreaFile[]): SpotDataset {
   const sources = [common.source];
   for (const file of files) {
     for (const spot of file.spots) {
+      // 外した場所は、ここで落とす。地図・一覧・ルート・AIの候補すべてに出なくなる。
+      if (EXCLUDED_IDS.has(spot.id)) continue;
       if (seen.has(spot.id)) {
         console.warn(`[spots] ${file.area}: id が重複したため無視しました: ${spot.id}`);
         continue;
