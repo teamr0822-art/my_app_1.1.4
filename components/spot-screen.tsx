@@ -456,7 +456,10 @@ export function SpotScreen({ spotId, nav }: { spotId: string; nav: Nav }) {
                 <button
                   key={q}
                   type="button"
-                  onClick={() => ask(q)}
+                  /* 表示は t(q) なので、送る文も t(q)。q（日本語）のまま送ると、
+                     英語で「What should I look at?」を押したのに、会話には
+                     「見どころを教えて」と出る。 */
+                  onClick={() => ask(t(q))}
                   disabled={busy || voice.recording}
                   className="flex min-h-11 shrink-0 items-center gap-1 rounded-full border border-[var(--color-border)] bg-[var(--color-panel-soft)] px-4 text-[12px] font-medium text-[var(--color-ink)] disabled:opacity-50"
                 >
