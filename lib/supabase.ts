@@ -181,6 +181,24 @@ export async function fetchMyPosts(limit = 50): Promise<Post[]> {
   }));
 }
 
+/**
+ * 自分の投稿の件数。送った数と、地図に反映された数を分けて返す。
+ *
+ * 一覧（fetchMyPosts）は50件までしか取らないので、件数は別に数える。
+ * status だけを取るので、本文や写真のぶんの通信は発生しない。
+ */
+export async function countMyPosts(): Promise<{ total: number; accepted: number }> {
+  const headers = await authHeaders();
+  const rows = (await request("/rest/v1/posts?select=status", { headers })) as
+    | { status: Post["status"] }[]
+    | null;
+  const list = rows ?? [];
+  return {
+    total: list.length,
+    accepted: list.filter((r) => r.status === "accepted").length,
+  };
+}
+
 export async function deletePost(id: string): Promise<void> {
   const headers = await authHeaders();
   await request(`/rest/v1/posts?id=eq.${id}`, { method: "DELETE", headers });

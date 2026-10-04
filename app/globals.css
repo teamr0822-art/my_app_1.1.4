@@ -236,6 +236,62 @@ body {
   animation: toastIn 0.2s ease;
 }
 
+/*
+ * 投稿のお礼で落ちてくる葉。
+ *
+ * 1回落ちて止まる（infinite にしない）。お礼の画面は閉じるまで出たままなので、
+ * 舞い続けると、読んでほしい文より動きのほうが目立ってしまう。
+ */
+@keyframes leafFall {
+  0% {
+    transform: translateY(-16px) rotate(0deg);
+    opacity: 0;
+  }
+  15% {
+    opacity: 0.75;
+  }
+  100% {
+    transform: translateY(150px) rotate(220deg);
+    opacity: 0;
+  }
+}
+.anim-leaf {
+  animation: leafFall 1.9s ease-in forwards;
+}
+
+/* 称号が上がったときだけの、ひと跳ね。 */
+@keyframes rankUp {
+  0% {
+    transform: scale(0.8);
+    opacity: 0;
+  }
+  60% {
+    transform: scale(1.06);
+    opacity: 1;
+  }
+  100% {
+    transform: scale(1);
+    opacity: 1;
+  }
+}
+.anim-rankup {
+  animation: rankUp 0.42s cubic-bezier(0.2, 0.9, 0.3, 1.4) both;
+}
+
+/*
+ * 動きを減らす設定にしている人には、動かさない。
+ * めまいを起こす人がいるので、飾りの動きは本人の設定に従う。
+ */
+@media (prefers-reduced-motion: reduce) {
+  .anim-leaf {
+    animation: none;
+    opacity: 0.5;
+  }
+  .anim-rankup {
+    animation: none;
+  }
+}
+
 /* Hide scrollbars on horizontal rails */
 .no-scrollbar::-webkit-scrollbar {
   display: none;

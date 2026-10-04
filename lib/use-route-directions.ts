@@ -1,5 +1,6 @@
 "use client";
 
+import { translateStatic } from "@/lib/i18n";
 import { formatMinutes } from "@/lib/format";
 
 import { useEffect, useRef, useState } from "react";
@@ -100,6 +101,10 @@ function profileFor(transport: string): string {
   return "foot";
 }
 
+/**
+ * 曲がる向きの言い方。辞書（data/i18n）の鍵でもあるので、日本語のまま置く。
+ * 画面に出すときに translateStatic で引く。
+ */
 const MODIFIER_LABEL: Record<string, string> = {
   left: "左折",
   right: "右折",
@@ -122,12 +127,28 @@ const MODIFIER_ICON: Record<string, TurnIcon> = {
   uturn: "uturn",
 };
 
-/** Turns one OSRM step into a short Japanese instruction. */
+/**
+ * 日本語の文を鍵にして訳を引き、{road} と {dir} を差し込む。
+ * 道の名前（OSRM が返す「県道14号」など）は訳さずそのまま入れる。
+ */
+function phrase(ja: string, vars: Record<string, string> = {}): string {
+  let out = translateStatic(ja);
+  for (const [k, v] of Object.entries(vars)) out = out.replaceAll(`{${k}}`, v);
+  return out;
+}
+
+/**
+ * OSRM の1手順を、画面の言語の短い指示文にする。
+ *
+ * 以前はここで日本語の文を組み立てて、そのまま画面に出していた。英語で
+ * 使っていても案内中だけ「県道14号を右折します」と出ていたのはこのため。
+ * 文そのものを辞書の鍵にして、道の名前と曲がる向きだけ差し込む形にした。
+ */
 function describeStep(step: any, isLast: boolean): RouteStep {
   const type: string = step?.maneuver?.type ?? "continue";
   const modifier: string = step?.maneuver?.modifier ?? "straight";
   const road: string = (step?.name ?? "").trim();
-  const on = road ? `${road}を` : "";
+  const dir = translateStatic(MODIFIER_LABEL[modifier] ?? "直進");
   const distance: number = step?.distance ?? 0;
 
   let text: string;
@@ -135,33 +156,33 @@ function describeStep(step: any, isLast: boolean): RouteStep {
 
   switch (type) {
     case "depart":
-      text = road ? `${road}に出て進みます` : "現在地から出発します";
+      text = road ? phrase("{road}に出て進みます", { road }) : phrase("現在地から出発します");
       icon = "start";
       break;
     case "arrive":
-      text = isLast ? "目的地に到着します" : "経由地に到着します";
+      text = phrase(isLast ? "目的地に到着します" : "経由地に到着します");
       icon = "arrive";
       break;
     case "roundabout":
     case "rotary":
-      text = "ロータリーに入ります";
+      text = phrase("ロータリーに入ります");
       break;
     case "merge":
-      text = `${on}合流します`;
+      text = road ? phrase("{road}を合流します", { road }) : phrase("合流します");
       break;
     case "fork":
-      text = `分岐を${MODIFIER_LABEL[modifier] ?? "直進"}します`;
+      text = phrase("分岐を{dir}します", { dir });
       break;
     case "end of road":
-      text = `突き当たりを${MODIFIER_LABEL[modifier] ?? "直進"}します`;
+      text = phrase("突き当たりを{dir}します", { dir });
       break;
     case "new name":
     case "continue":
-      text = road ? `${road}をそのまま進みます` : "そのまま直進します";
+      text = road ? phrase("{road}をそのまま進みます", { road }) : phrase("そのまま直進します");
       icon = "straight";
       break;
     default:
-      text = `${on}${MODIFIER_LABEL[modifier] ?? "直進"}します`;
+      text = road ? phrase("{road}を{dir}します", { road, dir }) : phrase("{dir}します", { dir });
   }
 
   return { text, distance, icon };

@@ -49,6 +49,22 @@ const STEPS = [
     body: "現在地から次の目的地まで、曲がり角まで案内します。矢印が進む向き、番号が立ち寄る順番です。",
     hint: "下の「マップ」から",
   },
+  /*
+   * 4枚目。ここだけ色を変えて目立たせる。
+   *
+   * ここまでの3枚は「使い方」で、受け取るだけの話。最後に1枚、こちらから
+   * 渡してもらう話を置く。地図に載っているのは公式の一覧から拾った場所だけで、
+   * 実際に歩いた人しか知らないことは、まだ1つも入っていない。それを
+   * 「足りないので埋めてください」ではなく「あなたのみっけが、次の人の
+   * 寄り道になる」と伝える。
+   */
+  {
+    icon: <SparkIcon size={26} />,
+    title: "あなたも、みっける側へ",
+    body: "地図にはまだ、歩いた人しか知らないことが入っていません。見つけた場所、気づいたこと、撮った写真を送ってください。確かめたうえで地図に反映します。",
+    hint: "スポットの画面や、マップの「＋場所を教える」から",
+    accent: true,
+  },
 ];
 
 /**
@@ -150,24 +166,43 @@ export function Onboarding() {
           onGuest={() => setChoosing(false)}
         />
       ) : (
-      <div className="anim-sheet mx-auto w-full max-w-[432px] shrink-0 rounded-3xl border border-[var(--color-border)] bg-[var(--color-panel)] p-5 shadow-2xl">
+      <div
+        className={`anim-sheet mx-auto w-full max-w-[432px] shrink-0 rounded-3xl p-5 shadow-2xl ${
+          current.accent
+            ? "border-2 border-[var(--color-terracotta)] bg-[var(--color-terracotta-soft)]"
+            : "border border-[var(--color-border)] bg-[var(--color-panel)]"
+        }`}
+      >
+        {/* 参加を誘う一言。いちばん大きく、いちばん先に読ませる。 */}
+        {current.accent && (
+          <p className="mb-3 text-[19px] font-extrabold leading-snug text-[var(--color-terracotta)] text-balance">
+            {t("あなたの“みっけ”が、次の人の寄り道になる。")}
+          </p>
+        )}
         <div className="flex items-start gap-3">
           <span
             aria-hidden="true"
-            className="flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl bg-[var(--color-terracotta-soft)] text-[var(--color-terracotta)]"
+            className={`flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl text-[var(--color-terracotta)] ${
+              current.accent ? "bg-[var(--color-panel)]" : "bg-[var(--color-terracotta-soft)]"
+            }`}
           >
             {current.icon}
           </span>
           <div className="min-w-0 flex-1">
             <p className="text-[12px] font-bold tracking-wide text-[var(--color-terracotta)]">
-              {t("はじめかた")} {step + 1}／{STEPS.length}
+              {/* 区切り記号も言語で変わる（日本語は全角、英語は半角） */}
+              {t("はじめかた {n}／{total}", { n: step + 1, total: STEPS.length })}
             </p>
             <h2 id="onboarding-title" className="mt-0.5 text-[17px] font-extrabold">{t(current.title)}</h2>
           </div>
         </div>
 
         <p className="mt-3 text-[13px] leading-6">{t(current.body)}</p>
-        <p className="mt-2 rounded-xl bg-[var(--color-panel-soft)] px-3 py-2 text-[12px] text-[var(--color-ink-soft)]">
+        <p
+          className={`mt-2 rounded-xl px-3 py-2 text-[12px] text-[var(--color-ink-soft)] ${
+            current.accent ? "bg-[var(--color-panel)]" : "bg-[var(--color-panel-soft)]"
+          }`}
+        >
           {t(current.hint)}
         </p>
 

@@ -386,7 +386,7 @@ export function MapScreen({
                   <button
                     type="button"
                     onClick={() => setHeadingUp((v) => !v)}
-                    aria-label={headingUp ? "北を上にする" : "進む向きを上にする"}
+                    aria-label={t(headingUp ? "北を上にする" : "進む向きを上にする")}
                     aria-pressed={!headingUp}
                     className="pointer-events-auto flex min-h-12 items-center rounded-full bg-[var(--color-panel)] px-3.5 text-[12px] font-bold shadow-lg ring-1 ring-black/10"
                   >
@@ -481,8 +481,9 @@ export function MapScreen({
                                 （全部に出すと読まれなくなる）。 */}
                             {hoursOf(spot).timeSensitive && (
                               <p className="mt-1 text-[11px] leading-relaxed text-[var(--color-sun-ink)]">
-                                {hoursOf(spot).label}
-                                {hoursOf(spot).guessed ? "（目安）" : ""}・訪問前に時間の確認を
+                                {t(hoursOf(spot).label)}
+                                {hoursOf(spot).guessed ? t("（目安）") : ""}
+                                {t("・訪問前に時間の確認を")}
                               </p>
                             )}
 
@@ -496,8 +497,8 @@ export function MapScreen({
                                   className="mt-1 text-[12px] font-bold text-[var(--color-terracotta)]"
                                 >
                                   {openSteps === legIndex
-                                    ? "道順を閉じる"
-                                    : `道順を見る（${leg.steps.length}手順）`}
+                                    ? t("道順を閉じる")
+                                    : t("道順を見る（{n}手順）", { n: leg.steps.length })}
                                 </button>
                                 {openSteps === legIndex && (
                                   <ul className="mt-2 space-y-2 rounded-2xl bg-[var(--color-panel-soft)] p-3">
@@ -509,7 +510,8 @@ export function MapScreen({
                                           {step.distance > 5 && (
                                             <span className="text-[var(--color-ink-soft)]">
                                               {" "}
-                                              （{formatDistance(step.distance)}）
+                                              {/* 括弧の形も言語で変わる（日本語は全角、英語は半角） */}
+                                              {t("（{dist}）", { dist: formatDistance(step.distance) })}
                                             </span>
                                           )}
                                         </span>
@@ -649,16 +651,17 @@ function NextUp({
   const near = meters !== null && meters <= 60;
 
   const detail = finished
-    ? "おつかれさまでした"
+    ? t("おつかれさまでした")
     : loading
-      ? "道順を調べています…"
+      ? t("道順を調べています…")
       : error
-        ? "道順を取得できませんでした。順路だけ表示しています"
+        ? t("道順を取得できませんでした。順路だけ表示しています")
         : first
-          ? first.text
+          ? /* 手順の文は lib/use-route-directions.ts で画面の言語に訳してある */
+            first.text
           : meters !== null
-            ? "この先の道順を案内します"
-            : "現在地が取れると、ここから道順を案内します";
+            ? t("この先の道順を案内します")
+            : t("現在地が取れると、ここから道順を案内します");
 
   return (
     <div className="flex items-center gap-3 px-4 py-3">
@@ -687,17 +690,17 @@ function NextUp({
                     near ? "text-[var(--color-green)]" : ""
                   }`}
                 >
-                  {near ? "まもなく" : `あと ${formatDistance(meters)}`}
+                  {near ? t("まもなく") : t("あと {dist}", { dist: formatDistance(meters) })}
                 </span>
               )}
               <span className="truncate text-[13px] font-bold">
-                {target?.name ?? "ルート"}
+                {target?.name ?? t("ルート")}
               </span>
             </>
           )}
         </p>
         <p className="truncate text-[12px] text-[var(--color-ink-soft)]">
-          {finished ? detail : `${stopNumber}/${total}・${detail}`}
+          {finished ? detail : t("{n}/{total}・{detail}", { n: stopNumber, total, detail })}
         </p>
       </div>
 
@@ -707,7 +710,7 @@ function NextUp({
         aria-expanded={expanded}
         className="flex h-11 shrink-0 items-center rounded-full border border-[var(--color-border)] px-3 text-[12px] font-bold text-[var(--color-ink-soft)]"
       >
-        {expanded ? "閉じる" : "行程"}
+        {expanded ? t("閉じる") : t("行程")}
       </button>
     </div>
   );

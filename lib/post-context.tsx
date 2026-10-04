@@ -2,7 +2,7 @@
 
 import { createContext, useCallback, useContext, useEffect, useMemo, useState } from "react";
 import { useAuth } from "@/lib/auth-context";
-import { fetchProfile, claimRole as claimRoleApi, type Role } from "@/lib/supabase";
+import { fetchProfile, claimRole as claimRoleApi, countMyPosts, type Role } from "@/lib/supabase";
 import type { PostKind } from "@/lib/supabase";
 
 /**
@@ -36,6 +36,10 @@ type PostState = {
   /** 投稿が1つ増えたことを知らせる（一覧の作り直し用）。 */
   postedAt: number;
   notePosted: () => void;
+  /** これまでに送った件数。称号の段はこれで上がる。 */
+  postCount: number;
+  /** そのうち、確かめて地図に反映した件数。 */
+  acceptedCount: number;
 };
 
 const PostContext = createContext<PostState | null>(null);
@@ -46,6 +50,8 @@ export function PostProvider({ children }: { children: React.ReactNode }) {
   const [roleLabel, setRoleLabel] = useState<string | null>(null);
   const [request, setRequest] = useState<PostRequest | null>(null);
   const [postedAt, setPostedAt] = useState(0);
+  const [postCount, setPostCount] = useState(0);
+  const [acceptedCount, setAcceptedCount] = useState(0);
 
   // ログインしたら属性を読みに行く。失敗しても一般として使えるので、黙って諦める。
   useEffect(() => {
@@ -66,6 +72,31 @@ export function PostProvider({ children }: { children: React.ReactNode }) {
       cancelled = true;
     };
   }, [auth.status]);
+
+  /**
+   * 件数を数え直す。ログインしたときと、投稿を送ったあと。
+   * 失敗しても黙って0のままにする（称号が出ないだけで、投稿自体はできる）。
+   */
+  useEffect(() => {
+    if (auth.status !== "signedIn") {
+      setPostCount(0);
+      setAcceptedCount(0);
+      return;
+    }
+    let cancelled = false;
+    countMyPosts()
+      .then((c) => {
+        if (cancelled) return;
+        setPostCount(c.total);
+        setAcceptedCount(c.accepted);
+      })
+      .catch(() => {
+        /* 数えられなくても投稿はできる */
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [auth.status, postedAt]);
 
   const claimRole = useCallback<PostState["claimRole"]>(async (code) => {
     try {
@@ -88,8 +119,10 @@ export function PostProvider({ children }: { children: React.ReactNode }) {
       closePost: () => setRequest(null),
       postedAt,
       notePosted: () => setPostedAt(Date.now()),
+      postCount,
+      acceptedCount,
     }),
-    [role, roleLabel, claimRole, request, postedAt],
+    [role, roleLabel, claimRole, request, postedAt, postCount, acceptedCount],
   );
 
   return <PostContext.Provider value={value}>{children}</PostContext.Provider>;

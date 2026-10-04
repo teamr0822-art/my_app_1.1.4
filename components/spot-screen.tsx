@@ -299,11 +299,20 @@ export function SpotScreen({ spotId, nav }: { spotId: string; nav: Nav }) {
         {spot.facilities?.indoor && <Facility>{t("雨の日も見学可")}</Facility>}
       </div>
 
-      {/* 投稿。行った人しか知らないことを、その場で送ってもらう入口。 */}
-      <div className="flex shrink-0 gap-2 border-b border-[var(--color-border)] px-4 py-2">
-        <PostButton kind="review" spot={spot}>{t("口コミ")}</PostButton>
-        <PostButton kind="photo" spot={spot}>{t("写真")}</PostButton>
-        <PostButton kind="report" spot={spot}>{t("まちがい・危険")}</PostButton>
+      {/*
+        投稿。行った人しか知らないことを、その場で送ってもらう入口。
+        以前は枠線だけの小さなボタンが3つ並んでいて、何のための場所なのかが
+        書かれていなかった。見出しを1行付けて、ボタンにも絵を添える。
+      */}
+      <div className="shrink-0 border-b border-[var(--color-border)] px-4 py-2.5">
+        <p className="text-[12px] font-bold text-[var(--color-terracotta)]">
+          {t("ここのことを教えてください")}
+        </p>
+        <div className="mt-1.5 flex gap-2">
+          <PostButton kind="review" spot={spot} icon="💬">{t("口コミ")}</PostButton>
+          <PostButton kind="photo" spot={spot} icon="📷">{t("写真")}</PostButton>
+          <PostButton kind="report" spot={spot} icon="⚠️">{t("まちがい・危険")}</PostButton>
+        </div>
       </div>
 
       {!started ? (
@@ -539,10 +548,12 @@ function Facility({ children }: { children: React.ReactNode }) {
 function PostButton({
   kind,
   spot,
+  icon,
   children,
 }: {
   kind: PostKind;
   spot: { id: string; name: string };
+  icon: string;
   children: React.ReactNode;
 }) {
   const post = usePost();
@@ -550,9 +561,10 @@ function PostButton({
     <button
       type="button"
       onClick={() => post.openPost({ kind, spotId: spot.id, spotName: spot.name })}
-      className="min-h-11 flex-1 rounded-xl border border-[var(--color-border)] text-[12px] font-bold text-[var(--color-ink)]"
+      className="flex min-h-12 flex-1 flex-col items-center justify-center gap-0.5 rounded-xl border border-[var(--color-terracotta)] bg-[var(--color-terracotta-soft)] px-1 text-[11.5px] font-bold leading-tight text-[var(--color-terracotta)] transition active:scale-[0.97]"
     >
-      {children}
+      <span aria-hidden="true" className="text-[15px] leading-none">{icon}</span>
+      <span className="text-center">{children}</span>
     </button>
   );
 }

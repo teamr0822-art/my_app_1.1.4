@@ -7,6 +7,7 @@ import { useToast } from "@/lib/toast-context";
 import { fetchMyPosts, deletePost, KIND_LABEL, ROLE_LABEL, type Post, type Role } from "@/lib/supabase";
 import { getSpot } from "@/lib/spots";
 import { useT } from "@/lib/i18n";
+import { rankFor } from "@/lib/contributor-rank";
 
 /**
  * 「わたしの投稿」と「投稿者の属性」。
@@ -142,10 +143,60 @@ export function MyPostsCard() {
     }
   };
 
+  const rank = rankFor(post.postCount);
+
   return (
     <div className="rounded-2xl border border-[var(--color-border)] bg-[var(--color-panel)] p-4">
       <p className="text-[15px] font-extrabold">{t("わたしの投稿")}</p>
       <p className="mt-0.5 text-[12px] leading-5 text-[var(--color-ink-soft)]">{t("送った内容は、確かめたうえで地図に反映します。まだ地図には出ていません。")}</p>
+
+      {/*
+        称号と、地図に入った件数。
+        称号は送った数で上がる（押した手応え）、採用数は確かめ終わった数
+        （本当に誇れる数字）。別の行に分けて、取り違えないようにする。
+      */}
+      {post.postCount > 0 ? (
+        <div className="mt-3 rounded-2xl bg-[var(--color-panel-soft)] p-3">
+          <div className="flex items-center gap-2">
+            {rank.crown && (
+              <span aria-hidden="true" className="text-[22px] leading-none">{rank.crown}</span>
+            )}
+            <div className="min-w-0 flex-1">
+              {rank.title && (
+                <p className="text-[14px] font-extrabold text-[var(--color-terracotta)]">
+                  {t(rank.title)}
+                </p>
+              )}
+              <p className="text-[12px] text-[var(--color-ink-soft)]">
+                {t("送った投稿 {n}件", { n: post.postCount })}
+                {post.acceptedCount > 0 && (
+                  <>
+                    {" ／ "}
+                    <span className="font-bold text-[var(--color-green)]">
+                      {t("地図に入った {n}件", { n: post.acceptedCount })}
+                    </span>
+                  </>
+                )}
+              </p>
+            </div>
+          </div>
+          {rank.remaining !== null && rank.remaining > 0 && (
+            <p className="mt-2 text-[11.5px] text-[var(--color-ink-soft)]">
+              {t("あと{n}件で、次の称号です。", { n: rank.remaining })}
+            </p>
+          )}
+        </div>
+      ) : (
+        /* まだ1件も送っていない人へ。ここが投稿の入口の説明も兼ねる。 */
+        <div className="mt-3 rounded-2xl border border-dashed border-[var(--color-terracotta)] bg-[var(--color-terracotta-soft)] p-3">
+          <p className="text-[14px] font-extrabold leading-snug text-[var(--color-terracotta)] text-balance">
+            {t("あなたの“みっけ”が、次の人の寄り道になる。")}
+          </p>
+          <p className="mt-1 text-[12px] leading-5 text-[var(--color-ink-soft)]">
+            {t("歩いた人しか知らないことは、まだ地図に入っていません。1件からで大丈夫です。")}
+          </p>
+        </div>
+      )}
 
       {error && <p className="mt-3 text-[12px] font-bold text-[var(--color-sunset-ink)]">{error}</p>}
 

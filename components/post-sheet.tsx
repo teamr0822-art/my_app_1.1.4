@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
+import { rankFor, didRankUp, type RankTone } from "@/lib/contributor-rank";
 import { usePost } from "@/lib/post-context";
 import { useAuth } from "@/lib/auth-context";
 import { useLocation } from "@/lib/location-context";
@@ -77,6 +78,8 @@ function PostForm() {
    * ことにできてしまうので、写真を付けたときだけ、はっきり押してもらう。
    */
   const [photoOk, setPhotoOk] = useState(false);
+  /** 送る直前の件数。称号が上がったかどうかは、これと比べて決める。 */
+  const countBefore = useRef(0);
   const [facilities, setFacilities] = useState<Record<string, boolean>>({});
   const [photos, setPhotos] = useState<File[]>([]);
   const [busy, setBusy] = useState(false);
@@ -152,6 +155,7 @@ function PostForm() {
         photoPaths: paths,
         authorRole: post.role,
       });
+      countBefore.current = post.postCount;
       post.notePosted();
       setDone(true);
       toast(t("投稿を受け付けました"));
@@ -211,15 +215,13 @@ function PostForm() {
             >{t("ログインする")}</button>
           </div>
         ) : done ? (
-          <div className="mt-3 space-y-3 text-[14px] leading-7">
-            <p>{t("ありがとうございます。投稿を受け付けました。")}</p>
-            <p className="text-[12px] leading-6 text-[var(--color-ink-soft)]">{t("集まった投稿は、内容を確かめてから地図に反映します。いまはまだ地図には 出ません。送った内容は、設定画面の「わたしの投稿」で確認できます。")}</p>
-            <button
-              type="button"
-              onClick={() => post.closePost()}
-              className="flex min-h-12 w-full items-center justify-center rounded-2xl bg-[var(--color-terracotta)] text-[15px] font-bold text-white"
-            >{t("閉じる")}</button>
-          </div>
+          <ThankYou
+            t={t}
+            before={countBefore.current}
+            after={post.postCount}
+            accepted={post.acceptedCount}
+            onClose={() => post.closePost()}
+          />
         ) : (
           <form onSubmit={submit} noValidate className="mt-3">
             {/* いまどの立場で投稿するか。合言葉を入れた人はここに出る。 */}
@@ -463,5 +465,137 @@ function PostForm() {
         )}
       </div>
     </div>
+  );
+}
+
+/** 称号の色を、CSS の変数に対応させる。 */
+const TONE: Record<RankTone, { bg: string; ink: string; solid: string }> = {
+  green: { bg: "var(--color-green-soft)", ink: "var(--color-green)", solid: "var(--color-green)" },
+  sun: { bg: "var(--color-sun-soft)", ink: "var(--color-sun-ink)", solid: "var(--color-sun)" },
+  terracotta: { bg: "var(--color-terracotta-soft)", ink: "var(--color-terracotta)", solid: "var(--color-terracotta)" },
+  sunset: { bg: "var(--color-sunset-soft)", ink: "var(--color-sunset-ink)", solid: "var(--color-sunset)" },
+};
+
+/**
+ * 送ったあとのお礼。
+ *
+ * ■ なぜ手をかけるか
+ * 投稿は「送って終わり、あとは何も起きない」のがいちばん冷たい。とくにこの
+ * アプリは、集めた投稿をその場で地図に出さない方針なので、送った人から見ると
+ * 本当に何も変わらない。だから、変わったことを目に見える形で返す。
+ * 返すのは件数と称号という、確かに本当のことだけにする。「反映しました」の
+ * ような、まだ起きていないことは言わない。
+ *
+ * 動きは控えめにしている。文化財のアプリで紙吹雪が舞い続けると、この画面だけ
+ * 別のアプリに見える。葉が数枚落ちて止まる程度。
+ */
+function ThankYou({
+  t,
+  before,
+  after,
+  accepted,
+  onClose,
+}: {
+  t: (ja: string, vars?: Record<string, string | number>) => string;
+  before: number;
+  after: number;
+  accepted: number;
+  onClose: () => void;
+}) {
+  /*
+   * 件数はサーバーに数え直してもらうが、その返事は少し遅れて届く。待っている
+   * 間に「0件目です」と出すと、送ったことが無かったことにされたように見える。
+   * いま1件送ったのは確実なので、少なくとも「前の数+1」として扱う。
+   * 数え直しが失敗したときも、この値で正しく出る。
+   */
+  const count = Math.max(after, before + 1);
+  const rank = rankFor(count);
+  const rankedUp = didRankUp(before, count);
+  const tone = TONE[rank.tone];
+
+  return (
+    <div className="mt-3">
+      <div
+        className="relative overflow-hidden rounded-2xl p-5 text-center"
+        style={{ background: tone.bg }}
+      >
+        <FallingLeaves tone={tone.solid} lively={rankedUp} />
+
+        <p className="relative text-[26px] font-extrabold leading-tight" style={{ color: tone.ink }}>
+          {t("ありがとう")}
+        </p>
+        <p className="relative mt-1 text-[13px] font-bold" style={{ color: tone.ink }}>
+          {t("これで{n}件目のみっけです。", { n: count })}
+        </p>
+
+        {/* 称号が上がった回だけ、名前を大きく出す。毎回出すと、ただの飾りになる。 */}
+        {rankedUp && rank.title && (
+          <div
+            className="anim-rankup relative mt-3 inline-flex items-center gap-2 rounded-full bg-[var(--color-panel)] px-4 py-2 shadow"
+            style={{ color: tone.ink }}
+          >
+            <span aria-hidden="true" className="text-[20px]">{rank.crown}</span>
+            <span className="text-[14px] font-extrabold">
+              {t("「{title}」になりました", { title: t(rank.title) })}
+            </span>
+          </div>
+        )}
+
+        {!rankedUp && rank.title && (
+          <p className="relative mt-2 text-[12px] font-bold" style={{ color: tone.ink }}>
+            {rank.crown} {t(rank.title)}
+          </p>
+        )}
+
+        {rank.remaining !== null && rank.remaining > 0 && (
+          <p className="relative mt-2 text-[11.5px] text-[var(--color-ink-soft)]">
+            {t("あと{n}件で、次の称号です。", { n: rank.remaining })}
+          </p>
+        )}
+      </div>
+
+      {/* 採用数は称号と分けて、静かに出す。こちらが本当に誇れる数字。 */}
+      {accepted > 0 && (
+        <p className="mt-3 rounded-xl bg-[var(--color-panel-soft)] px-3 py-2 text-[12.5px] font-bold text-[var(--color-green)]">
+          {t("あなたの投稿のうち{n}件は、もう地図に入っています。", { n: accepted })}
+        </p>
+      )}
+
+      <p className="mt-3 text-[12px] leading-6 text-[var(--color-ink-soft)]">
+        {t("集まった投稿は、内容を確かめてから地図に反映します。いまはまだ地図には 出ません。送った内容は、設定画面の「わたしの投稿」で確認できます。")}
+      </p>
+
+      <button
+        type="button"
+        onClick={onClose}
+        className="mt-4 flex min-h-12 w-full items-center justify-center rounded-2xl bg-[var(--color-terracotta)] text-[15px] font-bold text-white"
+      >{t("閉じる")}</button>
+    </div>
+  );
+}
+
+/**
+ * 落ち葉。装飾なので aria-hidden。
+ * 数枚が落ちて、そこで止まる（繰り返さない）。称号が上がった回だけ枚数を増やす。
+ */
+function FallingLeaves({ tone, lively }: { tone: string; lively: boolean }) {
+  const leaves = lively
+    ? [8, 20, 32, 44, 56, 68, 80, 92]
+    : [18, 42, 66, 88];
+  return (
+    <span aria-hidden="true" className="pointer-events-none absolute inset-0 overflow-hidden">
+      {leaves.map((x, i) => (
+        <span
+          key={x}
+          className="anim-leaf absolute top-0 block h-2.5 w-2.5 rounded-[40%_60%_40%_60%]"
+          style={{
+            left: `${x}%`,
+            background: tone,
+            opacity: 0.75,
+            animationDelay: `${i * 90}ms`,
+          }}
+        />
+      ))}
+    </span>
   );
 }
