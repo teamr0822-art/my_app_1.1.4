@@ -176,7 +176,7 @@ export function useJourney() {
 }
 
 /** YYYY-MM-DD を日数分ずらす。 */
-function shiftDay(day: string, delta: number): string {
+export function shiftDay(day: string, delta: number): string {
   const d = new Date(`${day}T00:00:00`);
   d.setDate(d.getDate() + delta);
   const p = (n: number) => String(n).padStart(2, "0");

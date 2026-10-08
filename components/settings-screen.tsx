@@ -510,7 +510,16 @@ function JourneySection() {
   }
   return (
     <div className="rounded-2xl border border-dashed border-[var(--color-border)] bg-[var(--color-panel)] p-4">
-      <p className="text-[15px] font-extrabold">{t("ログインすると使えます")}</p>
+      {/*
+        作りものの記録を先に見せる。
+        ここを「0m」が3つ並ぶだけの画面にすると、何が記録されるのか分からない
+        まま終わってしまう。中身を見てから、ログインするかどうかを決められる
+        ようにする。見本であることは札と破線の枠ではっきりさせる。
+      */}
+      <JourneyCard sample />
+      <p className="mt-2 text-[11.5px] leading-5 text-[var(--color-ink-soft)]">{t("上は見本です。ログインすると、ここにあなたが歩いた距離が入ります。")}</p>
+
+      <p className="mt-4 text-[15px] font-extrabold">{t("ログインすると使えます")}</p>
       <p className="mt-1 text-[12.5px] leading-6 text-[var(--color-ink-soft)]">{t("歩いた距離を、きょう・7日間・今月のカレンダーで見られます。ニックネームも ログインした人だけの機能です。ログインしないまま使う分には、何も記録しません。")}</p>
       {auth.status !== "loading" && (
         <div className="mt-3 grid grid-cols-2 gap-2">

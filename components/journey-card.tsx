@@ -1,7 +1,7 @@
 "use client";
 
-import { useState } from "react";
-import { useJourney, today } from "@/lib/journey";
+import { useMemo, useState } from "react";
+import { useJourney, today, shiftDay } from "@/lib/journey";
 import { useT } from "@/lib/i18n";
 
 /**
@@ -43,9 +43,51 @@ function stepOf(meters: number): number {
   return 3;
 }
 
-export function JourneyCard() {
+/**
+ * 見本用の作りもののデータ。
+ *
+ * ログインしていない人には記録が1件もないので、そのまま出すと「0m」が3つ
+ * 並ぶだけの画面になる。何が記録されるのか分からないまま終わってしまうので、
+ * 数字の入った見本を見せる。
+ *
+ * 日付は開いた日から数えて作る（固定の日付にすると、月をまたいだときに
+ * カレンダーが空になる）。中身は実際に歩いたときに出うる値にしてある。
+ */
+function sampleJourney(): { byDay: Record<string, number>; totalMeters: number } {
+  const now = new Date();
+  // 直近14日ぶん。歩かなかった日も混ぜて、まだら模様になるようにする。
+  const pattern = [0, 1200, 2600, 0, 800, 3400, 1500, 0, 0, 2100, 900, 4200, 0, 1800];
+  const byDay: Record<string, number> = {};
+  let total = 0;
+  pattern.forEach((meters, i) => {
+    if (meters <= 0) return;
+    const d = new Date(now);
+    d.setDate(d.getDate() - (pattern.length - 1 - i));
+    byDay[dayKey(d)] = meters;
+    total += meters;
+  });
+  return { byDay, totalMeters: total };
+}
+
+export function JourneyCard({ sample = false }: { sample?: boolean } = {}) {
   const t = useT();
-  const journey = useJourney();
+  const real = useJourney();
+  // 見本のときは作りものの数字で描く。描き方はまったく同じにして、
+  // ログインしたあとに「さっき見たのと違う」と思わせない。
+  const journey = useMemo(() => {
+    if (!sample) return real;
+    const made = sampleJourney();
+    const day = today();
+    const weekMeters = Object.entries(made.byDay)
+      .filter(([d]) => d > shiftDay(day, -7))
+      .reduce((sum, [, m]) => sum + m, 0);
+    return {
+      ...made,
+      todayMeters: made.byDay[day] ?? 0,
+      weekMeters,
+      clearJourney: () => {},
+    };
+  }, [sample, real]);
   /** タップした日。もう一度押すと閉じる（狭い画面なので常設の吹き出しは置かない）。 */
   const [picked, setPicked] = useState<string | null>(null);
   const now = new Date();
@@ -74,11 +116,25 @@ export function JourneyCard() {
   const pickedMeters = picked ? (journey.byDay[picked] ?? 0) : null;
 
   return (
-    <div className="rounded-2xl border border-[var(--color-border)] bg-[var(--color-panel)] p-4">
+    <div
+      className={`rounded-2xl border bg-[var(--color-panel)] p-4 ${
+        sample
+          ? "border-dashed border-[var(--color-terracotta)]"
+          : "border-[var(--color-border)]"
+      }`}
+      aria-hidden={sample || undefined}
+    >
       {/* 1. きょうの距離 */}
       <div className="flex items-end justify-between gap-3">
         <div>
-          <p className="text-[12px] font-bold text-[var(--color-ink-soft)]">{t("きょう歩いた距離")}</p>
+          <p className="flex items-center gap-1.5 text-[12px] font-bold text-[var(--color-ink-soft)]">
+            {t("きょう歩いた距離")}
+            {sample && (
+              <span className="rounded-md bg-[var(--color-terracotta-soft)] px-1.5 py-0.5 text-[11px] font-bold text-[var(--color-terracotta)]">
+                {t("見本")}
+              </span>
+            )}
+          </p>
           <p className="mt-0.5 text-[30px] font-extrabold leading-none tracking-tight">
             {fmt(journey.todayMeters)}
           </p>
