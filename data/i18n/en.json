@@ -491,5 +491,8 @@
   "よりみっけの主": "Keeper of Yorimikke",
   "はじめかた {n}／{total}": "Getting started {n}/{total}",
   "見本": "Sample",
-  "上は見本です。ログインすると、ここにあなたが歩いた距離が入ります。": "The card above is a sample. Sign in and it fills with the distance you walk."
+  "上は見本です。ログインすると、ここにあなたが歩いた距離が入ります。": "The card above is a sample. Sign in and it fills with the distance you walk.",
+  "{m}月{d}日": "{m}/{d}",
+  "上は見本です。案内中に近づいた場所が、ここにたまっていきます。": "The list above is a sample. Places you walk up to during guidance collect here.",
+  "まだありません": "Nothing yet"
 }

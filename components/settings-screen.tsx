@@ -4,6 +4,8 @@ import { useState } from "react";
 import { useSettings } from "@/lib/settings-context";
 import { AREAS, STATS, DATA_SOURCE, SPOTS } from "@/lib/spots";
 import { useVisited } from "@/lib/visited";
+import { getSpot } from "@/lib/spots";
+import { SHOW_SAMPLES, SAMPLE_VISITED_IDS, SAMPLE_VISITED_DAYS_AGO } from "@/lib/samples";
 import { useAuth } from "@/lib/auth-context";
 import { usePost } from "@/lib/post-context";
 import { useT } from "@/lib/i18n";
@@ -150,7 +152,9 @@ export function SettingsScreen() {
         <div className="flex items-center justify-between gap-3 rounded-2xl border border-[var(--color-border)] bg-[var(--color-panel)] p-4">
           <div className="min-w-0">
             <p className="text-[15px] font-bold">
-              {t("これまでに{n}か所", { n: visited.count })}
+              {/* 0のときは数字を出さない。すぐ下に見本の「3か所」が並ぶので、
+                  数字が2つ見えると食い違っているように読める。 */}
+              {visited.count > 0 ? t("これまでに{n}か所", { n: visited.count }) : t("まだありません")}
             </p>
             <p className="mt-0.5 text-[12px] leading-relaxed text-[var(--color-ink-soft)]">{t("案内中にスポットへ40m以内まで近づくと、自動で記録されます。この端末にだけ保存され、どこにも送られません。")}</p>
           </div>
@@ -162,6 +166,8 @@ export function SettingsScreen() {
             >{t("消す")}</button>
           )}
         </div>
+        {/* まだ1か所も訪れていない人へ、記録がたまるとどう見えるかを出す。 */}
+        {visited.count === 0 && <VisitedSample />}
       </section>
 
       {/* 屋外モード: 晴天下で読めるかどうかは実用機能なので、設定の上のほうに置く */}
@@ -491,6 +497,52 @@ function AccountCard() {
 }
 
 /**
+ * 訪れた記録の見本。
+ *
+ * 本物の記録は「40m以内まで近づくと自動で付く」ので、会場で触っただけの人には
+ * 0か所のままになる。何がたまるのかを先に見せておく。
+ * 日付はきょうから数えて作る（固定の日付だと、見るたびに古くなる）。
+ */
+function VisitedSample() {
+  const t = useT();
+  if (!SHOW_SAMPLES) return null;
+  const spots = SAMPLE_VISITED_IDS.map((id) => getSpot(id)).filter(
+    (s): s is NonNullable<ReturnType<typeof getSpot>> => Boolean(s),
+  );
+  if (spots.length === 0) return null;
+  const now = new Date();
+  return (
+    <div
+      aria-hidden="true"
+      className="mt-2 rounded-2xl border border-dashed border-[var(--color-terracotta)] bg-[var(--color-panel)] p-4"
+    >
+      <div className="flex items-center gap-1.5">
+        <p className="text-[15px] font-bold">{t("これまでに{n}か所", { n: spots.length })}</p>
+        <span className="rounded-md bg-[var(--color-terracotta-soft)] px-1.5 py-0.5 text-[11px] font-bold text-[var(--color-terracotta)]">
+          {t("見本")}
+        </span>
+      </div>
+      <ul className="mt-2 divide-y divide-[var(--color-border)]">
+        {spots.map((spot, i) => {
+          const d = new Date(now);
+          d.setDate(d.getDate() - (SAMPLE_VISITED_DAYS_AGO[i] ?? 0));
+          return (
+            <li key={spot.id} className="flex items-center gap-2.5 py-2">
+              <span className="text-xl leading-none">{spot.icon}</span>
+              <span className="min-w-0 flex-1 truncate text-[13.5px] font-bold">{spot.name}</span>
+              <span className="shrink-0 text-[12px] text-[var(--color-ink-soft)]">
+                {t("{m}月{d}日", { m: d.getMonth() + 1, d: d.getDate() })}
+              </span>
+            </li>
+          );
+        })}
+      </ul>
+      <p className="mt-2 text-[11.5px] leading-5 text-[var(--color-ink-soft)]">{t("上は見本です。案内中に近づいた場所が、ここにたまっていきます。")}</p>
+    </div>
+  );
+}
+
+/**
  * 歩いた距離。ログインしている人にはグラフを、していない人には
  * 「ログインするとこれが使える」という案内を出す。
  *
@@ -516,8 +568,12 @@ function JourneySection() {
         まま終わってしまう。中身を見てから、ログインするかどうかを決められる
         ようにする。見本であることは札と破線の枠ではっきりさせる。
       */}
-      <JourneyCard sample />
-      <p className="mt-2 text-[11.5px] leading-5 text-[var(--color-ink-soft)]">{t("上は見本です。ログインすると、ここにあなたが歩いた距離が入ります。")}</p>
+      {SHOW_SAMPLES && (
+        <>
+          <JourneyCard sample />
+          <p className="mt-2 text-[11.5px] leading-5 text-[var(--color-ink-soft)]">{t("上は見本です。ログインすると、ここにあなたが歩いた距離が入ります。")}</p>
+        </>
+      )}
 
       <p className="mt-4 text-[15px] font-extrabold">{t("ログインすると使えます")}</p>
       <p className="mt-1 text-[12.5px] leading-6 text-[var(--color-ink-soft)]">{t("歩いた距離を、きょう・7日間・今月のカレンダーで見られます。ニックネームも ログインした人だけの機能です。ログインしないまま使う分には、何も記録しません。")}</p>

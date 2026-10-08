@@ -491,5 +491,8 @@
   "よりみっけの主": "Gardien de Yorimikke",
   "はじめかた {n}／{total}": "Pour commencer {n}/{total}",
   "見本": "Exemple",
-  "上は見本です。ログインすると、ここにあなたが歩いた距離が入ります。": "La carte ci-dessus est un exemple. Connectez-vous et elle se remplira de vos distances."
+  "上は見本です。ログインすると、ここにあなたが歩いた距離が入ります。": "La carte ci-dessus est un exemple. Connectez-vous et elle se remplira de vos distances.",
+  "{m}月{d}日": "{d}/{m}",
+  "上は見本です。案内中に近づいた場所が、ここにたまっていきます。": "La liste ci-dessus est un exemple. Les lieux approchés pendant le guidage s'y accumulent.",
+  "まだありません": "Rien pour l'instant"
 }
